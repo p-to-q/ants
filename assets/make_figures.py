@@ -254,7 +254,7 @@ def cascade():
         o.append(t(x + 24, TOP + 194, cost, 22, INK, weight=600, track=-0.5))
         o.append(t(x + 24, TOP + 216, "per trial · " + total, 12, MUTE))
         if i < 2:
-            o.append(arrow(x + cw + 8, x + cw + gap - 8, TOP + 117))
+            o.append(arrow(x + cw, x + cw + gap, TOP + 117))           # edge to edge, like every arrow in the figures
     (A / "cascade.svg").write_text(canvas(h, o, "Cascade of three stages"))
 
 
@@ -323,7 +323,7 @@ def chain():
         o.append(t(x + 18, TOP + 58, "H(0, body)" if i == 0 else "H(prev, body)", 13, INK, weight=600))
         o.append(f'<rect x="{x+18}" y="{TOP+70}" width="{bw-36}" height="4" rx="2" fill="{MINT_3 if last else FILL}"/>')
         if i < n - 1:
-            o.append(arrow(x + bw + 8, x + bw + gap - 8, TOP + 44))
+            o.append(arrow(x + bw, x + bw + gap, TOP + 44))
     hx = PAD + (n - 1) * (bw + gap) + bw / 2
     o.append(f'<line x1="{hx}" x2="{hx}" y1="{TOP+ch}" y2="{TOP+ch+24}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
     o.append(pill(hx - 74, TOP + ch + 24, 148, "anchor off the box", PAPER, INK, INK, 28, 12))
