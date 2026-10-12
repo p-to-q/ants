@@ -204,20 +204,21 @@ def architecture():
     ch, gap_l, led = 144, 36, 48
     h = TOP + ch + gap_l + led + PAD
     o = head("Propose, judge, execute", "Proposers can only hand specs to the judge.")
-    widths, gap = (216, 292, 240), 44                          # separate cards, uneven on purpose: the judge is the heart of it
+    widths, gaps = (196, 300, 260), (44, 36)                   # uneven on purpose; the wall gets room, the judge-to-execute hand-off sits close
     cols = [("Propose", ["Suggests specs and is", "trusted with nothing."], CARD, HAIR),
             ("Judge", ["Validates, prices, evaluates", "and records every spec."], MINT_2, MINT_2),
             ("Execute", ["Runs each trial in its own", "sandboxed process."], CARD, HAIR)]
-    xs = [PAD, PAD + widths[0] + gap, PAD + widths[0] + gap + widths[1] + gap]
-    wall = xs[1] - gap / 2
+    xs = [PAD, PAD + widths[0] + gaps[0], PAD + widths[0] + gaps[0] + widths[1] + gaps[1]]
+    wall = xs[1] - gaps[0] / 2
     o.append(f'<line x1="{wall}" x2="{wall}" y1="{TOP-14}" y2="{TOP+ch+14}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
-    for i, ((name, lines, fill, stroke), x, w) in enumerate(zip(cols, xs, widths)):
+    for (name, lines, fill, stroke), x, w in zip(cols, xs, widths):
         o.append(card(x, TOP, w, ch, fill, stroke))
-        o.append(f'<circle cx="{x + 38}" cy="{TOP + 40}" r="10" fill="{PAPER}" stroke="{INK}" stroke-width="1"/>')      # order, instead of arrows
-        o.append(t(x + 38, TOP + 44.2, str(i + 1), 11.5, INK, "middle", 600))
-        o.append(t(x + 58, TOP + 45, name, 17, INK, weight=600, track=-0.3))
+        o.append(t(x + 28, TOP + 46, name, 17, INK, weight=600, track=-0.3))
         for j, s_ in enumerate(lines):
-            o.append(t(x + 28, TOP + 88 + j * 21, s_, 13, INK if fill != CARD else "#4d524d"))
+            o.append(t(x + 28, TOP + 82 + j * 21, s_, 13, INK if fill != CARD else "#4d524d"))
+    g = xs[1] + widths[1]                                       # the only arrows up here: a spec goes out, a result comes back
+    o.append(arrow(g, xs[2], TOP + ch / 2 - 10))
+    o.append(arrow(xs[2], g, TOP + ch / 2 + 10))
     # the ledger under all three: a white band, reached by one arrow from each card
     ly = TOP + ch + gap_l
     o.append(card(PAD, ly, W - 2 * PAD, led, CARD, HAIR))
