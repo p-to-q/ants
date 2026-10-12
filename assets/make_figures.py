@@ -116,28 +116,19 @@ def curve(x0, y0, x1, y1, stroke=INK, w=1.0, op=1.0):
             f'stroke="{stroke}" stroke-width="{w}" stroke-opacity="{op}"/>')
 
 
+def mark_shapes(ink=INK, accent=MINT_3):
+    """the mark in its own 64-unit box: abdomen, thorax and square head touch edge to edge, two antennae.
+    The logo set (assets/make_logo.py) draws the same shapes, so the banner and the logo cannot drift apart."""
+    return (f'<circle cx="18" cy="39" r="11" fill="{ink}"/>'
+            f'<circle cx="37.8" cy="39" r="7.5" fill="{accent}" stroke="{ink}" stroke-width="2.6"/>'
+            f'<rect x="46.6" y="32" width="14" height="14" fill="{ink}"/>'
+            f'<path d="M51,32 C51,21 55,15 60,12" fill="none" stroke="{ink}" stroke-width="2.6" stroke-linecap="round"/>'
+            f'<path d="M57.5,32 C58.5,28 60,25 62,22" fill="none" stroke="{ink}" stroke-width="2.6" stroke-linecap="round"/>')
+
+
 def mark(x, y, size, ink=INK, accent=MINT_3):
-    """the ants mark in a 64-unit box: abdomen, thorax and square head touch edge to edge; the head is the one fixed thing"""
     k = size / 64
-    # abdomen r=11 ends at x=29; the thorax (r=7.5 + 1.3 stroke) starts there and ends at 46.6, where the head begins
-    g = [f'<circle cx="18" cy="39" r="11" fill="{ink}"/>',
-         f'<circle cx="37.8" cy="39" r="7.5" fill="{accent}" stroke="{ink}" stroke-width="2.6"/>',
-         f'<rect x="46.6" y="32" width="14" height="14" fill="{ink}"/>',
-         f'<path d="M51,32 C51,21 55,15 60,12" fill="none" stroke="{ink}" stroke-width="2.6" stroke-linecap="round"/>',
-         f'<path d="M57.5,32 C58.5,28 60,25 62,22" fill="none" stroke="{ink}" stroke-width="2.6" stroke-linecap="round"/>']
-    return f'<g transform="translate({x},{y}) scale({k:.4f})">' + "".join(g) + "</g>"
-
-
-def logo():
-    """assets/logo.svg: the mark on a mint tile; assets/logo-wordmark.svg: mark and the name in the serif"""
-    tile = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="256" height="256" role="img" aria-label="ants">'
-            f'<rect width="96" height="96" rx="22" fill="{MINT_2}"/>' + mark(16, 15, 64) + "</svg>")
-    (A / "logo.svg").write_text(tile)
-    word = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120" width="360" height="120" role="img" aria-label="ants">'
-            f'<rect width="360" height="120" rx="16" fill="{PAPER}"/><rect x="20" y="20" width="80" height="80" rx="20" fill="{MINT_2}"/>'
-            + mark(28, 23, 64)
-            + f'<text x="122" y="76" font-family="{SERIF}" font-size="52" fill="{INK}" letter-spacing="-1">ants</text></svg>')
-    (A / "logo-wordmark.svg").write_text(word)
+    return f'<g transform="translate({x},{y}) scale({k:.4f})">{mark_shapes(ink, accent)}</g>'
 
 
 # ---------------------------------------------------------------------------------------------------------------- banner
@@ -466,5 +457,5 @@ def benchmark():
 
 
 if __name__ == "__main__":
-    logo(); banner(); architecture(); cascade(); roles(); ladder(); chain(); scatter(); frontier(); benchmark()
+    banner(); architecture(); cascade(); roles(); ladder(); chain(); scatter(); frontier(); benchmark()
     print("wrote figures in", A)

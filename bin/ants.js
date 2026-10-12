@@ -39,7 +39,9 @@ function bootstrap() {
   if (r.status !== 0) process.exit(r.status || 1);
   // build from a throw-away copy: pip must not write build/ or egg-info into the (possibly read-only) package directory
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ants-src-"));
-  fs.cpSync(pkgDir, tmp, { recursive: true, filter: (p) => !/(^|[\\/])(node_modules|build|dist|runs|internal|\.venv|\.git|__pycache__|raw|processed)([\\/]|$)/.test(p) });
+  // filter on the path inside the package: an installed package itself lives under node_modules/
+  const skip = /(^|[\\/])(node_modules|build|dist|runs|internal|\.venv|\.git|__pycache__|raw|processed)([\\/]|$)/;
+  fs.cpSync(pkgDir, tmp, { recursive: true, filter: (p) => !skip.test(path.relative(pkgDir, p)) });
   r = run(exe("python"), ["-m", "pip", "install", "--quiet", "--disable-pip-version-check", `${tmp}[gyms]`]);
   fs.rmSync(tmp, { recursive: true, force: true });
   if (r.status !== 0) {
@@ -49,5 +51,11 @@ function bootstrap() {
 }
 
 if (!fs.existsSync(exe("ants"))) bootstrap();
-const r = spawnSync(exe("ants"), process.argv.slice(2), { stdio: "inherit" });
-process.exit(r.status === null ? 1 : r.status);
+
+// ANTS_ROOT tells the Python side where the bundled contracts and data catalog live (this package directory).
+// Signals are forwarded so `kill` or Ctrl-C on the launcher reaches the daemon and it can stop cleanly.
+const { spawn } = require("node:child_process");
+const child = spawn(exe("ants"), process.argv.slice(2), { stdio: "inherit", env: { ...process.env, ANTS_ROOT: pkgDir } });
+for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(sig, () => child.kill(sig));
+child.on("error", (e) => { console.error(`ants: could not start ${exe("ants")}: ${e.message}`); process.exit(1); });
+child.on("exit", (code, signal) => process.exit(code !== null ? code : 128 + (os.constants.signals[signal] || 0)));

@@ -22,6 +22,26 @@ from .proposers import make_proposer
 CONTRACT_SEARCH = ("/opt/ants/contracts/tinyts.toml", "contracts/tinyts_real.toml", "contracts/tinyts_synth_hard.toml")
 
 
+def _root() -> Path | None:
+    """The directory that carries contracts/ and data/ when ants runs from a package rather than a checkout (the npm launcher sets
+    ANTS_ROOT to the package directory)."""
+    import os
+    r = os.environ.get("ANTS_ROOT")
+    return Path(r) if r and Path(r).is_dir() else None
+
+
+def _contract_path(arg: str) -> str:
+    """A path as given; or, when ANTS_ROOT is set, a bundled contract by name (`tinyts_synth_hard`, `tinyts_synth_hard.toml`)."""
+    if Path(arg).exists():
+        return arg
+    root = _root()
+    if root:
+        for cand in (root / "contracts" / arg, root / "contracts" / f"{arg}.toml", root / arg):
+            if cand.is_file():
+                return str(cand)
+    return arg
+
+
 def _default_llm_env() -> str:
     import os
     for cand in ("~/.config/ants/llm.env", "/etc/ants/llm.env"):
@@ -37,10 +57,12 @@ def _resolve(a):
     import os, sys
     chosen = []
     if not getattr(a, "contract", None):
-        a.contract = os.environ.get("ANTS_CONTRACT") or next((c for c in CONTRACT_SEARCH if Path(c).exists()), None)
+        bundled = [str(_root() / "contracts" / "tinyts_synth_hard.toml")] if _root() else []
+        a.contract = os.environ.get("ANTS_CONTRACT") or next((c for c in (*CONTRACT_SEARCH, *bundled) if Path(c).exists()), None)
         if not a.contract:
             raise SystemExit("no contract found: pass --contract, or set ANTS_CONTRACT (looked in: " + ", ".join(CONTRACT_SEARCH) + ")")
         chosen.append(f"contract={a.contract}")
+    a.contract = _contract_path(a.contract)
     if not getattr(a, "workdir", None):
         a.workdir = os.environ.get("ANTS_WORKDIR")
         if not a.workdir:

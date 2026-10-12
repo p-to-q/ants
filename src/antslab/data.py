@@ -236,6 +236,8 @@ def locate_catalog() -> Path:
         cands.append(Path(os.environ["ANTS_CATALOG"]))
     if os.environ.get("ANTS_HOME"):
         cands.append(Path(os.environ["ANTS_HOME"]) / "data" / "catalog.toml")
+    if os.environ.get("ANTS_ROOT"):                               # set by the npm launcher: the package directory
+        cands.append(Path(os.environ["ANTS_ROOT"]) / "data" / "catalog.toml")
     here = Path.cwd().resolve()
     cands += [d / "data" / "catalog.toml" for d in (here, *here.parents)]
     cands += [Path(__file__).resolve().parents[2] / "data" / "catalog.toml", Path.home() / ".ants" / "data" / "catalog.toml"]

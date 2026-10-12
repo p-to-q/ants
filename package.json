@@ -3,13 +3,55 @@
   "version": "0.1.0",
   "description": "ants: Autonomous Navigation of Tiny-model Space. A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it. (npm launcher for the Python package ants-lab)",
   "license": "Apache-2.0",
-  "bin": { "ants": "bin/ants.js" },
-  "files": ["bin/", "assets/", "src/", "contracts/", "data/catalog.toml", "scripts/fetch_data.sh", "docs/", "pyproject.toml", "README.md", "LICENSE", "NOTICE", "AGENTS.md"],
-  "engines": { "node": ">=18" },
-  "repository": { "type": "git", "url": "git+https://github.com/p-to-q/ants.git" },
-  "homepage": "https://www.ptoq.io",
-  "keywords": ["automated-research", "time-series", "forecasting", "evaluation", "agents"],
+  "bin": {
+    "ants": "bin/ants.js"
+  },
+  "files": [
+    "bin/",
+    "assets/",
+    "src/",
+    "contracts/",
+    "data/catalog.toml",
+    "data/catalog_synth.toml",
+    "data/MANIFEST.sha256",
+    "scripts/fetch_data.sh",
+    "docs/",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "AGENTS.md",
+    "SECURITY.md",
+    "CITATION.cff",
+    "!**/__pycache__",
+    "!**/*.pyc",
+    "!assets/proxy_fidelity.json"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/p-to-q/ants.git"
+  },
+  "homepage": "https://github.com/p-to-q/ants#readme",
+  "keywords": [
+    "automated-research",
+    "autonomous-agents",
+    "model-search",
+    "time-series",
+    "forecasting",
+    "evaluation",
+    "cli"
+  ],
   "scripts": {
-    "check": "node bin/ants.js --help"
+    "check": "node bin/ants.js --version",
+    "pack:check": "npm pack --dry-run"
+  },
+  "bugs": {
+    "url": "https://github.com/p-to-q/ants/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
