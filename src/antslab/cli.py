@@ -101,9 +101,11 @@ def cmd_run(a):
     for s in (signal.SIGTERM, signal.SIGINT):
         signal.signal(s, on_signal)
     print(camp.run(stop=lambda: stop["v"]), flush=True)
-    if stop["v"] and threading.active_count() > 1:
+    if threading.active_count() > 1:
         # LLM worker threads (ThreadPoolExecutor, non-daemon) may still sit in a socket read for up to their 100 s timeout, and
-        # the interpreter would join them at exit: systemd would SIGKILL us after 60 s. Everything we own is already committed.
+        # the interpreter would join them at exit, after a stop signal AND after a normal finish (budget reached): systemd would
+        # SIGKILL us after 60 s. Everything we own is already committed; the instance lock is released by the OS.
+        sys.stdout.flush()
         sys.stderr.flush()
         os._exit(0)
     return 0

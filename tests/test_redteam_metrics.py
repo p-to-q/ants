@@ -10,6 +10,7 @@ from antslab.gyms import tinyts as T
 from antslab.registry import Registry, decide_promotion
 
 from . import _rt as rt
+from .data_required import needs_raw
 from .test_synth_suite import fit_eval
 
 
@@ -174,7 +175,7 @@ def test_rel_mse_below_one_is_NOT_evidence_of_skill_on_a_negative_control():
     assert wn < 0.6 and rw < 0.9
 
 
-@pytest.mark.parametrize("name", ["white_noise", "random_walk", "shuffled_etth1"])
+@pytest.mark.parametrize("name", ["white_noise", "random_walk", pytest.param("shuffled_etth1", marks=needs_raw)])
 def test_no_spec_beats_the_best_trivial_forecaster_on_a_negative_control(name):
     if name == "shuffled_etth1":
         from antslab.data import Catalog, locate_catalog
@@ -198,6 +199,7 @@ def test_a_real_signal_does_pass_the_skill_gate_so_the_gate_is_not_vacuous():
     assert M.beats_trivial(mse, Xv, Yv, 24, margin=0.05)["ok"] is True
 
 
+@needs_raw
 def test_degenerate_specs_do_not_pass_the_quality_gates():
     base = T.baseline_specs()["period_linear"]
     degenerate = {

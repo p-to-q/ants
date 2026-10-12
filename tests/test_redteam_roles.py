@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from .data_required import needs_raw
+
 from antslab.contract import SpecError, load_contract
 from antslab.data import ROLES_ENV, Catalog, CatalogError, RoleError, role_policy
 from antslab.gyms import tinyts as T
@@ -95,6 +97,7 @@ def test_surrogates_of_sealed_and_confirm_data_inherit_the_stricter_role(cat):
     assert set(cat.names_for("sealed")) >= set(cat.names("sealed")) | {"syn_phase_randomised_electricity"}
 
 
+@needs_raw
 def test_surrogates_remain_loadable_for_stress_diagnostics(cat):
     with role_policy(("stress",)):
         assert cat.load("syn_phase_randomised_etth1").values.shape[1] <= 8   # the base is read internally, not through the policy

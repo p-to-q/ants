@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from pathlib import Path
+from .data_required import needs_raw
 from antslab import synth_suite as S
 from antslab.data import Catalog, sample_windows
 from antslab.gyms import tinyts as T
@@ -121,6 +122,7 @@ def test_hybrid_and_kernel_synth_are_not_one_algorithm():
     assert max(ac) - min(ac) > 0.05                                       # channels differ in temporal structure
 
 
+@needs_raw
 def test_real_based_surrogates_preserve_what_they_claim():
     from antslab.data import Catalog
     cat = Catalog(CAT)
@@ -138,6 +140,7 @@ def test_real_based_surrogates_preserve_what_they_claim():
     assert ars.shape == (1500, 3) and np.isfinite(ars).all() and ac(ars[:, 0]) > .5
 
 
+@needs_raw
 def test_shuffled_real_data_is_a_negative_control_through_the_real_pipeline():
     from antslab.data import Catalog
     base = Catalog(CAT).load("etth1").values[:14400]

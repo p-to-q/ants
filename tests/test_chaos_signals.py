@@ -90,6 +90,35 @@ def test_stop_signal_while_blocked_in_an_llm_call(tmp_path, procs):
     assert query(wd, "SELECT COUNT(*) FROM trials WHERE state='running'")[0][0] == 0
 
 
+def test_normal_finish_does_not_wait_for_an_llm_call_in_flight(tmp_path, procs):
+    """The budget is reached while a proposer thread sits in a never-answered network call: the process must exit at once, not
+    after the call's 100 s timeout (found on Linux CI: the interpreter joins non-daemon threads at exit)."""
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(8)
+    held = []
+
+    def accept_forever():
+        try:
+            while True:
+                held.append(srv.accept())
+        except OSError:
+            pass
+    threading.Thread(target=accept_forever, daemon=True).start()
+    env_file = tmp_path / "llm.env"
+    env_file.write_text(f"LLM_A_BASE=http://127.0.0.1:{srv.getsockname()[1]}/v1\nLLM_A_KEY=k\nLLM_A_MODEL=m\n")
+    env_file.chmod(0o600)
+    contract, wd = write_contract(tmp_path), tmp_path / "wd"
+    d = procs(run_cmd(contract, wd, "--llm-env", str(env_file), arm="llm", max_evals=4))
+    assert wait_for(lambda: held, 30), "the daemon never reached the LLM call"
+    try:
+        out, _ = d.communicate(timeout=30)
+    except Exception:
+        pytest.fail("the daemon finished its budget but did not exit while an LLM call was in flight")
+    srv.close()
+    assert d.returncode == 0 and "budget" in out.decode(errors="replace"), out
+
+
 def test_stop_signal_during_a_long_nap(tmp_path, procs):
     """With the breaker open the loop naps for 60 s: a stop signal must not wait for it."""
     contract, wd = write_contract(tmp_path), tmp_path / "wd"
