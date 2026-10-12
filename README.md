@@ -6,7 +6,6 @@
 <a href="./pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-b5e8da?labelColor=1b1b1a" alt="Python 3.11+"></a>
 <a href="./docs/surfaces.md"><img src="https://img.shields.io/badge/status-early-b5e8da?labelColor=1b1b1a" alt="status: early"></a>
 <a href="https://www.npmjs.com/package/ants-lab"><img src="https://img.shields.io/npm/v/ants-lab?color=b5e8da&labelColor=1b1b1a&label=npm" alt="npm"></a>
-<a href="https://www.npmjs.com/package/ants-lab"><img src="https://img.shields.io/npm/dm/ants-lab?color=b5e8da&labelColor=1b1b1a&label=downloads" alt="npm downloads"></a>
 </p>
 
 <p align="center">
