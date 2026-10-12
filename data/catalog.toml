@@ -1,0 +1,462 @@
+# Data catalog = the protocol. Roles are fixed by this file; no agent or LLM may choose datasets (changing a role starts a new
+# evaluation epoch for contracts that list this file in code_paths). "family" = independent source: correlated datasets share a family and are weighted once.
+#   dev      used by the search (cascade stages) on VALIDATION windows only
+#   confirm  used by E2 confirmation (paired tests); never by the search loop
+#   sealed   whole families untouched until the one-shot final evaluation (E7)
+#   stress   synthetic/extreme suites for gates and robustness; never mixed into the headline
+# Splits are chronological fractions of the series (train/val/test); ETT uses the standard 12/4/4 months.
+
+[defaults]
+horizons = [96, 192, 336, 720]
+
+[dataset.etth1]
+use_rows = 14400
+family = "ETT"
+role = "dev"
+raw = "raw/etth1/ETTh1.csv"
+format = "ett_csv"
+split = [8640, 2880, 2880]
+ref_period = 24
+source = "https://github.com/zhouhaoyi/ETDataset"
+license = "CC BY 4.0 (as stated by the repository maintainers; verify before redistribution)"
+
+[dataset.etth2]
+use_rows = 14400
+family = "ETT"
+role = "confirm"
+raw = "raw/etth2/ETTh2.csv"
+format = "ett_csv"
+split = [8640, 2880, 2880]
+ref_period = 24
+source = "https://github.com/zhouhaoyi/ETDataset"
+license = "CC BY 4.0 (as above)"
+
+[dataset.ettm1]
+use_rows = 57600
+family = "ETT"
+role = "dev"
+raw = "raw/ettm1/ETTm1.csv"
+format = "ett_csv"
+split = [34560, 11520, 11520]
+ref_period = 96
+source = "https://github.com/zhouhaoyi/ETDataset"
+license = "CC BY 4.0 (as above)"
+
+[dataset.ettm2]
+use_rows = 57600
+family = "ETT"
+role = "confirm"
+raw = "raw/ettm2/ETTm2.csv"
+format = "ett_csv"
+split = [34560, 11520, 11520]
+ref_period = 96
+source = "https://github.com/zhouhaoyi/ETDataset"
+license = "CC BY 4.0 (as above)"
+
+[dataset.weather]
+family = "Weather"
+role = "dev"
+raw = "raw/weather_primary"
+format = "mpi_roof_zip"
+split = [0.7, 0.1, 0.2]
+ref_period = 144
+note = "Max Planck Institute for Biogeochemistry, Jena, Beutenberg roof station 2020, 10-minute, 21 variables, 52,696 rows. Benchmark-faithful: keeps 81 sentinel values (-9999) exactly as the published LTSF file does (verified value-identical to the community copy)."
+source = "https://www.bgc-jena.mpg.de/wetter/"
+license = "CC BY 4.0"
+
+[dataset.weather_clean]
+family = "Weather"
+role = "stress"
+raw = "raw/weather_primary"
+format = "mpi_roof_zip"
+clean_sentinels = true
+split = [0.7, 0.1, 0.2]
+ref_period = 144
+note = "Same series with -9999 sentinels replaced by the previous valid value. Not comparable to published tables; used to measure how much the faithful version's artefacts matter."
+source = "https://www.bgc-jena.mpg.de/wetter/"
+license = "CC BY 4.0"
+
+[dataset.exchange]
+family = "FX"
+role = "dev"
+raw = "raw/exchange/exchange_rate.txt.gz"
+format = "lstnet_gz"
+split = [0.7, 0.1, 0.2]
+ref_period = 1
+note = "Daily exchange rates of 8 countries; no seasonality (naive reference = last value)."
+source = "https://github.com/laiguokun/multivariate-time-series-data"
+license = "see source repository (LSTNet, Lai et al. 2018)"
+
+[dataset.ili]
+family = "Epidemic"
+role = "confirm"
+raw = "raw/illness_mirror/illness.zip"
+format = "ili_zip"
+split = [0.7, 0.1, 0.2]
+ref_period = 52
+horizons = [24, 36, 48, 60]
+note = "CDC FluView weekly ILI, 966 rows x 7 variables; very short, so conclusions are weak. md5 verified against the maintainers of the community copy."
+source = "https://gis.cdc.gov/grasp/fluview/fluportaldashboard.html"
+license = "US government public data (CDC); community mirror used for the file"
+
+[dataset.solar]
+family = "Solar"
+role = "confirm"
+raw = "raw/solar/solar_AL.txt.gz"
+format = "lstnet_gz"
+split = [0.6, 0.2, 0.2]
+ref_period = 144
+note = "137 PV plants in Alabama, 10-minute. Strong daily cycle with exact zeros at night."
+source = "https://github.com/laiguokun/multivariate-time-series-data"
+license = "see source repository (LSTNet)"
+
+[dataset.electricity]
+family = "ECL"
+role = "sealed"
+raw = "raw/electricity/electricity.txt.gz"
+format = "lstnet_gz"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+note = "321 clients, hourly. Channels are subsampled for training windows (see max windows)."
+source = "https://github.com/laiguokun/multivariate-time-series-data"
+license = "UCI ElectricityLoadDiagrams (CC BY 4.0) via LSTNet"
+
+[dataset.traffic]
+family = "Traffic"
+role = "sealed"
+raw = "raw/traffic/traffic.txt.gz"
+format = "lstnet_gz"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+note = "862 PeMS road sensors, hourly occupancy."
+source = "https://github.com/laiguokun/multivariate-time-series-data"
+license = "California DOT PeMS public data via LSTNet"
+
+# ---------------------------------------------------------------- tier 2: extended, non-LTSF sources
+[dataset.airquality]
+family = "AirQuality"
+role = "confirm"
+raw = "raw/uci_airquality/air_quality.zip"
+format = "uci_airquality"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 48, 96, 168]
+note = "UCI Air Quality, Italian city road-level, hourly 2004-03..2005-04, 13 sensor/meteo channels. -200 sentinels (missing) forward-filled."
+source = "https://archive.ics.uci.edu/dataset/360/air+quality"
+license = "CC BY 4.0 (UCI)"
+
+[dataset.bike]
+family = "Mobility"
+role = "confirm"
+raw = "raw/uci_bike/bike_sharing.zip"
+format = "uci_bike"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 48, 96, 168]
+note = "Capital Bikeshare hourly demand 2011-2012 with weather; calendar categoricals dropped, target cnt last."
+source = "https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset"
+license = "CC BY 4.0 (UCI)"
+
+[dataset.appliances]
+family = "HomeEnergy"
+role = "confirm"
+raw = "raw/uci_appliances/appliances.zip"
+format = "uci_appliances"
+split = [0.7, 0.1, 0.2]
+ref_period = 144
+horizons = [144, 288, 576]
+note = "Household appliance energy + 9 temperature/humidity sensors, 10-minute, 28 channels INCLUDING two random-variable channels (rv1, rv2) that are pure noise: built-in negative controls."
+source = "https://archive.ics.uci.edu/dataset/374/appliances+energy+prediction"
+license = "CC BY 4.0 (UCI)"
+
+[dataset.household]
+family = "HouseholdPower"
+role = "sealed"
+raw = "raw/uci_household/household_power.zip"
+format = "uci_household"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 96, 336, 720]
+note = "Individual household electric power, 1-minute (2006-2010) aggregated to hourly means; '?' missing values ignored in the mean, remaining gaps forward-filled."
+source = "https://archive.ics.uci.edu/dataset/235/individual+household+electric+power+consumption"
+license = "CC BY 4.0 (UCI)"
+
+[dataset.metro]
+family = "Metro"
+role = "sealed"
+raw = "raw/uci_metro/metro_traffic.zip"
+format = "uci_metro"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 96, 336]
+note = "Metro Interstate 94 traffic volume + weather. Duplicate timestamps collapsed (first kept); the series has irregular gaps that are NOT re-sampled: treat as an irregularly-sampled stress."
+source = "https://archive.ics.uci.edu/dataset/492/metro+interstate+traffic+volume"
+license = "CC BY 4.0 (UCI)"
+
+[dataset.sunspot_daily]
+family = "Sunspots"
+role = "sealed"
+raw = "raw/sunspot_daily/SN_d_tot_V2.0.csv"
+format = "sunspot_daily"
+split = [0.7, 0.1, 0.2]
+ref_period = 1
+horizons = [96, 192, 336, 720]
+note = "SILSO daily total sunspot number 1818-2026 (a LIVE series: this snapshot is pinned by hash). Quasi-periodic ~11-year cycle, no short seasonality."
+source = "https://www.sidc.be/SILSO/"
+license = "CC BY-NC 4.0 (SILSO/SIDC, Royal Observatory of Belgium) - non-commercial"
+
+[dataset.sunspot_monthly]
+family = "Sunspots"
+role = "sealed"
+raw = "raw/sunspot_monthly/SN_m_tot_V2.0.csv"
+format = "sunspot_monthly"
+split = [0.7, 0.1, 0.2]
+ref_period = 1
+horizons = [12, 24, 48, 96]
+note = "SILSO monthly mean total sunspot number 1749-2026 (snapshot pinned by hash)."
+source = "https://www.sidc.be/SILSO/"
+license = "CC BY-NC 4.0 (SILSO/SIDC)"
+
+[dataset.m4_hourly]
+family = "M4"
+role = "confirm"
+raw = "raw/m4_hourly/Hourly-train.csv"
+format = "m4_hourly"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [48, 96]
+note = "M4 competition hourly training series (414 independent series, first 700 points each, used as channels - NOT time-aligned across channels). Official M4 hourly horizon is 48."
+source = "https://github.com/Mcompetitions/M4-methods"
+license = "see source repository (M4 competition data)"
+
+[dataset.cpi]
+family = "Macro"
+role = "stress"
+raw = "raw/fred_cpi/CPIAUCSL.csv"
+format = "csv_last_col"
+split = [0.7, 0.1, 0.2]
+ref_period = 12
+horizons = [12, 24, 36]
+note = "US CPI (all urban consumers), monthly 1947-2026 (snapshot pinned). Strongly trending, non-stationary level: a stress for period-folding models."
+source = "https://fred.stlouisfed.org/series/CPIAUCSL"
+license = "FRED terms; underlying data U.S. BLS (public domain)"
+
+[dataset.melbourne]
+family = "Climate"
+role = "confirm"
+raw = "raw/melbourne_temp/daily-min-temperatures.csv"
+format = "csv_last_col"
+split = [0.7, 0.1, 0.2]
+ref_period = 365
+horizons = [30, 90, 180]
+note = "Melbourne daily minimum temperature 1981-1990 (annual cycle, 3650 rows)."
+source = "https://github.com/jbrownlee/Datasets (copy of Australian Bureau of Meteorology data)"
+license = "see source; small classic dataset"
+
+[dataset.airline]
+family = "Classic"
+role = "stress"
+raw = "raw/airline/airline-passengers.csv"
+format = "csv_last_col"
+split = [0.7, 0.1, 0.2]
+ref_period = 12
+horizons = [12, 24]
+note = "Box-Jenkins airline passengers 1949-1960 (144 rows, multiplicative seasonality). Tiny: conclusions on it are weak by construction."
+source = "https://github.com/jbrownlee/Datasets"
+license = "see source; classic public series"
+
+# ---------------------------------------------------------------- tier 3: Hugging Face autogluon/chronos_datasets (curated collection)
+[dataset.river_saugeen]
+family = "River"
+role = "confirm"
+raw = "raw/chronos_monash_saugeenday/monash_saugeenday.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 7
+horizons = [14, 30, 90, 180]
+target_column = "T1"
+max_series = 1
+note = "Saugeen River daily flow, 23,741 days (single series). Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.pedestrian]
+family = "Pedestrian"
+role = "confirm"
+raw = "raw/chronos_monash_pedestrian_counts/monash_pedestrian_counts.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 96, 168, 336]
+note = "Melbourne pedestrian counts, hourly, the 16 longest sensors (last 20,000 points). Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.air_kdd]
+family = "AirKDD"
+role = "confirm"
+raw = "raw/chronos_monash_kdd_cup_2018/monash_kdd_cup_2018.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 96, 168, 336]
+note = "KDD Cup 2018 air quality, hourly, 16 longest of 270 stations. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.rideshare]
+family = "Rideshare"
+role = "confirm"
+raw = "raw/chronos_monash_rideshare/monash_rideshare.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 48, 96]
+target_column = "price_mean"
+note = "Boston ride-share mean price per (location, provider, service), hourly, 541 steps; 16 series. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.uber_hourly]
+family = "Uber"
+role = "confirm"
+raw = "raw/chronos_uber_tlc_hourly/uber_tlc_hourly.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 96, 168]
+note = "NYC Uber TLC pickups, hourly, 262 zones (16 longest), 4,344 steps. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.taxi_30min]
+family = "Taxi"
+role = "confirm"
+raw = "raw/chronos_taxi_30min/taxi_30min.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 48
+horizons = [48, 96, 336]
+note = "NYC taxi pickups, 30-minute, January 2015, 1,488 steps; 16 series. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.tourism_monthly]
+family = "Tourism"
+role = "confirm"
+raw = "raw/chronos_monash_tourism_monthly/monash_tourism_monthly.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 12
+horizons = [12, 18, 24]
+note = "Tourism competition monthly series (366; 16 longest); short. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.hospital]
+family = "Hospital"
+role = "confirm"
+raw = "raw/chronos_monash_hospital/monash_hospital.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 12
+horizons = [6, 12]
+note = "Hospital monthly patient counts, 84 months; very short. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.covid_deaths]
+family = "Covid"
+role = "confirm"
+raw = "raw/chronos_monash_covid_deaths/monash_covid_deaths.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 7
+horizons = [14, 28, 56]
+note = "Daily COVID-19 deaths by country, 212 days; trending / non-stationary. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.car_parts]
+family = "CarParts"
+role = "confirm"
+raw = "raw/chronos_monash_car_parts/monash_car_parts.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 12
+horizons = [3, 6]
+note = "Monthly car-part demand: intermittent counts with many zeros, 51 months. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.nn5_weekly]
+family = "ATM"
+role = "confirm"
+raw = "raw/chronos_monash_nn5_weekly/monash_nn5_weekly.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 1
+horizons = [4, 8, 13]
+note = "NN5 ATM cash withdrawals aggregated weekly, 113 weeks. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.fred_md]
+family = "FREDMD"
+role = "confirm"
+raw = "raw/chronos_monash_fred_md/monash_fred_md.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 12
+horizons = [12, 24]
+note = "FRED-MD monthly macro indicators, 728 months, 16 of 107 series. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.elec_weekly]
+family = "ECL"
+role = "sealed"
+raw = "raw/chronos_monash_electricity_weekly/monash_electricity_weekly.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 1
+horizons = [4, 8, 13]
+note = "Weekly aggregation of the UCI electricity clients: SAME SOURCE FAMILY as 'electricity' (ECL), hence also sealed. Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.aus_electricity]
+family = "AusElec"
+role = "sealed"
+raw = "raw/chronos_monash_australian_electricity/monash_australian_electricity.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 48
+horizons = [48, 336, 672]
+note = "Australian electricity demand by state, half-hourly (5 series, last 20,000 points). Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.wind_farms]
+family = "Wind"
+role = "sealed"
+raw = "raw/chronos_wind_farms_hourly/wind_farms_hourly.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 96, 168, 336]
+note = "Australian wind farm output, hourly, 16 longest of 337 farms (8,784 steps). Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."
+
+[dataset.ercot]
+family = "ERCOT"
+role = "sealed"
+raw = "raw/chronos_ercot/ercot.parquet"
+format = "chronos_parquet"
+split = [0.7, 0.1, 0.2]
+ref_period = 24
+horizons = [24, 96, 168, 336]
+note = "ERCOT load by region, hourly (8 series, last 20,000 points). Channels are separate series and are not time-aligned."
+source = "https://huggingface.co/datasets/autogluon/chronos_datasets"
+license = "not stated in the collection README (autogluon/chronos_datasets); underlying Monash/GluonTS-archive sources are normally CC BY 4.0 - verify before any redistribution. Data are NOT redistributed by this repository."

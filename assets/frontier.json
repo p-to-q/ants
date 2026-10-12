@@ -1,0 +1,48 @@
+{
+ "protocol": "stage s2 of contracts/tinyts_real.toml: rolling-origin validation, closed-form forecasters; rel_mse = family-weighted geometric mean of MSE / MSE(seasonal naive)",
+ "measured": {
+  "fits_like": {
+   "params": 7296,
+   "rel_mse": 0.8513746563590959
+  },
+  "dlinear_like": {
+   "params": 483840,
+   "rel_mse": 0.821302762246598
+  },
+  "ridge_L96": {
+   "params": 69120,
+   "rel_mse": 0.8542588918043554
+  },
+  "ridge_L336": {
+   "params": 241920,
+   "rel_mse": 0.8091932098929087
+  },
+  "ridge_L720": {
+   "params": 518400,
+   "rel_mse": 0.7904503221150151
+  }
+ },
+ "ants_demo": {
+  "finished_trials": 60,
+  "best_by_bin": [
+   {
+    "cap": 300.0,
+    "params": 300,
+    "rel_mse": 0.89221,
+    "stage": "s2"
+   },
+   {
+    "cap": 1000.0,
+    "params": 420,
+    "rel_mse": 0.8706,
+    "stage": "s2"
+   },
+   {
+    "cap": 3000.0,
+    "params": 1190,
+    "rel_mse": 0.84599,
+    "stage": "s2"
+   }
+  ]
+ }
+}

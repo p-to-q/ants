@@ -1,0 +1,73 @@
+# Pipeline/speed validation on SYNTHETIC ETT-like data. Not research evidence.
+[task]
+name = "tinyts_synth"
+gym = "tinyts"
+description = "Ultra-light multivariate forecaster (channel-independent, closed-form trained). Minimise standardised validation MSE averaged over horizons 96/192/336/720, under a hard cap on parameters counted at horizon 720."
+code_paths = ["../src/antslab/gyms/tinyts.py"]
+
+[budget]
+trial_timeout_s = 120
+max_attempts = 2
+unseal_limit = 1
+
+[objective]
+primary = "val_mse"
+direction = "min"
+cap_metric = "n_params"
+caps = [100, 300, 1000, 3000]
+
+[cascade]
+stages = ["s0", "s1", "s2"]
+promote_quantile = 0.25
+min_history = 20
+
+[commands]
+eval = ["{python}", "-m", "antslab.gyms.tinyts", "--stage", "{stage}", "--spec", "{spec}", "--out", "{out}", "--seed", "{seed}", "--attempt", "{attempt}"]
+final = ["{python}", "-m", "antslab.gyms.tinyts", "--final", "--stage", "final", "--spec", "{spec}", "--out", "{out}", "--seed", "{seed}"]
+
+[space.lookback]
+type = "int"
+low = 48
+high = 720
+[space.period]
+type = "int"
+low = 1
+high = 48
+[space.norm]
+type = "cat"
+choices = ["none", "last", "mean", "revin"]
+[space.core]
+type = "cat"
+choices = ["linear", "period", "fourier", "basis"]
+[space.rank]
+type = "int"
+low = 1
+high = 24
+[space.fourier_k]
+type = "int"
+low = 2
+high = 64
+[space.decomp]
+type = "cat"
+choices = ["none", "ma"]
+[space.trend_k]
+type = "int"
+low = 5
+high = 49
+[space.trend_stride]
+type = "int"
+low = 4
+high = 48
+[space.snaive]
+type = "bool"
+[space.ridge]
+type = "logfloat"
+low = 0.001
+high = 1000.0
+[space.prune]
+type = "float"
+low = 0.0
+high = 0.9
+[space.quant]
+type = "cat"
+choices = ["fp32", "int8", "int4"]

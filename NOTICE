@@ -1,0 +1,8 @@
+ants
+Copyright 2026 p-to-q (https://www.ptoq.io)
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The public datasets that `scripts/fetch_data.sh` downloads are NOT part of this
+distribution and keep their own licences; see docs/DATA.md for the source and
+licence of each one.

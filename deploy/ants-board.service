@@ -1,0 +1,44 @@
+# Optional projection surface; binds to 127.0.0.1 only. View it through:  ssh -N -L 8765:127.0.0.1:8765 <user>@<host>
+[Unit]
+Description=ants board (localhost only)
+
+[Service]
+User=ants
+Group=ants
+WorkingDirectory=/opt/ants
+ExecStart=/opt/ants/.venv/bin/ants serve --contract /opt/ants/contracts/tinyts.toml --workdir /var/lib/ants/portfolio --out /var/lib/ants/board --port 8765 --every 120
+Restart=on-failure
+RestartSec=30
+CPUQuota=25%
+MemoryMax=200M
+TasksMax=64
+
+# The board never needs the network except to listen on loopback, and never needs a secret.
+IPAddressDeny=any
+IPAddressAllow=localhost
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/ants
+InaccessiblePaths=/etc/ants
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

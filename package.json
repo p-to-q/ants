@@ -1,0 +1,15 @@
+{
+  "name": "@p-to-q/ants",
+  "version": "0.1.0",
+  "description": "ants — Agents Never Touch Scoring: a CPU-only, evidence-gated research loop (npm launcher for the Python package ants-lab).",
+  "license": "Apache-2.0",
+  "bin": { "ants": "bin/ants.js" },
+  "files": ["bin/", "assets/", "src/", "contracts/", "data/catalog.toml", "scripts/fetch_data.sh", "docs/", "pyproject.toml", "README.md", "LICENSE", "NOTICE", "AGENTS.md"],
+  "engines": { "node": ">=18" },
+  "repository": { "type": "git", "url": "git+https://github.com/p-to-q/ants.git" },
+  "homepage": "https://www.ptoq.io",
+  "keywords": ["automated-research", "time-series", "forecasting", "evaluation", "agents"],
+  "scripts": {
+    "check": "node bin/ants.js --help"
+  }
+}

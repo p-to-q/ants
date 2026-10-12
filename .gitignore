@@ -1,0 +1,20 @@
+# private design-thinking / working notes: never published
+internal/
+# environments, runs, secrets
+.venv/
+runs/
+*.sqlite*
+*.env
+__pycache__/
+.pytest_cache/
+*.egg-info/
+dist/
+data/raw/
+data/processed/
+build/
+node_modules/
+.ruff_cache/
+*.log
+.DS_Store
+_gallery.html
+*.orig

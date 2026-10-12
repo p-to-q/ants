@@ -1,0 +1,234 @@
+# TinyTS on REAL data: dev datasets (ETTh1, ETTm1, Weather, Exchange) via data/catalog.toml; rolling-origin validation in S1/S2.
+[task]
+name = "tinyts_real"
+gym = "tinyts"
+description = "Ultra-light channel-independent forecaster trained in closed form. Minimise rel_mse = geometric mean over datasets and horizons 96/192/336/720 of MSE(model)/MSE(seasonal naive) under a hard cap on parameters counted at horizon 720. Levers span the training lifecycle: data, pre-training/fine-tuning, architecture, optimisation, post-training."
+code_paths = ["../src/antslab/gyms/tinyts.py", "../src/antslab/metrics.py", "../src/antslab/data.py", "../data/catalog.toml", "../data/catalog_synth.toml"]
+
+[budget]
+trial_timeout_s = 120
+max_attempts = 2
+unseal_limit = 1
+stage_timeouts = { s0 = 60, s1 = 600, s2 = 1800 }
+
+[objective]
+primary = "rel_mse"
+direction = "min"
+cap_metric = "n_params"
+caps = [100, 300, 1000, 3000]
+static_cost = "antslab.gyms.tinyts:count_params"
+static_mem = "antslab.gyms.tinyts:est_mem_mb"
+mem_cap_mb = 750
+stone_quota = 0.05
+
+[cascade]
+stages = ["s0", "s1", "s2"]
+promote_quantile = 0.25
+min_history = 15
+
+[record]
+full_stages = ["s2"]
+
+[commands]
+eval = ["{python}", "-m", "antslab.gyms.tinyts", "--profile", "catalog", "--stage", "{stage}", "--spec", "{spec}", "--out", "{out}", "--seed", "{seed}", "--attempt", "{attempt}"]
+final = ["{python}", "-m", "antslab.gyms.tinyts", "--profile", "catalog", "--final", "--stage", "final", "--spec", "{spec}", "--out", "{out}", "--seed", "{seed}"]
+
+
+[space.lookback]
+type = "int"
+low = 48
+high = 720
+default = 336
+layer = "architecture"
+doc = "input window length"
+
+[space.period]
+type = "int"
+low = 1
+high = 48
+default = 24
+layer = "architecture"
+doc = "folding period / seasonal-naive period"
+
+[space.norm]
+type = "cat"
+choices = ["none", "last", "mean", "revin"]
+default = "revin"
+layer = "data"
+role = "skeleton"
+doc = "instance normalisation"
+
+[space.core]
+type = "cat"
+choices = ["linear", "period", "fourier", "basis"]
+default = "period"
+layer = "architecture"
+role = "skeleton"
+doc = "model family: linear map / period-folded shared map / low-pass spectrum map / reduced-rank basis"
+
+[space.rank]
+type = "int"
+low = 1
+high = 24
+default = 8
+layer = "architecture"
+when = {core = ["basis"]}
+doc = "basis rank"
+
+[space.fourier_k]
+type = "int"
+low = 2
+high = 64
+default = 16
+layer = "architecture"
+when = {core = ["fourier"]}
+doc = "kept low-frequency bins"
+
+[space.decomp]
+type = "cat"
+choices = ["none", "ma"]
+default = "none"
+layer = "architecture"
+role = "skeleton"
+doc = "moving-average trend head"
+
+[space.trend_k]
+type = "int"
+low = 5
+high = 49
+default = 25
+layer = "architecture"
+when = {decomp = ["ma"]}
+doc = "trend smoothing window"
+
+[space.trend_stride]
+type = "int"
+low = 4
+high = 48
+default = 24
+layer = "architecture"
+when = {decomp = ["ma"]}
+doc = "trend feature subsampling"
+
+[space.snaive]
+type = "bool"
+default = false
+layer = "architecture"
+doc = "seasonal-naive skip connection"
+
+[space.ens]
+type = "int"
+low = 1
+high = 3
+default = 1
+layer = "architecture"
+doc = "ensemble of models with different look-backs (parameters add up)"
+
+[space.clip]
+type = "bool"
+default = false
+layer = "data"
+doc = "winsorise standardised series"
+
+[space.clip_z]
+type = "float"
+low = 2.5
+high = 6.0
+default = 4.0
+layer = "data"
+when = {clip = [true]}
+doc = "clip level in standard deviations"
+
+[space.recency]
+type = "float"
+low = 0.0
+high = 3.0
+default = 0.0
+layer = "data"
+doc = "exponential recency weight of training windows"
+
+[space.augment]
+type = "bool"
+default = false
+layer = "data"
+doc = "noise-augmented copies of training windows"
+
+[space.aug_sigma]
+type = "float"
+low = 0.01
+high = 0.3
+default = 0.05
+layer = "data"
+when = {augment = [true]}
+doc = "augmentation noise scale"
+
+[space.pretrain]
+type = "cat"
+choices = ["none", "pool"]
+default = "none"
+layer = "pretrain"
+role = "skeleton"
+doc = "pre-train on the OTHER dev datasets (never the target family), then fine-tune"
+
+[space.prior_alpha]
+type = "logfloat"
+low = 0.01
+high = 100.0
+default = 1.0
+layer = "pretrain"
+when = {pretrain = ["pool"], core = ["linear", "period", "fourier"]}
+doc = "fine-tune strength towards the pre-trained weights"
+
+[space.adapter]
+type = "cat"
+choices = ["none", "lowrank"]
+default = "none"
+layer = "pretrain"
+when = {pretrain = ["pool"], core = ["linear"]}
+doc = "LoRA-style low-rank adaptation of frozen pre-trained weights"
+
+[space.adapter_rank]
+type = "int"
+low = 1
+high = 8
+default = 2
+layer = "pretrain"
+when = {adapter = ["lowrank"], pretrain = ["pool"], core = ["linear"]}
+doc = "adapter rank"
+
+[space.ridge]
+type = "logfloat"
+low = 0.001
+high = 1000.0
+default = 1.0
+layer = "optim"
+doc = "L2 regularisation"
+
+[space.robust]
+type = "bool"
+default = false
+layer = "optim"
+doc = "IRLS / Huber re-weighting of poorly explained windows"
+
+[space.distill_lambda]
+type = "float"
+low = 0.0
+high = 0.9
+default = 0.0
+layer = "optim"
+doc = "mix in a full-linear teacher's predictions as soft targets"
+
+[space.prune]
+type = "float"
+low = 0.0
+high = 0.9
+default = 0.0
+layer = "post"
+doc = "magnitude pruning fraction (counted params shrink)"
+
+[space.quant]
+type = "cat"
+choices = ["fp32", "int8", "int4"]
+default = "fp32"
+layer = "post"
+doc = "post-training weight quantisation"

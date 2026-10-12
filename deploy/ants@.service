@@ -1,0 +1,66 @@
+# One instance per search arm:  systemctl enable --now ants@portfolio
+# Hardened for Ubuntu 24.04 (systemd 255). Check the result on the server with:  systemd-analyze security ants@portfolio
+[Unit]
+Description=ants campaign (%i)
+Wants=network-online.target
+After=network-online.target
+# Unattended for weeks: never give up. RestartSec=30 spaces the retries; ants-health.timer (ants doctor) makes a crash loop visible.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=ants
+Group=ants
+WorkingDirectory=/opt/ants
+# No EnvironmentFile: the API keys stay in /etc/ants/llm.env (mode 600, owner ants) and are read by `ants run --llm-env` only when an LLM arm
+# needs them. They never enter the process environment (/proc/<pid>/environ, child processes, crash dumps).
+ExecStart=/opt/ants/.venv/bin/ants run --contract /opt/ants/contracts/tinyts.toml --workdir /var/lib/ants/%i --arm %i --seed 1 --llm-env /etc/ants/llm.env
+Restart=always
+# exit 3 = another instance holds this workdir: do not restart-loop
+RestartPreventExitStatus=3
+RestartSec=30
+TimeoutStopSec=60
+KillMode=control-group
+# keep the 2 vCPU / 2 GB host (and sshd) alive: only this slice can be starved or killed.
+# One evaluation peaks at 540-800 MB (see est_mem_mb) + ~100 MB for the supervisor; contract mem_cap_mb=750 keeps specs inside this.
+CPUQuota=150%
+MemoryHigh=900M
+MemoryMax=1100M
+OOMPolicy=kill
+OOMScoreAdjust=500
+TasksMax=256
+# No LimitFSIZE on purpose: it is a per-FILE limit that also applies to the supervisor, so ledger.sqlite (and its WAL) would hit it after weeks
+# and the process would die with SIGXFSZ. Evaluation children get their own 256 MB RLIMIT_FSIZE from the runner; disk is guarded by the janitor levels.
+Environment=OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+
+# --- sandboxing: the process can only write /var/lib/ants, gains no privileges, and cannot touch the kernel, other users or the host ---
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/ants
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+UMask=0077
+# Deliberately NOT set (cannot be verified without the target machine; the first two would break the service if wrong):
+#  MemoryDenyWriteExecute=yes  numpy/OpenBLAS, onnxruntime and torch map memory writable+executable.
+#  SystemCallFilter=           the runner calls setrlimit/setsid between fork and exec; a filter must be tested against the real workload.
+#  ProcSubset=pid              psutil (ants doctor) reads /proc/meminfo.
+# If the maintainer is ever wired into the daemon it needs  ReadWritePaths=/opt/ants/src/antslab/gyms  (the tree is read-only otherwise).
+
+[Install]
+WantedBy=multi-user.target

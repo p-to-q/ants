@@ -1,0 +1,36 @@
+[Unit]
+Description=ants archive + safe cleanup
+
+[Service]
+Type=oneshot
+User=ants
+Group=ants
+WorkingDirectory=/opt/ants
+ExecStart=/opt/ants/.venv/bin/ants janitor --contract /opt/ants/contracts/tinyts.toml --workdir /var/lib/ants/portfolio --archive-dir /var/lib/ants/archive
+CPUQuota=50%
+MemoryMax=300M
+TasksMax=64
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/ants
+InaccessiblePaths=/etc/ants
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+UMask=0077

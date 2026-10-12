@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the ants health check every 15 minutes (a FAIL shows up in `systemctl --failed` and the journal)
+
+[Timer]
+OnBootSec=20min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target
