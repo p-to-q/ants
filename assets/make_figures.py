@@ -183,7 +183,7 @@ def banner_svg(cfg, weight=None):
             f'aria-label="ants: Agents never touch scoring">' + "".join(o) + "</svg>")
 
 
-BANNER_WEIGHT = 500
+BANNER_WEIGHT = 600
 
 
 def banner():
