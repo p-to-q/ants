@@ -16,7 +16,7 @@ Files: `deploy/install.sh`, `deploy/remote_deploy.sh`, `deploy/PREFLIGHT.md`, `d
 | 5 | `deploy/remote_deploy.sh start` | `systemctl enable --now ants@portfolio ants-janitor.timer ants-health.timer` |
 
 `install.sh` (root, Ubuntu 24.04): refuses if `/var` has < 15 GB free or the source is not an ants tree; creates system user `ants` (home `/var/lib/ants`);
-rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw data/processed data/MANIFEST* contracts/tinyts.toml`; builds the venv from the hashed lock
+rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw data/processed data/MANIFEST.dev.sha256 contracts/tinyts.toml`; builds the venv from the hashed lock
 `requirements/server.txt` (`--require-hashes`); installs six units; warns if `/etc/ants/llm.env` is not `600 ants`. It starts nothing.
 
 Not run: `remote_deploy.sh` (no server). `install.sh` was read, not executed.

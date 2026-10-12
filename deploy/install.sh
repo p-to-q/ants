@@ -15,9 +15,10 @@ install -d -o root -g ants -m 750 /etc/ants
 echo "== code"
 apt-get install -y --no-install-recommends python3.12-venv rsync libgomp1 >/dev/null
 install -d -o ants -g ants /opt/ants
-# --delete keeps the code tree exact, but data, installed contracts and runs are the server's own state: never touched
+# --delete keeps the code tree exact, but data, installed contracts and runs are the server's own state: never touched.
+# data/MANIFEST.sha256 is NOT state: it is the pinned list of expected hashes shipped with the code, and `ants data verify` needs it.
 rsync -a --delete --exclude .venv --exclude internal --exclude .git --exclude runs --exclude '*.sqlite*' --exclude '*.env' \
-  --exclude 'data/raw' --exclude 'data/processed' --exclude 'data/MANIFEST*' --exclude 'contracts/tinyts.toml' --exclude build "$SRC"/ /opt/ants/
+  --exclude 'data/raw' --exclude 'data/processed' --exclude 'data/MANIFEST.dev.sha256' --exclude 'contracts/tinyts.toml' --exclude build "$SRC"/ /opt/ants/
 chown -R ants:ants /opt/ants
 # The venv's own pip is used as shipped; everything else comes from the hashed lock (a mismatching hash aborts the install).
 [ -x /opt/ants/.venv/bin/python ] || sudo -u ants python3 -m venv /opt/ants/.venv

@@ -329,8 +329,15 @@ def test_remote_deploy_has_no_built_in_host_user_or_key():
     assert "ubuntu" not in text.replace("<user>", "") and "ed25519" not in text and not re.search(r"\b\d{1,3}(\.\d{1,3}){3}\b", text)
 
 
+def test_installer_ships_the_pinned_manifest_but_keeps_the_servers_own_one():
+    text = (DEPLOY / "install.sh").read_text()
+    rsync = text[text.index("rsync -a --delete"):text.index("chown -R")]
+    assert "data/MANIFEST.sha256" not in rsync and "MANIFEST*" not in rsync     # the pinned manifest is copied
+    assert "data/MANIFEST.dev.sha256" in rsync                                  # the one built on the server survives
+
+
 def test_installer_protects_server_state_from_rsync_delete():
     text = (DEPLOY / "install.sh").read_text()
     rsync = text[text.index("rsync -a --delete"):text.index("chown -R")]
-    for keep in ("data/raw", "data/processed", "data/MANIFEST*", "contracts/tinyts.toml", "runs", "*.sqlite*", "*.env", ".venv"):
+    for keep in ("data/raw", "data/processed", "data/MANIFEST.dev.sha256", "contracts/tinyts.toml", "runs", "*.sqlite*", "*.env", ".venv"):
         assert f"--exclude '{keep}'" in rsync or f"--exclude {keep}" in rsync, keep
