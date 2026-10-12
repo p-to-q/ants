@@ -192,8 +192,8 @@ def banner():
 
 # ---------------------------------------------------------------------------------------------------------- architecture
 def architecture():
-    ch = 132
-    h = TOP + ch + PAD
+    ch, led = 132, 56
+    h = TOP + ch + 28 + led + PAD
     o = head("Propose, judge, execute", "Proposers can only hand specs to the judge.")
     cw, gap = 228, 76
     cols = [("Propose", ["Suggests specs and is", "trusted with nothing."], CARD, HAIR),
@@ -214,6 +214,14 @@ def architecture():
     o.append(t(g + gap / 2, TOP + 114, "result", 11.5, MUTE, "middle", 500))
     wall = PAD + cw + gap / 2
     o.append(f'<line x1="{wall}" x2="{wall}" y1="{TOP-14}" y2="{TOP+ch+14}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
+    ly = TOP + ch + 28                                        # the ledger: one trail under all three
+    for i in range(3):
+        cx = PAD + i * (cw + gap) + cw / 2
+        o.append(f'<line x1="{cx}" x2="{cx}" y1="{TOP+ch}" y2="{ly - 3}" stroke="{INK}" stroke-width="1"/>')
+        o.append(f'<circle cx="{cx}" cy="{TOP+ch}" r="2.5" fill="{INK}"/>')
+    o.append(card(PAD, ly, W - 2 * PAD, led, CARD, HAIR))
+    o.append(t(PAD + 24, ly + 34, "Ledger", 15, INK, weight=600, track=-0.2))
+    o.append(t(PAD + 96, ly + 34, "Hash-chained and fenced by epochs; every spec, result and verdict is recorded.", 13, "#4d524d"))
     (A / "architecture.svg").write_text(canvas(h, o, "Propose, judge, execute"))
 
 
