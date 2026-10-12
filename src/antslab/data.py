@@ -236,6 +236,7 @@ def locate_catalog() -> Path:
         cands.append(Path(os.environ["ANTS_CATALOG"]))
     if os.environ.get("ANTS_HOME"):
         cands.append(Path(os.environ["ANTS_HOME"]) / "data" / "catalog.toml")
+    cands.append(Path(os.environ.get("ANTS_HOME") or Path.home() / ".ants").expanduser() / "data" / "catalog.toml")     # after `ants onboard`
     if os.environ.get("ANTS_ROOT"):                               # set by the npm launcher: the package directory
         cands.append(Path(os.environ["ANTS_ROOT"]) / "data" / "catalog.toml")
     here = Path.cwd().resolve()

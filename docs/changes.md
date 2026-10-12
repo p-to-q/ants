@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-13 · A resident system: onboard, service, backup, sql, versioned ledger
+Changed: `ants onboard` (home directory, datasets from `data/sources.toml` checked against the pinned manifest, `config.toml`), `ants service install` (systemd user unit with `Type=notify` and a watchdog heartbeat sent by the loop itself, launchd agent, daily backup timer), `ants backup/backups/restore` (SQLite online backup, kept only if integrity and chain verify, sidecar and `anchors.jsonl`, restore moves the old file aside), `ants sql` (read-only authorizer, time and row caps), `ants data fetch`, plain `ants` offers setup on the first run; the ledger carries `PRAGMA user_version` with forward-only migrations and refuses a file written by a newer ants; `ants doctor` adds integrity, WAL size, network filesystem and backup age.
+Why: one command should wake it, keep it alive and recoverable, and make its data readable without a second tool. The pattern is the one OpenClaw, Pi, NanoClaw, TinyClaw and nanobot share (home directory plus one config, a service installer, a status probe); none of them verifies a backup or versions its store, which is where a long-lived ledger needs more.
+Forecloses: copying the live ledger file as a backup; a service that restarts a hung loop only by timeout; a ledger opened by an older ants than wrote it; downloading datasets without a pinned hash or over plain http.
+
 ## 2026-10-13 · Name, one line, and what the README no longer stresses
 Changed: ants now reads as **Autonomous Navigation of Tiny-model Space**; the one line is "A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it." The slogan "Agents Never Touch Scoring", "CPU-only", "evidence ledger" and "hard parameter budgets" are gone from the name, the banner, the repository description and the first paragraph; the architecture figure no longer draws the ledger. Small and cheap describe where ants starts, not what it is limited to.
 Why: the ledger is a necessary part, not a selling point; a parameter cap describes the first domain, not the project; nano-style projects are defined by starting small and growing.

@@ -62,16 +62,10 @@ Only one `ants run` may use a workdir: `flock` on `<workdir>/ants.lock` (`campai
 | `/var/lib/ants/archive` | the same disk: it is a staging area, **not a backup** |
 | S3 backend | `S3Archive` exists, no CLI flag selects it: `stub` |
 
-Backup of the ledger (the only irreplaceable file; WAL mode, so do not `cp` it while running). The SQLite online-backup API was verified on a copy
-of the demo ledger (`integrity_check` = `ok`, 140 events):
-
-```bash
-python3 - <<'EOF'
-import sqlite3, time
-s = sqlite3.connect("/var/lib/ants/portfolio/ledger.sqlite")
-d = sqlite3.connect(f"/var/lib/ants/backup-{time.strftime('%Y%m%d')}.sqlite"); s.backup(d); d.close()
-EOF
-```
+Backup of the ledger (the only irreplaceable file; WAL mode, so never `cp` it while running): `ants backup --workdir /var/lib/ants/portfolio --dest /var/backups/ants`.
+It uses SQLite's online backup API, keeps the snapshot only if the integrity check and the event chain pass, writes a sidecar (sha256, chain head) and appends the head to
+`anchors.jsonl`; the newest 14 are kept. `ants backups` lists them, `ants restore` verifies one and puts it in place (daemon stopped; the old file is moved aside). `ants service install`
+adds a daily timer; on the server the same is `ExecStart=ants backup`. A backup on the same disk survives a corrupted file, not a lost disk: copy the directory off the machine.
 
 Off-box anchoring: the hash chain detects edits inside the chain but not truncation or a consistent rewrite; only a copy of the head that the writer cannot edit does
 (`ledger.py` docstring, [E0](evaluation/E0-integrity.md)). There is no CLI for it. Verified on the demo copy:
@@ -89,7 +83,7 @@ Not run on the target machine: the backup and anchor commands.
 
 ## 5. What `ants doctor` checks
 
-Seven checks, the thresholds are in [cli.md](cli.md#doctor). `ants-health.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
+Seven checks plus four on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup), the thresholds are in [cli.md](cli.md#doctor). `ants-health.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
 30 min **while work is queued**, but an `s2` stage may legitimately run up to 1800 s (30 min) in `tinyts_real`, so a slow s2 can produce a transient FAIL.
 
 ## 6. Failure modes

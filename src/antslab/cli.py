@@ -50,28 +50,43 @@ def _default_llm_env() -> str:
     return "~/.config/ants/llm.env"
 
 
+def _config_run() -> dict:
+    from .home import load_config
+    return load_config().get("run", {})
+
+
+def _resolve_workdir(a, chosen=None):
+    """flag > ANTS_WORKDIR > ~/.ants/config.toml > an installed service's ledger > the newest ./runs/* ledger > runs/default"""
+    import os
+    if getattr(a, "workdir", None):
+        return a
+    a.workdir = os.environ.get("ANTS_WORKDIR") or _config_run().get("workdir")
+    if not a.workdir:
+        svc = sorted(Path("/var/lib/ants").glob("*/ledger.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True) if Path("/var/lib/ants").exists() else []
+        runs = sorted(Path("runs").glob("*/ledger.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True) if Path("runs").exists() else []
+        a.workdir = str((svc or runs)[0].parent) if (svc or runs) else "runs/default"
+    if chosen is not None:
+        chosen.append(f"workdir={a.workdir}")
+    return a
+
+
 def _resolve(a):
     """Fill in contract / workdir / arm so that plain `ants shell` works. Order: explicit flag > environment
-    (ANTS_CONTRACT, ANTS_WORKDIR, ANTS_ARM) > the installed service > the most recently used ./runs/* ledger > defaults.
-    What was chosen is printed to stderr (not in --json mode) so nothing is guessed silently."""
+    (ANTS_CONTRACT, ANTS_WORKDIR, ANTS_ARM) > ~/.ants/config.toml (written by `ants onboard`) > the installed service > the most recently
+    used ./runs/* ledger > defaults. What was chosen is printed to stderr (not in --json mode) so nothing is guessed silently."""
     import os, sys
     chosen = []
+    cfg = _config_run()
     if not getattr(a, "contract", None):
         bundled = [str(_root() / "contracts" / "tinyts_synth_hard.toml")] if _root() else []
-        a.contract = os.environ.get("ANTS_CONTRACT") or next((c for c in (*CONTRACT_SEARCH, *bundled) if Path(c).exists()), None)
+        a.contract = os.environ.get("ANTS_CONTRACT") or cfg.get("contract") or next((c for c in (*CONTRACT_SEARCH, *bundled) if Path(c).exists()), None)
         if not a.contract:
-            raise SystemExit("no contract found: pass --contract, or set ANTS_CONTRACT (looked in: " + ", ".join(CONTRACT_SEARCH) + ")")
+            raise SystemExit("no contract found: run `ants onboard`, pass --contract, or set ANTS_CONTRACT (looked in: " + ", ".join(CONTRACT_SEARCH) + ")")
         chosen.append(f"contract={a.contract}")
     a.contract = _contract_path(a.contract)
-    if not getattr(a, "workdir", None):
-        a.workdir = os.environ.get("ANTS_WORKDIR")
-        if not a.workdir:
-            svc = sorted(Path("/var/lib/ants").glob("*/ledger.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True) if Path("/var/lib/ants").exists() else []
-            runs = sorted(Path("runs").glob("*/ledger.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True) if Path("runs").exists() else []
-            a.workdir = str((svc or runs)[0].parent) if (svc or runs) else "runs/default"
-        chosen.append(f"workdir={a.workdir}")
+    _resolve_workdir(a, chosen) if not getattr(a, "workdir", None) else None
     if getattr(a, "arm", None) in (None, ""):
-        a.arm = os.environ.get("ANTS_ARM") or ""
+        a.arm = os.environ.get("ANTS_ARM") or cfg.get("arm") or ""
         db = Path(a.workdir) / "ledger.sqlite"
         if not a.arm and db.exists():
             import sqlite3
@@ -206,8 +221,21 @@ def cmd_serve(a):
 
 
 def cmd_data(a):
-    from .data import Catalog
-    cat = Catalog(a.catalog)
+    from .data import Catalog, locate_catalog
+    if a.action == "fetch":
+        from .fetch import fetch
+        from .home import data_dir
+        from .system import stage_data
+        base = Path(a.catalog).parent if a.catalog else (data_dir() if (data_dir() / "sources.toml").exists() else locate_catalog().parent)
+        if base == data_dir() or not (base / "sources.toml").exists():
+            from .home import package_root
+            stage_data(package_root(), data_dir())
+            base = data_dir()
+        rep = fetch(base, a.tier)
+        print(f"{len(rep['fetched'])} fetched, {len(rep['have'])} already here, {len(rep['failed'])} failed, {len(rep['mismatch'])} rejected; "
+              f"{len(rep['unpinned'])} file(s) have no pinned hash yet")
+        return 0 if not (rep["failed"] or rep["mismatch"]) else 2
+    cat = Catalog(a.catalog or locate_catalog())
     if a.action == "list":
         import collections
         rows = collections.defaultdict(list)
@@ -308,6 +336,8 @@ def cmd_doctor(a):
     from . import ui
     wd, led, c = _open(a)
     res = ui.doctor(led, c, a.arm, wd)
+    from .system import durability_checks
+    res = res + durability_checks(led, wd)
     _emit(a, [{"level": l, "message": m} for l, m in res], lambda d: "\n".join(f"[{x['level']:>4}] {x['message']}" for x in d))
     return 2 if any(l == "FAIL" for l, _ in res) else 0
 
@@ -380,6 +410,65 @@ def cmd_janitor(a):
     return 0
 
 
+def _first_run_done() -> bool:
+    from .home import config_path
+    return config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT")) or Path("runs").is_dir()
+
+
+def _first_run(ap) -> int:
+    """`ants` with nothing set up yet: offer onboarding on a terminal, explain it otherwise (never download unasked)"""
+    from .home import home
+    msg = f"ants is not set up yet. `ants onboard` creates {home()}, downloads the public datasets (about 50 MB for the dev tier) and writes the config."
+    if sys.stdin.isatty() and sys.stdout.isatty():
+        print(msg)
+        if input("Set up now? [Y/n] ").strip().lower() in ("", "y", "yes"):
+            return ap.parse_args(["onboard"]).fn(ap.parse_args(["onboard"]))
+        return 0
+    print(msg, file=sys.stderr)
+    return 0
+
+
+def _system_parsers(sub) -> None:
+    from . import system
+    def common(s, needs_workdir=True):
+        s.add_argument("--workdir"); s.add_argument("--json", action="store_true")
+        s.set_defaults(needs_workdir=needs_workdir)
+    s = sub.add_parser("onboard", help="create ~/.ants, fetch datasets, write the config")
+    s.add_argument("--tier", default="dev"); s.add_argument("--no-fetch", action="store_true")
+    s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default="portfolio")
+    s.set_defaults(fn=system.cmd_onboard)
+    s = sub.add_parser("backup", help="verified online snapshot of the ledger")
+    common(s); s.add_argument("--dest"); s.add_argument("--keep", type=int, default=14); s.add_argument("--gzip", action="store_true")
+    s.set_defaults(fn=system.cmd_backup)
+    s = sub.add_parser("backups", help="list snapshots")
+    common(s); s.add_argument("--dest"); s.set_defaults(fn=system.cmd_backups)
+    s = sub.add_parser("restore", help="verify a snapshot and put it in place (the daemon must be stopped)")
+    common(s); s.add_argument("which", nargs="?", help="file name or timestamp prefix; default the newest")
+    s.add_argument("--dest"); s.add_argument("--force", action="store_true", help="move an existing ledger aside and restore over it")
+    s.set_defaults(fn=system.cmd_restore)
+    for name in ("sql", "query"):
+        s = sub.add_parser(name, help="read-only SELECT over the ledger")
+        common(s); s.add_argument("sql", nargs="?"); s.add_argument("--schema", action="store_true")
+        s.add_argument("--format", choices=["table", "json", "jsonl", "csv"], default="table"); s.add_argument("--limit", type=int, default=1000)
+        s.set_defaults(fn=system.cmd_sql)
+    s = sub.add_parser("service", help="keep `ants run` resident (systemd user unit or launchd agent)")
+    s.add_argument("action", choices=["install", "uninstall", "status", "logs"])
+    s.add_argument("--name", default="default"); s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None)
+    s.add_argument("--seed", type=int, default=1); s.add_argument("--llm-env"); s.add_argument("--now", action="store_true", help="install: also start it")
+    s.add_argument("--print", action="store_true", help="install: show the unit files and write nothing")
+    s.add_argument("-n", "--lines", type=int, default=50); s.add_argument("-f", "--follow", action="store_true")
+    s.set_defaults(fn=_cmd_service)
+
+
+def _cmd_service(a):
+    from . import system
+    if a.action == "install":
+        _resolve(a)
+        a.workdir = str(Path(a.workdir).expanduser().resolve())
+        a.contract = str(Path(a.contract).expanduser().resolve())
+    return system.cmd_service(a)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="ants")
     ap.add_argument("--version", action="version", version="ants " + _version())
@@ -417,12 +506,18 @@ def main(argv=None):
         if name == "janitor":
             s.add_argument("--archive-dir"); s.add_argument("--dry-run", action="store_true")
             s.add_argument("--force-bytes", type=int, default=0)
-    d = sub.add_parser("data"); d.add_argument("action", choices=["list", "verify", "build"])
-    d.add_argument("--catalog", default="data/catalog.toml"); d.add_argument("--names"); d.add_argument("--all", action="store_true"); d.add_argument("--partial", action="store_true", help="verify only the files that exist (dev-tier installs)")
+    d = sub.add_parser("data"); d.add_argument("action", choices=["list", "verify", "build", "fetch"])
+    d.add_argument("--catalog", default=None); d.add_argument("--tier", default="dev", help="fetch: dev | standard | extended | all"); d.add_argument("--names"); d.add_argument("--all", action="store_true"); d.add_argument("--partial", action="store_true", help="verify only the files that exist (dev-tier installs)")
     d.set_defaults(fn=cmd_data)
+    _system_parsers(sub)
     a = ap.parse_args(argv)
-    if a.cmd is None:                                 # plain `ants`: open the interactive shell
+    if a.cmd is None:                                 # plain `ants`: set up on the first run, else the interactive shell
+        if not _first_run_done():
+            return _first_run(ap)
         a = ap.parse_args(["shell"])
+    if getattr(a, "needs_workdir", False):
+        _resolve_workdir(a)
+        a.workdir = str(Path(a.workdir).expanduser().resolve())
     return a.fn(a)
 
 

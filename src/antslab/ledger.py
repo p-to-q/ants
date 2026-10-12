@@ -60,6 +60,11 @@ CREATE TABLE IF NOT EXISTS llm_calls(
   ok INTEGER NOT NULL, tokens INTEGER, note TEXT);
 """
 
+# Schema version, kept in the file itself (PRAGMA user_version). A ledger is a long-lived record: opening one written by a newer
+# ants is refused instead of half-understood; opening an older one runs the missing steps in order, after a safety copy when a
+# step changes existing data. Add a step by bumping SCHEMA_VERSION and appending to MIGRATIONS (never edit an old step).
+SCHEMA_VERSION = 1
+
 FINAL_STATES = ("done", "failed", "timeout", "crashed")
 # Event kinds that PROVE a state change (freeze, sealed look/result, model gates, promotion tests). They can only be written by the
 # methods that enforce the rules; the public Ledger.event() refuses them, so no caller can forge a sealed result.
@@ -71,6 +76,10 @@ class UnsealBudgetExceeded(RuntimeError):
     pass
 
 
+class LedgerTooNew(RuntimeError):
+    """The file was written by a newer version of ants than this one."""
+
+
 class GateError(RuntimeError):
     pass
 
@@ -80,6 +89,20 @@ class Anchor(NamedTuple):
     seq: int
     head: str
     ts: float
+
+
+def fs_type(path) -> str:
+    """filesystem type of `path` (Linux: /proc/mounts), '' when unknown. SQLite's WAL mode is not safe on network filesystems."""
+    try:
+        best, kind = "", ""
+        real = os.path.realpath(path)
+        for line in Path("/proc/mounts").read_text().splitlines():
+            dev, mnt, fst = line.split()[:3]
+            if (real == mnt or real.startswith(mnt.rstrip("/") + "/")) and len(mnt) > len(best):
+                best, kind = mnt, fst
+        return kind
+    except OSError:
+        return ""
 
 
 def canon(obj) -> str:
@@ -109,7 +132,24 @@ class Ledger:
         self.conn.execute("PRAGMA busy_timeout=30000")
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA synchronous=FULL")
-        self.conn.executescript(SCHEMA)
+        self.conn.execute("PRAGMA journal_size_limit=67108864")          # the WAL file may not stay larger than 64 MB after a checkpoint
+        self.conn.execute("PRAGMA wal_autocheckpoint=1000")
+        self._upgrade()
+
+    def schema_version(self) -> int:
+        return self.conn.execute("PRAGMA user_version").fetchone()[0]
+
+    def _upgrade(self):
+        v = self.schema_version()
+        if v > SCHEMA_VERSION:
+            raise LedgerTooNew(f"{self.path} has schema version {v}; this ants understands up to {SCHEMA_VERSION}. Upgrade ants; the file was not touched.")
+        self.conn.executescript(SCHEMA)                                   # creates anything missing; never alters existing data
+        for ver in range(v + 1, SCHEMA_VERSION + 1):
+            MIGRATIONS[ver](self)
+            self.conn.execute(f"PRAGMA user_version={ver}")
+
+    def _m1_baseline(self):
+        """version 1 is the layout every earlier ledger already has (plus the columns added in place before versions existed)"""
         self._migrate_unseals()
 
     def _migrate_unseals(self):
@@ -125,6 +165,23 @@ class Ledger:
 
     def close(self):
         self.conn.close()
+
+    def checkpoint(self, truncate: bool = True) -> tuple:
+        """fold the WAL into the main file (and shrink it): (busy, log frames, checkpointed frames)"""
+        return tuple(self.conn.execute(f"PRAGMA wal_checkpoint({'TRUNCATE' if truncate else 'PASSIVE'})").fetchone())
+
+    def check(self, full: bool = False) -> dict:
+        """durability facts for `ants doctor` and backups: file sizes, schema, SQLite's own integrity check, the event chain"""
+        p = Path(self.path)
+        wal = Path(self.path + "-wal")
+        ic = [r[0] for r in self.conn.execute("PRAGMA integrity_check" if full else "PRAGMA quick_check")]
+        ok_chain, bad = self.verify_chain()
+        return {"path": self.path, "schema_version": self.schema_version(), "bytes": p.stat().st_size if p.exists() else 0,
+                "wal_bytes": wal.stat().st_size if wal.exists() else 0, "integrity": ic[0] if ic == ["ok"] else ic[:5],
+                "integrity_ok": ic == ["ok"], "chain_ok": ok_chain, "chain_bad_seq": bad,
+                "trials": self.conn.execute("SELECT COUNT(*) FROM trials").fetchone()[0],
+                "events": self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0],
+                "fs": fs_type(self.path)}
 
     def _abort(self):
         """Leave no transaction open. COMMIT can fail ('database is locked', I/O error) with the transaction still active, and
@@ -590,3 +647,6 @@ class Ledger:
     def llm_calls_since(self, since: float, ok_only=False) -> int:
         q = "SELECT COUNT(*) FROM llm_calls WHERE ts>=?" + (" AND ok=1" if ok_only else "")
         return self.conn.execute(q, (since,)).fetchone()[0]
+
+
+MIGRATIONS = {1: Ledger._m1_baseline}

@@ -26,9 +26,9 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 
 | item | 1 | 2 | 3 | 4 | fallback |
 |---|---|---|---|---|---|
-| contract | `--contract` | `$ANTS_CONTRACT` | first existing of `/opt/ants/contracts/tinyts.toml`, `contracts/tinyts_real.toml`, `contracts/tinyts_synth_hard.toml` | | exit 1: `no contract found` |
-| workdir | `--workdir` | `$ANTS_WORKDIR` | newest-mtime `/var/lib/ants/*/ledger.sqlite` | newest-mtime `runs/*/ledger.sqlite` | `runs/default` |
-| arm | `--arm` | `$ANTS_ARM` | `arm` of the newest trial in the ledger | | `portfolio` |
+| contract | `--contract` | `$ANTS_CONTRACT` | `[run] contract` in `~/.ants/config.toml` (written by `ants onboard`), else first existing of `/opt/ants/contracts/tinyts.toml`, `contracts/tinyts_real.toml`, `contracts/tinyts_synth_hard.toml` | | exit 1: `no contract found` |
+| workdir | `--workdir` | `$ANTS_WORKDIR` | `[run] workdir` in `config.toml` | newest-mtime `/var/lib/ants/*/ledger.sqlite`, then `runs/*/ledger.sqlite` | `runs/default` |
+| arm | `--arm` | `$ANTS_ARM` | `[run] arm` in `config.toml` | `arm` of the newest trial in the ledger | `portfolio` |
 
 Verified: `cd empty-dir && ants top` prints the `no contract found` message and exits 1.
 
@@ -57,8 +57,12 @@ Verified: `cd empty-dir && ants top` prints the `no contract found` message and 
 | `export` | CSV + JSONL dump | `--out` dir |
 | `board` / `serve` | static HTML board / localhost server | `--out` dir |
 | `janitor` | archive then safe cleanup | ledger, files |
-| `shell` | interactive session | as its commands |
-| `data` | catalog list / verify / build | `data/processed` (build) |
+| `shell` | interactive session; plain `ants` opens it once `ants onboard` has run | as its commands |
+| `data` | catalog list / verify / build / fetch | `data/processed` (build), `data/raw` (fetch) |
+| `onboard` | create `~/.ants`, stage the catalog, fetch datasets, write `config.toml` | `~/.ants`, `data/raw`, `data/processed` |
+| `service install\|uninstall\|status\|logs` | keep `ants run` resident: systemd user unit (+ daily backup timer) or launchd agent | unit files |
+| `backup` / `backups` / `restore` | verified online snapshot of the ledger / list / put one back | backup directory; `restore` replaces the ledger (old one moved aside) |
+| `sql` (alias `query`) | one read-only SELECT over the ledger, `--format table\|json\|jsonl\|csv`, `--schema` | no |
 
 ### run
 
@@ -230,21 +234,40 @@ antslab> cap <= 1000
 antslab> unknown command 'bogus'; try: top, best, show, log, hint, pause, resume, doctor, status, export, board
 ```
 
+### onboard, service, backup, restore, sql
+
+`ants onboard [--tier dev|standard|extended|all] [--no-fetch] [--contract NAME] [--workdir DIR] [--arm ARM]`: creates `~/.ants` (`$ANTS_HOME`), copies the catalog, `sources.toml` and
+the pinned `MANIFEST.sha256` of this version into `~/.ants/data`, downloads the datasets of the tier (https only, resumable, each file hashed and compared with the pinned manifest; a
+file that differs is set aside as `*.rejected`), builds the processed files for what was downloaded and writes `config.toml`. Safe to repeat. Plain `ants` before this prints one line and
+downloads nothing; on a terminal it asks first.
+
+`ants service install [--name N] [--now] [--print]`: Linux writes `~/.config/systemd/user/ants-N.service` (`Type=notify`, `WatchdogSec=300`, `Restart=always`, exit 3 not restarted)
+and a daily `ants-N-backup.timer`; macOS writes `~/Library/LaunchAgents/io.ptoq.ants-N.plist` (`KeepAlive` after failure, 30 s throttle). `--print` shows the files and writes nothing.
+After `--now` on Linux run `loginctl enable-linger $USER` so it survives logout. The loop sends the watchdog heartbeat itself, so a hung loop is restarted and a long evaluation is not.
+
+`ants backup [--dest D] [--keep 14] [--gzip]` snapshots with SQLite's online backup API, keeps it only if SQLite's integrity check and the event-chain check pass, writes a sidecar
+(sha256, event count, chain head, schema version) and appends the head to `anchors.jsonl` (never pruned). `ants restore [NAME]` verifies the snapshot first, refuses while a daemon holds the
+workdir, and moves the old ledger aside instead of deleting it. Default destination `~/.ants/backups/<workdir name>` (`$ANTS_BACKUP_DIR`, `[backup] dest`).
+
+`ants sql "SELECT ..."` opens the ledger read-only with an authorizer that allows nothing but SELECT, a 10 s time limit and a 1000-row cap. `--format csv` neutralises formula cells.
+
 ### data
 
-No `--contract`. Flags: `--catalog` (default `data/catalog.toml`), `--names a,b`, `--all`, `--partial`.
+No `--contract`. Flags: `--catalog` (default: found by `locate_catalog`), `--names a,b`, `--all`, `--partial`, `--tier` (fetch).
 
 | action | what | verified output |
 |---|---|---|
 | `data list` | datasets per role; `--all` includes `syn_*` | `dev 4`, `confirm 21`, `sealed 10`, `stress 3`, `synthetic entries: 95` |
 | `data verify` | SHA-256 of raw files against `data/MANIFEST.sha256`; `--partial` checks only files present | `raw files intact`, exit 0 |
 | `data build` | write `data/processed/<name>.npz`; `--names` limits | Not run: rewrites `data/processed` in the repository |
+| `data fetch` | download the files of `--tier` listed in `data/sources.toml` into `raw/<id>/`; resumable, verified against the pinned manifest | dev tier fetched into an empty `ANTS_HOME`: 5 files, all matched, `data verify --partial` intact |
 
 ## Environment variables
 
 | variable | read by | effect |
 |---|---|---|
 | `ANTS_CONTRACT`, `ANTS_WORKDIR`, `ANTS_ARM` | `cli._resolve` | flag-less defaults |
+| `ANTS_BACKUP_DIR` | `system.backup_dir` | where `ants backup` writes and `ants doctor` looks |
 | `ANTS_CATALOG`, `ANTS_HOME` | `data.locate_catalog` | where `data/catalog.toml` is; `ANTS_HOME` is also the launcher's venv root (`bin/ants.js`) |
 | `ANTS_MAX_WINDOW_ELEMS` | `gyms/tinyts.py` | cap on a window matrix, default 4 000 000 float64 elements. **Changes memory and results; set it only deliberately** |
 | `ANTS_PYTHON` | `bin/ants.js` | interpreter for the `npx` launcher |

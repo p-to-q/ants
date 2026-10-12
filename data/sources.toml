@@ -1,0 +1,242 @@
+# What `ants data fetch` downloads. One entry per file; `id` is the directory under data/raw/. Hashes are pinned in MANIFEST.sha256.
+# Tiers: dev (what the search needs), standard (other common benchmarks), extended (non-LTSF sources), chronos (Hugging Face collection).
+
+[[source]]
+tier = "dev"
+id = "etth1"
+url = "https://raw.githubusercontent.com/zhouhaoyi/ETDataset/main/ETT-small/ETTh1.csv"
+file = "ETTh1.csv"
+
+[[source]]
+tier = "dev"
+id = "ettm1"
+url = "https://raw.githubusercontent.com/zhouhaoyi/ETDataset/main/ETT-small/ETTm1.csv"
+file = "ETTm1.csv"
+
+[[source]]
+tier = "dev"
+id = "exchange"
+url = "https://raw.githubusercontent.com/laiguokun/multivariate-time-series-data/master/exchange_rate/exchange_rate.txt.gz"
+file = "exchange_rate.txt.gz"
+
+[[source]]
+tier = "dev"
+id = "weather_primary"
+url = "https://www.bgc-jena.mpg.de/wetter/data/mpi_roof_2020a.zip"
+file = "mpi_roof_2020a.zip"
+
+[[source]]
+tier = "dev"
+id = "weather_primary"
+url = "https://www.bgc-jena.mpg.de/wetter/data/mpi_roof_2020b.zip"
+file = "mpi_roof_2020b.zip"
+
+[[source]]
+tier = "standard"
+id = "etth2"
+url = "https://raw.githubusercontent.com/zhouhaoyi/ETDataset/main/ETT-small/ETTh2.csv"
+file = "ETTh2.csv"
+
+[[source]]
+tier = "standard"
+id = "ettm2"
+url = "https://raw.githubusercontent.com/zhouhaoyi/ETDataset/main/ETT-small/ETTm2.csv"
+file = "ETTm2.csv"
+
+[[source]]
+tier = "standard"
+id = "electricity"
+url = "https://raw.githubusercontent.com/laiguokun/multivariate-time-series-data/master/electricity/electricity.txt.gz"
+file = "electricity.txt.gz"
+
+[[source]]
+tier = "standard"
+id = "traffic"
+url = "https://raw.githubusercontent.com/laiguokun/multivariate-time-series-data/master/traffic/traffic.txt.gz"
+file = "traffic.txt.gz"
+
+[[source]]
+tier = "standard"
+id = "solar"
+url = "https://raw.githubusercontent.com/laiguokun/multivariate-time-series-data/master/solar-energy/solar_AL.txt.gz"
+file = "solar_AL.txt.gz"
+
+[[source]]
+tier = "standard"
+id = "weather_mirror"
+url = "https://raw.githubusercontent.com/wayne155/multivariate_timeseries_datasets/main/weather.zip"
+file = "weather.zip"
+
+[[source]]
+tier = "standard"
+id = "illness_mirror"
+url = "https://raw.githubusercontent.com/wayne155/multivariate_timeseries_datasets/main/illness.zip"
+file = "illness.zip"
+
+[[source]]
+tier = "extended"
+id = "uci_airquality"
+url = "https://archive.ics.uci.edu/static/public/360/air+quality.zip"
+file = "air_quality.zip"
+
+[[source]]
+tier = "extended"
+id = "uci_bike"
+url = "https://archive.ics.uci.edu/static/public/275/bike+sharing+dataset.zip"
+file = "bike_sharing.zip"
+
+[[source]]
+tier = "extended"
+id = "uci_appliances"
+url = "https://archive.ics.uci.edu/static/public/374/appliances+energy+prediction.zip"
+file = "appliances.zip"
+
+[[source]]
+tier = "extended"
+id = "uci_household"
+url = "https://archive.ics.uci.edu/static/public/235/individual+household+electric+power+consumption.zip"
+file = "household_power.zip"
+
+[[source]]
+tier = "extended"
+id = "uci_metro"
+url = "https://archive.ics.uci.edu/static/public/492/metro+interstate+traffic+volume.zip"
+file = "metro_traffic.zip"
+
+[[source]]
+tier = "extended"
+id = "sunspot_daily"
+url = "https://www.sidc.be/SILSO/DATA/SN_d_tot_V2.0.csv"
+file = "SN_d_tot_V2.0.csv"
+
+[[source]]
+tier = "extended"
+id = "sunspot_monthly"
+url = "https://www.sidc.be/SILSO/DATA/SN_m_tot_V2.0.csv"
+file = "SN_m_tot_V2.0.csv"
+
+[[source]]
+tier = "extended"
+id = "m4_hourly"
+url = "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Hourly-train.csv"
+file = "Hourly-train.csv"
+
+[[source]]
+tier = "extended"
+id = "fred_cpi"
+url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL"
+file = "CPIAUCSL.csv"
+
+[[source]]
+tier = "extended"
+id = "melbourne_temp"
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/daily-min-temperatures.csv"
+file = "daily-min-temperatures.csv"
+
+[[source]]
+tier = "extended"
+id = "airline"
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/airline-passengers.csv"
+file = "airline-passengers.csv"
+
+[[source]]
+tier = "chronos"
+id = "chronos_readme"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/README.md"
+file = "README.md"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_saugeenday"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_saugeenday/train-00000-of-00001.parquet"
+file = "monash_saugeenday.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_pedestrian_counts"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_pedestrian_counts/train-00000-of-00001.parquet"
+file = "monash_pedestrian_counts.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_australian_electricity"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_australian_electricity/train-00000-of-00001.parquet"
+file = "monash_australian_electricity.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_covid_deaths"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_covid_deaths/train-00000-of-00001.parquet"
+file = "monash_covid_deaths.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_kdd_cup_2018"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_kdd_cup_2018/train-00000-of-00001.parquet"
+file = "monash_kdd_cup_2018.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_hospital"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_hospital/train-00000-of-00001.parquet"
+file = "monash_hospital.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_nn5_weekly"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_nn5_weekly/train-00000-of-00001.parquet"
+file = "monash_nn5_weekly.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_tourism_monthly"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_tourism_monthly/train-00000-of-00001.parquet"
+file = "monash_tourism_monthly.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_wind_farms_hourly"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/wind_farms_hourly/train-00000-of-00001.parquet"
+file = "wind_farms_hourly.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_ercot"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/ercot/train-00000-of-00001.parquet"
+file = "ercot.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_uber_tlc_hourly"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/uber_tlc_hourly/train-00000-of-00001.parquet"
+file = "uber_tlc_hourly.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_taxi_30min"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/taxi_30min/train-00000-of-00001.parquet"
+file = "taxi_30min.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_car_parts"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_car_parts/train-00000-of-00001.parquet"
+file = "monash_car_parts.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_rideshare"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_rideshare/train-00000-of-00001.parquet"
+file = "monash_rideshare.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_fred_md"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_fred_md/train-00000-of-00001.parquet"
+file = "monash_fred_md.parquet"
+
+[[source]]
+tier = "chronos"
+id = "chronos_monash_electricity_weekly"
+url = "https://huggingface.co/datasets/autogluon/chronos_datasets/resolve/main/monash_electricity_weekly/train-00000-of-00001.parquet"
+file = "monash_electricity_weekly.parquet"

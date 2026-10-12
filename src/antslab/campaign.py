@@ -24,6 +24,7 @@ import shutil
 
 from .history import History
 from .ledger import FINAL_STATES, GateError, Ledger
+from .notify import heartbeat, sd_notify
 from .proposers import rank_specs
 from .runner import run_command
 
@@ -395,8 +396,14 @@ class Campaign:
                 end = time.monotonic() + seconds
                 while not stop() and (left := end - time.monotonic()) > 0:
                     time.sleep(min(0.5, left))
+        user_stop = stop
+
+        def stop():                                # polled every quarter second while a trial runs and every half second while napping:
+            heartbeat()                            # that is the loop's own pulse for systemd's watchdog (no-op outside systemd)
+            return user_stop()
         self._stop, self._sleep = stop, sleep
         n, last, streak, unexpected = 0, "idle", 0, 0
+        sd_notify("READY=1")
         try:
             self._db(self.recover)
             while not stop():
@@ -419,6 +426,7 @@ class Campaign:
                     sleep(5 if last in ("idle", "paused:user") else 60)
         except Shutdown:
             pass
+        sd_notify("STOPPING=1")
         return last
 
     # ---- results --------------------------------------------------------
