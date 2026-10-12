@@ -6,7 +6,7 @@ license: Apache-2.0
 version: 0.1.0
 date-released: 2026-10-13
 authors:
-  - name: "p → q"
+  - name: "[p → q]"
 repository-code: "https://github.com/p-to-q/ants"
 url: "https://www.ptoq.io"
 keywords: [automated research, time series forecasting, parameter-efficient models, evaluation, reproducibility]

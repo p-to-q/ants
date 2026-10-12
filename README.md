@@ -206,7 +206,7 @@ Code Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)). Documentation CC-BY-4.0.
 ```bibtex
 @software{ants2026,
   title  = {ants: Agents Never Touch Scoring},
-  author = {{p → q}},
+  author = {{[p → q]}},
   year   = {2026},
   url    = {https://github.com/p-to-q/ants}
 }

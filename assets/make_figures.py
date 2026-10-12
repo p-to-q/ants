@@ -165,7 +165,7 @@ def banner_svg(cfg, weight=None):
 
     def head_line(y, text):
         return (f'<text x="40" y="{y}" font-family="{SERIF}" font-size="{hs}" font-weight="{weight or 500}" fill="{INK}" '
-                f'letter-spacing="{tr:.2f}">{esc(text)}</text>')
+                f'letter-spacing="{tr:.2f}" stroke="{INK}" stroke-width="{HEADLINE_STROKE}" stroke-linejoin="round" paint-order="stroke">{esc(text)}</text>')
     o += [head_line(cfg["y1"], "Agents never"), head_line(cfg["y2"], "touch scoring.")] if cfg["y1"] else [head_line(cfg["y2"], "Agents never touch scoring.")]
     o.append(t(42, cfg["ty"], "A CPU-only research loop with an evidence ledger.", cfg["ts"], INK, weight=400))
     gx, cy, k = cfg["gx"], cfg["cy"], cfg["span"]
@@ -183,7 +183,8 @@ def banner_svg(cfg, weight=None):
             f'aria-label="ants: Agents never touch scoring">' + "".join(o) + "</svg>")
 
 
-BANNER_WEIGHT = 600
+BANNER_WEIGHT = 500
+HEADLINE_STROKE = 0.9      # Medium plus a hair of outline: a weight between Medium and Bold, whatever the font ships
 
 
 def banner():
