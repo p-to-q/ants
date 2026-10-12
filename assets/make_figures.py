@@ -218,9 +218,9 @@ def architecture():
             o.append(t(x + 24, TOP + 80 + j * 21, s_, 13, INK if fill != CARD else "#4d524d"))
     c = TOP + ch / 2
     g1, g2 = xs[0] + widths[0], xs[1] + widths[1]               # the two gaps
-    o.append(arrow(g1 + 10, g1 + gap - 10, c - 12))             # spec goes right
-    o.append(arrow(g2 + 10, g2 + gap - 10, c - 12))
-    o.append(arrow(g2 + gap - 10, g2 + 10, c + 12))             # result comes back
+    o.append(arrow(g1, g1 + gap, c))                            # spec goes right, edge to edge, on the cards' centre line
+    o.append(arrow(g2, g2 + gap, c - 12))
+    o.append(arrow(g2 + gap, g2, c + 12))                       # result comes back, the pair centred on the same line
     # the ledger under all three: white like the cards, reached by one arrow from each
     ly = TOP + ch + gap_l
     o.append(card(PAD, ly, W - 2 * PAD, led, CARD, HAIR))
