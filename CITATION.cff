@@ -1,7 +1,8 @@
 cff-version: 1.2.0
 message: "If you use ants, please cite it as below."
-title: "ants: Agents Never Touch Scoring"
+title: "ants: Autonomous Navigation of Tiny-model Space"
 type: software
+abstract: "A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it."
 license: Apache-2.0
 version: 0.1.0
 date-released: 2026-10-13

@@ -1,15 +1,13 @@
 # Principles
 
-*ants: Agents Never Touch Scoring.*
-
-ants is a machine for producing claims that survive being checked. These principles judge the running system, not how
+ants (Autonomous Navigation of Tiny-model Space) is a small loop that searches a space of models and says only what its evidence supports. These principles judge the running system, not how
 ambitious an idea sounds. Each names what it forbids and where it is enforced; a principle without an enforcement point is
 a wish and does not belong here.
 
-1. **The proposer never holds the pen that scores.** Search operators, scripts and language models may propose a spec; none
+1. **Whoever proposes does not score.** Search operators, scripts and language models may propose a spec; none
    may edit the evaluator, the contract, the datasets' roles, or the ledger. Language-model output enters only through a
    closed, typed grammar and is otherwise data. *Enforced by* `Space.validate`, `maintainer` patch gate, `gate`.
-2. **A budget is a wall, not a price.** A parameter cap is a constraint. Over-cap candidates may be kept as stepping stones,
+2. **A limit is a wall, not a price.** A parameter cap or a memory cap is a constraint on the search. Over-limit candidates may be kept as stepping stones,
    but they are never leaders, parents by rank, or reward signals. *Enforced by* `history.feasible`, the static-cost filter
    in `campaign`.
 3. **Evidence is append-only and carries its own identity.** Every trial is stamped with an epoch (evaluator code, contract,
@@ -36,9 +34,9 @@ a wish and does not belong here.
 10. **Say what it is.** A leaderboard is a projection of the ledger, never its source. A check that was not run is written
     "not run", with the reason. Status words are `stable`, `experimental`, `internal`, `stub`, `archived`, and the table
     is [surfaces.md](surfaces.md). *Enforced by* review, and by `ants doctor`.
-11. **Small is a research stance.** Ants are individually trivial; the colony is competent because it leaves a trail.
-    ants prefers structure over scale: a hundred-parameter model that is understood is worth more than a larger one that
-    is only fast. The metaphor is a reminder, not a mechanism. *Enforced by* nothing; it is the reason for the rest.
+11. **Start small, then scale.** Like nanoGPT and its kin, ants begins on one cheap machine and stays readable; scale comes
+    from configuration, not from a rewrite ([scaling](scaling.md)). Small is where it starts, not a limit on what it can search.
+    *Enforced by* the standard-library core and the contract; otherwise it is the reason for the rest.
 
 ## Taste
 

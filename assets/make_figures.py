@@ -143,7 +143,7 @@ def logo():
 # ---------------------------------------------------------------------------------------------------------------- banner
 # layout options for the banner; README uses BANNER. Sizes are in banner units (the README shows it about 25% smaller).
 BANNERS = {
-    "a": dict(w=1200, h=380, hs=68, y1=190, y2=264, ts=20, ty=320, gx=800, cy=220, span=1.0),     # headline 68
+    "a": dict(w=1200, h=380, hs=60, y1=176, y2=244, ts=19, ty=298, gx=800, cy=220, span=1.0),     # headline 60
     "b": dict(w=1200, h=460, hs=96, y1=222, y2=318, ts=24, ty=388, gx=830, cy=266, span=1.3),     # larger headline
     "c": dict(w=1200, h=320, hs=52, y1=160, y2=218, ts=17, ty=268, gx=800, cy=198, span=0.8),     # smaller, more air
     "d": dict(w=1200, h=272, hs=56, y1=0, y2=166, ts=18, ty=214, gx=830, cy=170, span=0.6),       # one line
@@ -166,8 +166,9 @@ def banner_svg(cfg, weight=None):
     def head_line(y, text):
         return (f'<text x="40" y="{y}" font-family="{SERIF}" font-size="{hs}" font-weight="{weight or 500}" fill="{INK}" '
                 f'letter-spacing="{tr:.2f}" stroke="{INK}" stroke-width="{HEADLINE_STROKE}" stroke-linejoin="round" paint-order="stroke">{esc(text)}</text>')
-    o += [head_line(cfg["y1"], "Agents never"), head_line(cfg["y2"], "touch scoring.")] if cfg["y1"] else [head_line(cfg["y2"], "Agents never touch scoring.")]
-    o.append(t(42, cfg["ty"], "A CPU-only research loop with an evidence ledger.", cfg["ts"], INK, weight=400))
+    o += [head_line(cfg["y1"], "Autonomous Navigation"), head_line(cfg["y2"], "of Tiny-model Space")]
+    o.append(t(42, cfg["ty"], "A small autonomous research loop: it starts on one cheap machine", cfg["ts"], INK, weight=400))
+    o.append(t(42, cfg["ty"] + cfg["ts"] * 1.45, "and scales with the compute you give it.", cfg["ts"], INK, weight=400))
     gx, cy, k = cfg["gx"], cfg["cy"], cfg["span"]
     for i, dy in enumerate((-70, -24, 22, 68)):
         y = cy + dy * k
@@ -180,7 +181,7 @@ def banner_svg(cfg, weight=None):
     o.append(f'<line x1="{gx+220}" x2="{gx+220}" y1="{cy-120*k:.1f}" y2="{cy+124*k:.1f}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
     o.append(f'<rect x="{gx+284}" y="{cy-6}" width="12" height="12" fill="{INK}"/>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {BW} {BH}" width="{BW}" role="img" '
-            f'aria-label="ants: Agents never touch scoring">' + "".join(o) + "</svg>")
+            f'aria-label="ants: Autonomous Navigation of Tiny-model Space">' + "".join(o) + "</svg>")
 
 
 BANNER_WEIGHT = 500
@@ -202,8 +203,8 @@ def varrow(x, y0, y1, color=INK):
 
 
 def architecture():
-    ch, gap_l, led = 144, 36, 48
-    h = TOP + ch + gap_l + led + PAD
+    ch = 144
+    h = TOP + ch + PAD
     o = head("Propose, judge, execute", "Proposers can only hand specs to the judge.")
     widths, gaps = (196, 292, 252), (44, 52)                   # uneven on purpose; the wall gets room, the judge-to-execute hand-off sits close
     cols = [("Propose", ["Suggests specs and is", "trusted with nothing."], CARD, HAIR),
@@ -217,16 +218,9 @@ def architecture():
         o.append(t(x + 28, TOP + 46, name, 17, INK, weight=600, track=-0.3))
         for j, s_ in enumerate(lines):
             o.append(t(x + 28, TOP + 82 + j * 21, s_, 13, INK if fill != CARD else "#4d524d"))
-    g = xs[1] + widths[1]                                       # the only arrows up here: a spec goes out, a result comes back
+    g = xs[1] + widths[1]                                       # the only arrows: a spec goes out, a result comes back
     o.append(arrow(g, xs[2], TOP + ch / 2 - 13))
     o.append(arrow(xs[2], g, TOP + ch / 2 + 13))
-    # the ledger under all three: a white band, reached by one arrow from each card
-    ly = TOP + ch + gap_l
-    o.append(card(PAD, ly, W - 2 * PAD, led, CARD, HAIR))
-    for x, w in zip(xs, widths):
-        o.append(varrow(x + w / 2, TOP + ch, ly - 1))
-    o.append(t(PAD + 28, ly + 29, "Ledger", 15, INK, weight=600, track=-0.2))
-    o.append(t(PAD + 100, ly + 29, "Hash-chained and fenced by epochs; every spec, result and verdict is recorded.", 13, "#4d524d"))
     (A / "architecture.svg").write_text(canvas(h, o, "Propose, judge, execute"))
 
 

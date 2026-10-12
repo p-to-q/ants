@@ -1,5 +1,7 @@
 # ledger
 
+<p align="center"><img src="../../assets/chain.svg" alt="Each event carries the hash of the event before it" width="900"></p>
+
 SQLite single source of truth: trials, artifacts, sealed-evaluation credits, LLM-call log, hash-chained events.
 
 **Interface**

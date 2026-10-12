@@ -11,7 +11,8 @@ trusted, and nothing on either side of it can reach into it.
 | Judge: grammar, caps | `Space.validate` is the only door for specs; parameter and memory limits are checked before any CPU is spent | [contract](modules/contract.md), [contracts](contracts.md) |
 | Judge: cascade, registry, sealed look | S0, S1, S2 promotion; the candidate to champion ladder with verdicts; freeze, then one recorded look at sealed data | [campaign](modules/campaign.md), [registry](modules/registry.md), [gate](modules/gate.md) |
 | Execute: subprocess, clean env, timeouts, gym | one process per trial with a fencing token, a clean environment and stage timeouts; the gym turns a spec into `metrics.json` | [runner](modules/runner.md), [gyms](gyms.md) |
-| Ledger, under all three | SQLite, hash-chained, fenced by epochs of code, contract and data | [ledger](modules/ledger.md) |
+
+Every step is recorded in a [ledger](modules/ledger.md): SQLite, fenced by epochs of code, contract and data.
 
 ## One trial
 

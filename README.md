@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/banner.svg" alt="ants: Agents never touch scoring" width="1200"></p>
+<p align="center"><img src="assets/banner.svg" alt="ants: Autonomous Navigation of Tiny-model Space" width="1200"></p>
 
 <p align="center">
 <a href="./.github/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/p-to-q/ants/ci.yml?branch=main&label=CI&color=b5e8da&labelColor=1b1b1a" alt="CI"></a>
@@ -11,20 +11,20 @@
 <a href="#start-here">Start here</a> · <a href="#news">News</a> · <a href="#how-it-works">How it works</a> · <a href="#first-measurement">Measurement</a> · <a href="#quick-start">Quick start</a> · <a href="#documentation">Documentation</a> · <a href="#roadmap">Roadmap</a> · <a href="#cite">Cite</a>
 </p>
 
+**A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it.**
+
 > I believe a leaf of grass is no less than the journey-work of the stars,
 > And the pismire is equally perfect, and a grain of sand, and the egg of the wren.
 > — Walt Whitman, *Song of Myself*, §31
 
-A pismire is an ant: no plan, no view of the whole, a trace left for others. ants takes that seriously. Many small, cheap,
-fallible searchers explore a space of models; the ledger is the trail.
+A pismire is an ant: no plan, no view of the whole, a trace left for others. ants works the same way. Many small, cheap,
+fallible searchers (scripts, search operators, small language models) move through a space of candidate models, and none of them
+scores its own work: a fixed evaluator does, and nothing a searcher writes can reach it.
 
-Then it adds what a colony does not have: **a place the ants cannot reach.** Small things propose well and judge themselves
-badly, so the scoring is not theirs.
+It runs unattended on a 2 vCPU / 2 GB machine, and the same loop grows with the compute you give it ([scaling](docs/scaling.md)).
+The first domain is time-series forecasting with models of 100 to 3 000 parameters; the loop does not care what the models are.
 
 <p align="center"><img src="assets/architecture.svg" alt="Propose, judge, execute" width="900"></p>
-
-It runs unattended on a 2 vCPU / 2 GB machine. Its first domain is **ultra-light time-series forecasting under a hard
-parameter cap** (100 to 3 000 parameters).
 
 ## Start here
 
@@ -62,21 +62,19 @@ best per parameter cap (deepest stage reached)
 search mechanisms (discovery rate)  qd 1.00  sweep 0.67  tpe 0.33  evo 0.25  sa 0.00  de 0.00
 ```
 
-`ants top` on a 60-trial demo, not a campaign. Values come from the ledger; `rel_mse` below 1 beats seasonal naive.
+`ants top` on a 60-trial demo, not a campaign. `rel_mse` below 1 beats seasonal naive.
 
 ## How it works
 
 <p align="center"><img src="assets/cascade.svg" alt="Cheap first: three fidelities" width="900"></p>
 <p align="center"><img src="assets/roles.svg" alt="Look once: dataset roles" width="900"></p>
 <p align="center"><img src="assets/ladder.svg" alt="How a claim is earned" width="900"></p>
-<p align="center"><img src="assets/chain.svg" alt="A trail that remembers" width="900"></p>
 
 | | most agentic research loops | ants |
 |---|---|---|
 | who judges | the proposer, or a prompt | code the proposers cannot reach |
-| budget | a term in the objective | a wall: over-cap models never lead |
+| limits | a term in the objective | a constraint on the search: over-limit models never lead |
 | language models | the engine | one cheap operator, tested against random search at equal budget |
-| memory | a log | hash-chained, fenced by epochs of code, contract and data |
 | failure | an exception | a normal outcome: `kill -9`, full disk, clock jumps |
 
 The eight evaluation layers: [docs/evaluation](docs/evaluation/README.md).
@@ -154,8 +152,8 @@ scripts/fetch_data.sh dev
 
 | claim | checked by |
 |---|---|
-| the ledger survives `kill -9` at random moments | `pytest -m slow` |
-| a stale writer cannot overwrite a newer attempt; tampering inside the chain is detected | `tests/test_ledger_gate.py` |
+| a run survives `kill -9` at random moments | `pytest -m slow` |
+| a stale writer cannot overwrite a newer attempt; tampering with the record is detected | `tests/test_ledger_gate.py` |
 | a cap is enforced per bin | `tests/test_percap.py` · `tests/test_campaign.py` |
 | negative controls show no skill | `tests/test_synth_suite.py` |
 | the search loop needs only the standard library | `tests/test_audit_regressions.py` |
@@ -205,7 +203,7 @@ Code Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)). Documentation CC-BY-4.0.
 
 ```bibtex
 @software{ants2026,
-  title  = {ants: Agents Never Touch Scoring},
+  title  = {ants: Autonomous Navigation of Tiny-model Space},
   author = {{[p → q]}},
   year   = {2026},
   url    = {https://github.com/p-to-q/ants}

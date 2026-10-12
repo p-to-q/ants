@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-13 · Name, one line, and what the README no longer stresses
+Changed: ants now reads as **Autonomous Navigation of Tiny-model Space**; the one line is "A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it." The slogan "Agents Never Touch Scoring", "CPU-only", "evidence ledger" and "hard parameter budgets" are gone from the name, the banner, the repository description and the first paragraph; the architecture figure no longer draws the ledger. Small and cheap describe where ants starts, not what it is limited to.
+Why: the ledger is a necessary part, not a selling point; a parameter cap describes the first domain, not the project; nano-style projects are defined by starting small and growing.
+Forecloses: describing ants by its cap or its ledger; using the old slogan as a name or tagline.
+
 ## 2026-10-13 · Red team: sealed credits, registry proof, roles, anchors
 Changed: sealed looks are scoped per (gym, epoch, sealed set) with a lifetime cap, one look per freeze hash, counted from the hash chain as well as the table, and closed by exactly one result; `Registry` climbs only with recorded evidence (`confirm`, `challenge` on identical windows with online FDR, a sealed result for the champion); `decide_promotion` fails closed on cherry-picked or malformed evidence; roles are enforced in `Catalog.load` when `ANTS_ALLOWED_ROLES` is set (the campaign sets `dev`, `gate.seal` sets `dev,confirm,sealed`) and surrogates inherit the role of sealed/confirm bases; catalog edits are validated; ledger anchors detect tail truncation and rewrites; `frontier`, `seen_keys` and `freeze_best` use the current epoch only; `gmre` and the paired statistics raise on malformed input.
 Why: the freeze-then-seal design was sound but its bookkeeping could be bypassed (refunded credits, forged results, bare `transition()`, a challenger that dropped the families it loses on, an unchecked sealed dataset argument).

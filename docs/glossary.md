@@ -4,6 +4,7 @@ The words ants uses, one meaning each. If code and this file disagree, fix one i
 
 | term | meaning |
 |---|---|
+| **ants** | Autonomous Navigation of Tiny-model Space: the project, its command and its brand. The Python module is `antslab` and the package `ants-lab` because `ants` is taken on PyPI and npm. |
 | **Gym** | an evaluator for one task domain: `evaluate(spec, stage)` → metrics. Fixed; proposers cannot edit it. |
 | **Contract** | the TOML that fixes a gym's typed space, parameter caps, stages, budgets and data roles. |
 | **Spec** | one candidate: a point in the contract's typed space. Data, never code. |

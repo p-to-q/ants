@@ -1,6 +1,6 @@
 # ants — notes for coding agents
 
-A CPU-only autonomous research loop: typed search space → fixed evaluator → hash-chained ledger → registry. Python 3.12, standard-library core, numpy only in gyms. Read [docs/principles.md](docs/principles.md) first; it is short.
+A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it. Typed search space, fixed evaluator, registry. Python 3.12, standard-library core, numpy only in gyms. Read [docs/principles.md](docs/principles.md) first; it is short.
 
 ## Read route (read only what your change needs)
 * Touching the ledger, runner, campaign, janitor → `docs/evaluation/E0-integrity.md` and the module page in `docs/modules/`.

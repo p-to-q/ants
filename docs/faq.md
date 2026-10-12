@@ -47,13 +47,13 @@ Whole data families (10 datasets, 8 families: ECL, Traffic, Household, Metro, Su
 one look is spent **before** the evaluator runs, and the result is a hash-chained event (`gate.seal`, `Ledger.record_unseal`; `tests/test_redteam_credits.py`). One look per frozen candidate; limits only ratchet down.
 Nothing sealed has been touched: `ants status` on the demo shows `"unseals": 0`. Caveat: the `--final` command evaluates test windows of dev, confirm **and** sealed sets together, so the sealed headline is a subset of its per-dataset keys.
 
-## 9. What exactly does "Agents Never Touch Scoring" forbid, and where is it enforced?
+## 9. What exactly may a proposer not do, and where is it enforced?
 
 | forbidden | enforced by | test |
 |---|---|---|
 | a proposer editing the evaluator, contract, roles or ledger | no write path exists from `Proposal` to those files; LLM text enters via `Space.validate` | `test_security_llm.py`, `test_llm_proposers.py` |
 | a contract smuggling a command or secret | argv-only commands, six placeholders, `env_passthrough` deny-list, `antslab.*`-only static refs | `test_security_contract.py` |
-| search reading held-out data | catalog roles; `ANTS_ALLOWED_ROLES` role policy (set by `gate.seal`; **not yet set for search stages**) | `test_redteam_roles.py` |
+| search reading held-out data | catalog roles; `ANTS_ALLOWED_ROLES` role policy (set to `dev` by the campaign for every search trial, and by `gate.seal` for the final look) | `test_redteam_roles.py` |
 | a second sealed look | credit spent first, counted from the chain, ratchet | `test_redteam_credits.py` |
 | evaluator code changing after freeze | code fingerprint checked in `gate.seal` | `test_ledger_gate.py` |
 | a stale process overwriting a result | fencing token `attempt` in `Ledger.finish` | `test_ledger_gate.py`, kill -9 chaos test |
