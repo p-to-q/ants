@@ -3,18 +3,15 @@
 Three kinds of thing, kept apart on purpose: what **proposes**, what **judges**, what **executes**. Only the middle one is
 trusted, and nothing on either side of it can reach into it.
 
-```
-  PROPOSE (untrusted, cheap)          JUDGE (deterministic, frozen)            EXECUTE (sandboxed)
-  ─────────────────────────           ─────────────────────────────            ───────────────────
-  operators: random sweep evo         Contract   typed space, caps, stages     Runner   clean env, process
-  de cem aco sa qd tpe                Space.validate  closed grammar                    group, time + memory
-  language models (llm)               static cost / memory pre-filter                  limits
-  portfolio (Thompson sampling,       Cascade    S0 → S1 → S2 promotion        Gym      evaluate(spec, stage)
-  lineage credit, per-parent tabu)    Registry   ladder + verdicts                      → metrics.json
-  hints from a human                  Gate       freeze → sealed look
-        │                             Ledger     hash-chained, epoch-fenced
-        └──── Spec (data) ───────────────▶ │ ◀──────────── Result (data) ─────────┘
-```
+<p align="center"><img src="../assets/architecture.svg" alt="Propose, judge, execute" width="900"></p>
+
+| part | what it is | where |
+|---|---|---|
+| Propose: operators, LLMs, portfolio, hints | random, sweep, evo, de, cem, aco, sa, qd, tpe and language-model proposers; a bandit that allocates among them by archive gain and lineage credit; free text from a human that can never change a gate | [portfolio](modules/portfolio.md), [proposers](modules/proposers.md), [llm](modules/llm.md) |
+| Judge: grammar, caps | `Space.validate` is the only door for specs; parameter and memory limits are checked before any CPU is spent | [contract](modules/contract.md), [contracts](contracts.md) |
+| Judge: cascade, registry, sealed look | S0, S1, S2 promotion; the candidate to champion ladder with verdicts; freeze, then one recorded look at sealed data | [campaign](modules/campaign.md), [registry](modules/registry.md), [gate](modules/gate.md) |
+| Execute: subprocess, clean env, timeouts, gym | one process per trial with a fencing token, a clean environment and stage timeouts; the gym turns a spec into `metrics.json` | [runner](modules/runner.md), [gyms](gyms.md) |
+| Ledger, under all three | SQLite, hash-chained, fenced by epochs of code, contract and data | [ledger](modules/ledger.md) |
 
 ## One trial
 
