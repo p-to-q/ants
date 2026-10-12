@@ -204,30 +204,25 @@ def architecture():
     ch, gap_l, led = 144, 36, 48
     h = TOP + ch + gap_l + led + PAD
     o = head("Propose, judge, execute", "Proposers can only hand specs to the judge.")
-    widths, gap = (200, 276, 228), 66                          # the judge is the heart of it, so it is the widest
-    cols = [("Propose", ["Suggests specs and is", "trusted with nothing."], CARD, HAIR),
-            ("Judge", ["Validates, prices, evaluates", "and records every spec."], MINT_2, MINT_2),
-            ("Execute", ["Runs each trial in its own", "sandboxed process."], CARD, HAIR)]
-    xs = [PAD, PAD + widths[0] + gap, PAD + widths[0] + gap + widths[1] + gap]
-    wall = xs[0] + widths[0] + gap / 2
-    o.append(f'<line x1="{wall}" x2="{wall}" y1="{TOP-14}" y2="{TOP+ch+14}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
-    for (name, lines, fill, stroke), x, w in zip(cols, xs, widths):
-        o.append(card(x, TOP, w, ch, fill, stroke))
-        o.append(t(x + 24, TOP + 44, name, 17, INK, weight=600, track=-0.3))
+    widths = (244, 316, 276)                                   # one band, three cells; the judge is the heart of it, so it is the widest
+    cols = [("Propose", ["Suggests specs and is", "trusted with nothing."]),
+            ("Judge", ["Validates, prices, evaluates", "and records every spec."]),
+            ("Execute", ["Runs each trial in its own", "sandboxed process."])]
+    xs = [PAD, PAD + widths[0], PAD + widths[0] + widths[1]]
+    o.append(card(PAD, TOP, W - 2 * PAD, ch, CARD, HAIR))
+    o.append(f'<rect x="{xs[1]}" y="{TOP + 0.5}" width="{widths[1]}" height="{ch - 1}" fill="{MINT_2}"/>')      # the judge's cell
+    for (name, lines), x in zip(cols, xs):
+        o.append(t(x + 28, TOP + 46, name, 17, INK, weight=600, track=-0.3))
         for j, s_ in enumerate(lines):
-            o.append(t(x + 24, TOP + 80 + j * 21, s_, 13, INK if fill != CARD else "#4d524d"))
-    c = TOP + ch / 2
-    g1, g2 = xs[0] + widths[0], xs[1] + widths[1]               # the two gaps
-    o.append(arrow(g1, g1 + gap, c))                            # spec goes right, edge to edge, on the cards' centre line
-    o.append(arrow(g2, g2 + gap, c - 12))
-    o.append(arrow(g2 + gap, g2, c + 12))                       # result comes back, the pair centred on the same line
-    # the ledger under all three: white like the cards, reached by one arrow from each
+            o.append(t(x + 28, TOP + 82 + j * 21, s_, 13, INK if name == "Judge" else "#4d524d"))
+    o.append(f'<line x1="{xs[1]}" x2="{xs[1]}" y1="{TOP-14}" y2="{TOP+ch+14}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')   # the wall
+    # the ledger under all three: a white band of the same width, reached by one arrow from each cell
     ly = TOP + ch + gap_l
     o.append(card(PAD, ly, W - 2 * PAD, led, CARD, HAIR))
     for x, w in zip(xs, widths):
         o.append(varrow(x + w / 2, TOP + ch, ly - 1))
-    o.append(t(PAD + 24, ly + 29, "Ledger", 15, INK, weight=600, track=-0.2))
-    o.append(t(PAD + 96, ly + 29, "Hash-chained and fenced by epochs; every spec, result and verdict is recorded.", 13, "#4d524d"))
+    o.append(t(PAD + 28, ly + 29, "Ledger", 15, INK, weight=600, track=-0.2))
+    o.append(t(PAD + 100, ly + 29, "Hash-chained and fenced by epochs; every spec, result and verdict is recorded.", 13, "#4d524d"))
     (A / "architecture.svg").write_text(canvas(h, o, "Propose, judge, execute"))
 
 
