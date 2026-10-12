@@ -270,3 +270,9 @@ def test_heartbeat_is_a_no_op_outside_systemd(monkeypatch):
     monkeypatch.delenv("NOTIFY_SOCKET", raising=False)
     monkeypatch.delenv("WATCHDOG_USEC", raising=False)
     assert notify.heartbeat() is False and notify.sd_notify("READY=1") is False
+
+
+def test_npm_package_ships_every_file_onboard_stages():
+    pkg = json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text())
+    for n in system.DATA_FILES:
+        assert f"data/{n}" in pkg["files"], f"{n} is staged by `ants onboard` but not listed in package.json files"

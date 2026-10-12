@@ -13,6 +13,7 @@
     "contracts/",
     "data/catalog.toml",
     "data/catalog_synth.toml",
+    "data/sources.toml",
     "data/MANIFEST.sha256",
     "scripts/fetch_data.sh",
     "docs/",
