@@ -134,7 +134,7 @@ def mark(x, y, size, ink=INK, accent=MINT_3):
 # ---------------------------------------------------------------------------------------------------------------- banner
 # layout options for the banner; README uses BANNER. Sizes are in banner units (the README shows it about 25% smaller).
 BANNERS = {
-    "a": dict(w=1200, h=380, hs=60, y1=176, y2=244, ts=19, ty=298, gx=800, cy=220, span=1.0),     # headline 60
+    "a": dict(w=1200, h=380, hs=60, y1=169, y2=237, ts=19, ty=291, gx=800, cy=226, span=1.0),     # headline 60
     "b": dict(w=1200, h=460, hs=96, y1=222, y2=318, ts=24, ty=388, gx=830, cy=266, span=1.3),     # larger headline
     "c": dict(w=1200, h=320, hs=52, y1=160, y2=218, ts=17, ty=268, gx=800, cy=198, span=0.8),     # smaller, more air
     "d": dict(w=1200, h=272, hs=56, y1=0, y2=166, ts=18, ty=214, gx=830, cy=170, span=0.6),       # one line
