@@ -120,7 +120,7 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e ".[gy
 .venv/bin/ants doctor     # hash chain, disk, stuck or failing runs
 ```
 
-Every read command has `--json` and meaningful exit codes, so another agent can drive the same surface ([AGENTS.md](AGENTS.md)). With Node installed: `npx @p-to-q/ants doctor`.
+Every read command has `--json` and meaningful exit codes, so another agent can drive the same surface ([AGENTS.md](AGENTS.md)). With Node installed: `npx ants-lab doctor`.
 
 **4. Real data** (downloaded, never shipped; sources and licences in [DATA](docs/DATA.md))
 

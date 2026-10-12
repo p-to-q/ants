@@ -1,7 +1,7 @@
 {
-  "name": "@p-to-q/ants",
+  "name": "ants-lab",
   "version": "0.1.0",
-  "description": "ants: Autonomous Navigation of Tiny-model Space. A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it. (npm launcher for the Python package ants-lab)",
+  "description": "ants: Autonomous Navigation of Tiny-model Space. A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it. (npm launcher: it builds a private Python environment on first run)",
   "license": "Apache-2.0",
   "bin": {
     "ants": "bin/ants.js"
