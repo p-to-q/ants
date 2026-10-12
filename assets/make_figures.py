@@ -194,8 +194,8 @@ def varrow(x, y0, y1, color=INK):
 
 
 def architecture():
-    ch = 144
-    h = TOP + ch + PAD
+    ch, gap_l, led = 144, 36, 48
+    h = TOP + ch + gap_l + led + PAD
     o = head("Propose, judge, execute", "Proposers can only hand specs to the judge.")
     widths, gaps = (196, 292, 252), (44, 52)                   # uneven on purpose; the wall gets room, the judge-to-execute hand-off sits close
     cols = [("Propose", ["Suggests specs and is", "trusted with nothing."], CARD, HAIR),
@@ -209,9 +209,16 @@ def architecture():
         o.append(t(x + 28, TOP + 46, name, 17, INK, weight=600, track=-0.3))
         for j, s_ in enumerate(lines):
             o.append(t(x + 28, TOP + 82 + j * 21, s_, 13, INK if fill != CARD else "#4d524d"))
-    g = xs[1] + widths[1]                                       # the only arrows: a spec goes out, a result comes back
+    g = xs[1] + widths[1]                                       # the only arrows up here: a spec goes out, a result comes back
     o.append(arrow(g, xs[2], TOP + ch / 2 - 13))
     o.append(arrow(xs[2], g, TOP + ch / 2 + 13))
+    # the ledger under all three: a white band, reached by one arrow from each card
+    ly = TOP + ch + gap_l
+    o.append(card(PAD, ly, W - 2 * PAD, led, CARD, HAIR))
+    for x, w in zip(xs, widths):
+        o.append(varrow(x + w / 2, TOP + ch, ly - 1))
+    o.append(t(PAD + 28, ly + 29, "Ledger", 15, INK, weight=600, track=-0.2))
+    o.append(t(PAD + 100, ly + 29, "Hash-chained and fenced by epochs; every spec, result and verdict is recorded.", 13, "#4d524d"))
     (A / "architecture.svg").write_text(canvas(h, o, "Propose, judge, execute"))
 
 

@@ -1,0 +1,23 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: tag matches the versions in the repository
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          npm_v=$(node -p "require('./package.json').version")
+          py_v=$(python3 - <<'PY'
+          import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])
+          PY
+          )
+          echo "tag=$tag package.json=$npm_v pyproject=$py_v"
+          [ "$tag" = "$npm_v" ] && [ "$tag" = "$py_v" ]
+      - run: npm pack --dry-run

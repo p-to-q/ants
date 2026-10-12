@@ -5,10 +5,12 @@
 <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-b5e8da?labelColor=1b1b1a" alt="Apache-2.0"></a>
 <a href="./pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-b5e8da?labelColor=1b1b1a" alt="Python 3.11+"></a>
 <a href="./docs/surfaces.md"><img src="https://img.shields.io/badge/status-early-b5e8da?labelColor=1b1b1a" alt="status: early"></a>
+<a href="https://www.npmjs.com/package/ants-lab"><img src="https://img.shields.io/npm/v/ants-lab?color=b5e8da&labelColor=1b1b1a&label=npm" alt="npm"></a>
+<a href="https://www.npmjs.com/package/ants-lab"><img src="https://img.shields.io/npm/dm/ants-lab?color=b5e8da&labelColor=1b1b1a&label=downloads" alt="npm downloads"></a>
 </p>
 
 <p align="center">
-<a href="#start-here">Start here</a> · <a href="#news">News</a> · <a href="#how-it-works">How it works</a> · <a href="#first-measurement">Measurement</a> · <a href="#quick-start">Quick start</a> · <a href="#documentation">Documentation</a> · <a href="#roadmap">Roadmap</a> · <a href="#cite">Cite</a>
+<a href="#start-here">Start here</a> · <a href="#news">News</a> · <a href="#how-it-works">How it works</a> · <a href="#first-measurement">Measurement</a> · <a href="#install">Install</a> · <a href="#quick-start">Quick start</a> · <a href="#documentation">Documentation</a> · <a href="#roadmap">Roadmap</a> · <a href="#cite">Cite</a>
 </p>
 
 **A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it.**
@@ -95,6 +97,17 @@ Data: [frontier.json](assets/frontier.json). Regenerate: `python assets/measure_
 **TinyTS-Bench** is specified before it is run: arms, seeds, stopping rule and what counts as a null result are in the
 [protocol](docs/benchmark.md).
 
+## Install
+
+| how | command | notes |
+|---|---|---|
+| npm, installed | `npm install -g ants-lab`, then `ants` | the package is a thin launcher; on first run it builds a private Python environment in `~/.ants` (Python 3.11+ and network needed, about ten seconds) |
+| npm, no install | `npx ants-lab doctor` | same launcher, run once |
+| from source | `git clone https://github.com/p-to-q/ants` then the steps in [Quick start](#quick-start) | for development, and for real data runs that live in the checkout |
+
+The npm package is [`ants-lab`](https://www.npmjs.com/package/ants-lab) (the bare name `ants` is taken). The command it installs is `ants`.
+Versions and how a release is cut: [docs/release.md](docs/release.md). PyPI: not published yet.
+
 ## Quick start
 
 **1. Install**
@@ -120,7 +133,7 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e ".[gy
 .venv/bin/ants doctor     # hash chain, disk, stuck or failing runs
 ```
 
-Every read command has `--json` and meaningful exit codes, so another agent can drive the same surface ([AGENTS.md](AGENTS.md)). With Node installed: `npx ants-lab doctor`.
+Every read command has `--json` and meaningful exit codes, so another agent can drive the same surface ([AGENTS.md](AGENTS.md)).
 
 **4. Real data** (downloaded, never shipped; sources and licences in [DATA](docs/DATA.md))
 
