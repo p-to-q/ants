@@ -160,7 +160,7 @@ def banner_svg(cfg, weight=None):
          f'<line x1="0" x2="{BW}" y1="72" y2="72" stroke="{INK}" stroke-width="1"/>',
          mark(36, 17, 38),
          f'<text x="82" y="46" font-family="{SERIF}" font-size="28" fill="{INK}" letter-spacing="-0.4">ants</text>',
-         f'<image href="data:image/png;base64,{logo}" x="{BW-40-93}" y="21" width="93" height="30"/>']
+         f'<image href="data:image/png;base64,{logo}" x="{BW-40-72}" y="23.4" width="72" height="23.3"/>']     # same top and bottom as the mark on the left (23.4 to 46.7)
     hs, tr = cfg["hs"], -cfg["hs"] * 0.02
 
     def head_line(y, text):
