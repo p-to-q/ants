@@ -204,7 +204,7 @@ def architecture():
     ch, gap_l, led = 144, 36, 48
     h = TOP + ch + gap_l + led + PAD
     o = head("Propose, judge, execute", "Proposers can only hand specs to the judge.")
-    widths, gaps = (196, 300, 260), (44, 36)                   # uneven on purpose; the wall gets room, the judge-to-execute hand-off sits close
+    widths, gaps = (196, 292, 252), (44, 52)                   # uneven on purpose; the wall gets room, the judge-to-execute hand-off sits close
     cols = [("Propose", ["Suggests specs and is", "trusted with nothing."], CARD, HAIR),
             ("Judge", ["Validates, prices, evaluates", "and records every spec."], MINT_2, MINT_2),
             ("Execute", ["Runs each trial in its own", "sandboxed process."], CARD, HAIR)]
@@ -217,8 +217,8 @@ def architecture():
         for j, s_ in enumerate(lines):
             o.append(t(x + 28, TOP + 82 + j * 21, s_, 13, INK if fill != CARD else "#4d524d"))
     g = xs[1] + widths[1]                                       # the only arrows up here: a spec goes out, a result comes back
-    o.append(arrow(g, xs[2], TOP + ch / 2 - 10))
-    o.append(arrow(xs[2], g, TOP + ch / 2 + 10))
+    o.append(arrow(g, xs[2], TOP + ch / 2 - 13))
+    o.append(arrow(xs[2], g, TOP + ch / 2 + 13))
     # the ledger under all three: a white band, reached by one arrow from each card
     ly = TOP + ch + gap_l
     o.append(card(PAD, ly, W - 2 * PAD, led, CARD, HAIR))
