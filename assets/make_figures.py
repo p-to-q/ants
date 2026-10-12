@@ -169,6 +169,8 @@ def banner_svg(cfg, weight=None):
         y = cy + dy * k
         o.append(curve(gx - 52, y, gx + 150, cy, "#ffffff", 1.0, 0.9))
         o.append(f'<rect x="{gx-57}" y="{y-4.5:.1f}" width="9" height="9" fill="{MINT_3}"/>')
+    x0, x1 = gx + 150, gx + 284          # the four merged lines carry on to the black square, thinner the further they go
+    o.append(f'<path d="M{x0},{cy-0.5} L{x1},{cy-0.08} L{x1},{cy+0.08} L{x0},{cy+0.5} Z" fill="#ffffff" fill-opacity="0.9"/>')
     o.append(f'<line x1="{gx+220}" x2="{gx+220}" y1="{cy-120*k:.1f}" y2="{cy+124*k:.1f}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
     o.append(f'<rect x="{gx+284}" y="{cy-6}" width="12" height="12" fill="{INK}"/>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {BW} {BH}" width="{BW}" role="img" '
