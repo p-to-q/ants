@@ -61,6 +61,15 @@ def save_config(cfg: dict) -> Path:
     return p
 
 
+def ledgers_in(base) -> list[Path]:
+    """`<base>/*/ledger.sqlite`, newest first; an unreadable or missing base (a cwd the service user cannot enter) is simply empty"""
+    try:
+        base = Path(base)
+        return sorted(base.glob("*/ledger.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True) if base.is_dir() else []
+    except OSError:
+        return []
+
+
 def package_root() -> Path | None:
     """The directory with contracts/ and data/ files shipped with ants: $ANTS_ROOT (npm launcher), else the source tree of an editable install."""
     r = os.environ.get("ANTS_ROOT")

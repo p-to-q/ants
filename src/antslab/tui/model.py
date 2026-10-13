@@ -25,9 +25,9 @@ def discover_workdirs(extra=()) -> list[Path]:
     cfg = load_config().get("run", {}).get("workdir")
     if cfg:
         cands.append(Path(cfg))
+    from ..home import ledgers_in
     for base in (Path("/var/lib/ants"), home() / "runs", Path("runs")):
-        if base.is_dir():
-            cands += sorted(p.parent for p in base.glob("*/ledger.sqlite"))
+        cands += sorted(p.parent for p in ledgers_in(base))
     out, seen = [], set()
     for p in cands:
         p = p.expanduser()
@@ -35,7 +35,11 @@ def discover_workdirs(extra=()) -> list[Path]:
             key = p.resolve()
         except OSError:
             continue
-        if key not in seen and (p / "ledger.sqlite").exists():
+        try:
+            present = (p / "ledger.sqlite").exists()
+        except OSError:
+            present = False
+        if key not in seen and present:
             seen.add(key)
             out.append(p)
     return out

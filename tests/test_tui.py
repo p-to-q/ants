@@ -173,3 +173,19 @@ def test_the_real_curses_loop_starts_navigates_and_quits_cleanly(run_dir):
     assert rc == 0, (rc, err[-500:])
     assert "Traceback" not in err and "Traceback" not in text
     assert "Autonomous Navigation" in text and "Leaderboard" in text or "evo" in text
+
+
+def test_a_working_directory_the_service_user_cannot_enter_does_not_break_discovery(tmp_path, monkeypatch):
+    locked = tmp_path / "locked"
+    (locked / "runs" / "x").mkdir(parents=True)
+    Ledger(locked / "runs" / "x" / "ledger.sqlite").close()
+    locked.chmod(0o000)
+    try:
+        monkeypatch.chdir(locked) if False else None
+        if os.access(locked, os.R_OK):
+            pytest.skip("directory permissions are not enforced here (root)")
+        from antslab.home import ledgers_in
+        assert ledgers_in(locked / "runs") == []
+        assert isinstance(model.discover_workdirs(), list)
+    finally:
+        locked.chmod(0o700)

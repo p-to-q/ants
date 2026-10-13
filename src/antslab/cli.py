@@ -63,8 +63,8 @@ def _resolve_workdir(a, chosen=None):
         return a
     a.workdir = os.environ.get("ANTS_WORKDIR") or _config_run().get("workdir")
     if not a.workdir:
-        svc = sorted(Path("/var/lib/ants").glob("*/ledger.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True) if Path("/var/lib/ants").exists() else []
-        runs = sorted(Path("runs").glob("*/ledger.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True) if Path("runs").exists() else []
+        from .home import ledgers_in
+        svc, runs = ledgers_in("/var/lib/ants"), ledgers_in("runs")
         a.workdir = str((svc or runs)[0].parent) if (svc or runs) else "runs/default"
     if chosen is not None:
         chosen.append(f"workdir={a.workdir}")
@@ -456,7 +456,7 @@ def _can_tui() -> bool:
 
 def _first_run_done() -> bool:
     from .home import config_path
-    return config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT")) or any(Path("runs").glob("*/ledger.sqlite"))
+    return config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT")) or bool(__import__("antslab.home", fromlist=["x"]).ledgers_in("runs"))
 
 
 def _first_run(ap) -> int:
