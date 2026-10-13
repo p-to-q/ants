@@ -64,6 +64,7 @@ Verified: `cd empty-dir && ants top` prints the `no contract found` message and 
 | `onboard` | create `~/.ants`, stage the catalog, fetch datasets, write `config.toml` | `~/.ants`, `data/raw`, `data/processed` |
 | `service install\|uninstall\|status\|logs` | keep `ants run` resident: systemd user unit (+ daily backup timer) or launchd agent | unit files |
 | `backup` / `backups` / `restore` | verified online snapshot of the ledger / list / put one back | backup directory; `restore` replaces the ledger (old one moved aside) |
+| `ui` / `home` | the terminal interface (plain `ants` on a terminal) / one screen printed and exit ([tui](tui.md)) | no |
 | `update` | look for a newer ants (npm registry, or GitHub releases with `[update] source = "github"`); `--apply` installs it with the method that installed ants (npm, git pull, or pip) | install only with `--apply` |
 | `sql` (alias `query`) | one read-only SELECT over the ledger, `--format table\|json\|jsonl\|csv`, `--schema` | no |
 

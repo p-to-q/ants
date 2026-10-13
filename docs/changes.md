@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-13 · The terminal interface
+Changed: plain `ants` on a terminal opens a curses interface (home with the mark and one line per running search, overview, leaderboard per cap, trials with detail, arms side by side, events, health, data, system) instead of the line shell, which remains for pipes and dumb terminals; `ants ui` and `ants home --screen …` (one screen printed) are explicit; the viewer opens the ledger with `Ledger.open_readonly`.
+Why: a person should be able to SSH to the machine and look at the search, its ranking, its failures and its health without asking anyone to run commands.
+Forecloses: a viewer that takes write locks on a live ledger; screens that compute their own numbers; starting, restoring or installing from inside the interface.
+
 ## 2026-10-13 · An operator that reads the ledger (from the Meta-Harness study)
 Changed: `agent` and `portfolio_agent` arms: the LLM operator may call five read-only tools over the ledger (`sql`, `show`, `diff`, `best`, `failures`, at most six per batch, `sql` with the tables of sealed looks, events, endpoints and artifacts denied) before it proposes specs, states a hypothesis and an axis (mechanism or parameter) and may name a parent for lineage; every call is a chained `agent_tool` event. `ants workspace` writes the ledger as plain files with a skill file; `ants diff` compares two trials. `docs/research/meta-harness.md` records the paper, its code, the neighbouring and downstream work as read in the originals, and the mapping to ants.
 Why: the one-shot operator conditions on a window of best specs, the regime in which the paper found summaries add nothing; ants already holds the full experience in the ledger and lacked a proposer that reads it.

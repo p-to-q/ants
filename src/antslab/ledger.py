@@ -141,6 +141,26 @@ class Ledger:
             self.conn.close()
             raise
 
+    @classmethod
+    def open_readonly(cls, path) -> "Ledger":
+        """A viewer's connection: `mode=ro` plus `query_only`, no schema creation, no migration, no pragma that writes. The live
+        daemon's file is never touched, so looking at it cannot slow it down or change it (any method that writes raises)."""
+        self = cls.__new__(cls)
+        self.path = str(path)
+        self._lock = threading.RLock()
+        if not Path(self.path).exists():
+            raise FileNotFoundError(f"no ledger at {self.path}")
+        self.conn = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True, timeout=10, isolation_level=None, check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row
+        try:
+            self.conn.execute("PRAGMA busy_timeout=10000")
+            self.conn.execute("PRAGMA query_only=ON")
+            self._refuse_newer()
+        except BaseException:
+            self.conn.close()
+            raise
+        return self
+
     def _refuse_newer(self):
         v = self.schema_version()
         if v > SCHEMA_VERSION:

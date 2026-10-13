@@ -34,7 +34,8 @@ def _contract_path(arg: str) -> str:
     """A path as given; or, when ANTS_ROOT is set, a bundled contract by name (`tinyts_synth_hard`, `tinyts_synth_hard.toml`)."""
     if Path(arg).exists():
         return arg
-    root = _root()
+    from .home import package_root
+    root = _root() or package_root()           # a bundled contract can be named in a source checkout too; it is never picked silently as a default
     if root:
         for cand in (root / "contracts" / arg, root / "contracts" / f"{arg}.toml", root / arg):
             if cand.is_file():
@@ -434,6 +435,25 @@ def cmd_janitor(a):
     return 0
 
 
+def cmd_ui(a):
+    from .tui.app import run
+    return run(contract=a.contract, workdir=a.workdir, arm=a.arm or None)
+
+
+def cmd_home(a):
+    from .tui.app import once
+    print(once(contract=a.contract, workdir=a.workdir, arm=a.arm or None, width=a.width, screen=a.screen, color=True if a.color else None))
+    return 0
+
+
+def _can_tui() -> bool:
+    try:
+        import curses  # noqa: F401
+    except ImportError:
+        return False
+    return sys.stdin.isatty() and sys.stdout.isatty() and os.environ.get("TERM", "") not in ("", "dumb") and not os.environ.get("ANTS_NO_TUI")
+
+
 def _first_run_done() -> bool:
     from .home import config_path
     return config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT")) or any(Path("runs").glob("*/ledger.sqlite"))
@@ -542,11 +562,17 @@ def main(argv=None):
     d.add_argument("--catalog", default=None); d.add_argument("--tier", default="dev", help="fetch: dev | standard | extended | all"); d.add_argument("--names"); d.add_argument("--present", action="store_true", help="build: every real dataset whose raw files exist"); d.add_argument("--all", action="store_true"); d.add_argument("--partial", action="store_true", help="verify only the files that exist (dev-tier installs)")
     d.set_defaults(fn=cmd_data)
     _system_parsers(sub)
+    s = sub.add_parser("ui", help="the terminal interface (what plain `ants` opens on a terminal)")
+    s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
+    s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")
+    s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None)
+    s.add_argument("--screen", default="home", choices=["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system"])
+    s.add_argument("--width", type=int, default=100); s.add_argument("--color", action="store_true"); s.set_defaults(fn=cmd_home)
     a = ap.parse_args(argv)
     if a.cmd is None:                                 # plain `ants`: set up on the first run, else the interactive shell
         if not _first_run_done():
             return _first_run(ap)
-        a = ap.parse_args(["shell"])
+        a = ap.parse_args(["ui" if _can_tui() else "shell"])        # a terminal gets the interface; a pipe or a dumb terminal the line shell
     if a.fn in (cmd_shell, cmd_top, cmd_best, cmd_status):
         from .update import notice
         line = notice()

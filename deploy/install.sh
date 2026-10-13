@@ -29,6 +29,8 @@ for u in ants@.service ants-janitor@.service ants-janitor@.timer ants-health@.se
   install -m 644 "/opt/ants/deploy/$u" "/etc/systemd/system/$u"
 done
 systemctl daemon-reload
+# `ants` on the PATH: runs as the service user (see the file), so `ssh server`, then `ants`, opens the interface
+install -m 755 /opt/ants/deploy/ants-wrapper.sh /usr/local/bin/ants
 echo "== secrets file check"
 if [ -e /etc/ants/llm.env ]; then
   [ "$(stat -c '%a %U' /etc/ants/llm.env)" = "600 ants" ] || echo "WARNING: /etc/ants/llm.env must be mode 600, owner ants (chown ants:ants; chmod 600): the client refuses anything else"

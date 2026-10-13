@@ -357,3 +357,12 @@ def test_three_instances_fit_the_two_gigabyte_two_core_host():
     m = parse("ants@.service")["Service"]
     mem = lambda v: int(v.rstrip("M"))
     assert 3 * mem(m["MemoryMax"]) <= 1990 and 3 * int(m["CPUQuota"].rstrip("%")) <= 200
+
+
+def test_the_path_wrapper_runs_ants_as_the_service_user_and_passes_arguments_untouched():
+    w = DEPLOY / "ants-wrapper.sh"
+    text = w.read_text()
+    assert subprocess.run(["sh", "-n", str(w)], capture_output=True).returncode == 0
+    assert 'exec runuser -u ants --' in text and 'sudo -u ants' in text and text.count('"$@"') == 3
+    assert "eval" not in text and "$*" not in text
+    assert "ants-wrapper.sh" in (DEPLOY / "install.sh").read_text() and "/usr/local/bin/ants" in (DEPLOY / "install.sh").read_text()

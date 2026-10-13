@@ -495,3 +495,21 @@ def test_fetch_refuses_path_traversal_and_cleans_up_partial_downloads(tmp_path):
         def read(self, n=-1): raise OSError("connection reset")
     fetch.fetch(tmp_path, "dev", log=lambda *_: None, opener=lambda r, timeout: Boom(), sleep=lambda s: None, retries=1)
     assert not list((tmp_path / "raw" / "a").glob("*"))
+
+
+def test_read_only_ledger_reads_a_live_ledger_without_touching_it(work):
+    db = work / "ledger.sqlite"
+    live = Ledger(db)
+    before = db.read_bytes()
+    ro = Ledger.open_readonly(db)
+    assert ro.head() == live.head() and len(ro.events("note")) == 5
+    with pytest.raises(sqlite3.OperationalError):
+        ro.event("note", {"x": 1})
+    with pytest.raises(sqlite3.OperationalError):
+        ro.conn.execute("DELETE FROM events")
+    live.event("note", {"later": 1})                                  # the writer carries on; the reader sees it on its next query
+    assert len(ro.events("note")) == 6
+    ro.close()
+    live.close()
+    with pytest.raises(FileNotFoundError):
+        Ledger.open_readonly(work / "nope.sqlite")

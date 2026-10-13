@@ -63,7 +63,7 @@ best per parameter cap (deepest stage reached)
 search mechanisms (discovery rate)  qd 1.00  sweep 0.67  tpe 0.33  evo 0.25  sa 0.00  de 0.00
 ```
 
-`ants top` on a 60-trial demo, not a campaign. `rel_mse` below 1 beats seasonal naive.
+`ants top` on a 60-trial demo, not a campaign. `rel_mse` below 1 beats seasonal naive. Plain `ants` on a terminal opens the [terminal interface](docs/tui.md).
 
 ## How it works
 
@@ -112,39 +112,40 @@ Versions and how a release is cut: [docs/release.md](docs/release.md). PyPI: not
 **1. Install**
 
 ```bash
-git clone https://github.com/p-to-q/ants && cd ants
-uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e ".[gyms,search,dev]"
-.venv/bin/python -m pytest tests -q -m "not slow"
+npm install -g ants-lab                  # or: git clone https://github.com/p-to-q/ants && cd ants && uv pip install -e ".[gyms,search,dev]"
 ```
 
-**2. Run a campaign on synthetic data**
+**2. Set up**: creates `~/.ants`, downloads the public datasets (every file checked against a pinned hash) and writes the config
 
 ```bash
-.venv/bin/ants run --contract contracts/tinyts_synth_hard.toml --workdir runs/demo --arm portfolio --max-evals 300
+ants onboard
 ```
 
-**3. Look at it**
+**3. Run**
 
 ```bash
-.venv/bin/ants            # no flags: the interactive shell on the latest ledger
-.venv/bin/ants top        # state, best per cap, operators
-.venv/bin/ants show 12    # spec, every stage, lineage of one trial
-.venv/bin/ants doctor     # hash chain, disk, stuck or failing runs
+ants run                                 # in the foreground
+ants service install --now               # or keep it running: restarts, watchdog, daily verified backup
+ants run --contract tinyts_synth_hard --workdir runs/demo --max-evals 300      # a first look on synthetic data
+```
+
+**4. Look at it**
+
+```bash
+ants                  # on a terminal: the interface (docs/tui.md); in a pipe: the line shell
+ants top              # state, best per cap, operators
+ants show 12          # spec, every stage, lineage of one trial
+ants diff 5 7         # what differs between two trials
+ants sql "SELECT stage, COUNT(*) FROM trials GROUP BY stage"     # read-only
+ants doctor           # hash chain, disk, stuck or failing runs, backups
+ants backup           # verified snapshot; ants restore puts one back
 ```
 
 Every read command has `--json` and meaningful exit codes, so another agent can drive the same surface ([AGENTS.md](AGENTS.md)).
 
-**4. Real data** (downloaded, never shipped; sources and licences in [DATA](docs/DATA.md))
+**5. Language-model arms** (optional): put `LLM_<TAG>_BASE`, `LLM_<TAG>_KEY` and `LLM_<TAG>_MODEL` in a `chmod 600` env file and use `--arm portfolio_llm`, or `--arm portfolio_agent` for the operator that reads the ledger before it proposes. Keys are never written to the repository, the ledger or a log; model calls are capped per day.
 
-```bash
-scripts/fetch_data.sh dev
-.venv/bin/ants data build
-.venv/bin/ants run --contract contracts/tinyts_real.toml --workdir runs/real --arm portfolio --max-evals 500
-```
-
-**5. Language-model arms** (optional): put `LLM_<TAG>_BASE`, `LLM_<TAG>_KEY` and `LLM_<TAG>_MODEL` in a `chmod 600` env file and use `--arm portfolio_llm`. Keys are never written to the repository, the ledger or a log.
-
-**6. A server**: [operations](docs/operations.md) and `deploy/`.
+**6. A server**: [operations](docs/operations.md) and `deploy/`. `ants update` checks for a newer version.
 
 ## Documentation
 
@@ -158,6 +159,7 @@ scripts/fetch_data.sh dev
 | [CLI](docs/cli.md) | every command, flag and exit code |
 | [Operations](docs/operations.md) · [Scaling](docs/scaling.md) | install, limits, failure modes, budget; what grows by configuration |
 | [Benchmark](docs/benchmark.md) · [Open questions](docs/open.md) · [FAQ](docs/faq.md) | protocol, unknowns, objections |
+| [Terminal interface](docs/tui.md) | the screens, keys and design of what `ants` opens |
 | [Meta-Harness study](docs/research/meta-harness.md) | what the paper and its neighbours show, and what ants takes from them |
 | [Data](docs/DATA.md) · [Security](SECURITY.md) · [Surfaces](docs/surfaces.md) | datasets, threat model, what is stable |
 
