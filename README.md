@@ -45,6 +45,8 @@ The first domain is time-series forecasting with models of 100 to 3 000 paramete
 
 | date | |
 |---|---|
+| 2026-10-13 | `ants` opens a terminal interface (home, overview, leaderboard, trials, arms side by side, events, health, data, system) with live animation and plain-language status; `ants onboard`, `service`, `backup`, `restore`, `sql`, `update` make it a resident system ([tui](docs/tui.md)). |
+| 2026-10-13 | Three searches run on a 2 GB server: no model, a one-shot model operator, and an agent that reads the ledger before it proposes. First eight hours analysed; epoch 2 fixes what they showed ([roadmap](docs/roadmap.md)). |
 | 2026-10-13 | Independent audit: 36 findings. Single-instance lock, signal-safe shutdown, an AST patch gate, sealed-look accounting, chain anchors and per-bin promotion evidence are merged. |
 | 2026-10-13 | `ants best` now ranks by the deepest stage reached; the first-stage value no longer outranks a deeper one. |
 | 2026-10-13 | Cheap-stage fidelity measured: S0 keeps only half of the true top quartile; S1 and S2 agree almost exactly ([open questions](docs/open.md)). |
@@ -159,7 +161,7 @@ Every read command has `--json` and meaningful exit codes, so another agent can 
 | [CLI](docs/cli.md) | every command, flag and exit code |
 | [Operations](docs/operations.md) · [Scaling](docs/scaling.md) | install, limits, failure modes, budget; what grows by configuration |
 | [Benchmark](docs/benchmark.md) · [Open questions](docs/open.md) · [FAQ](docs/faq.md) | protocol, unknowns, objections |
-| [Terminal interface](docs/tui.md) | the screens, keys and design of what `ants` opens |
+| [Terminal interface](docs/tui.md) · [Roadmap](docs/roadmap.md) | the manual of what `ants` opens; what changes next and how it is kept honest |
 | [Meta-Harness study](docs/research/meta-harness.md) | what the paper and its neighbours show, and what ants takes from them |
 | [Data](docs/DATA.md) · [Security](SECURITY.md) · [Surfaces](docs/surfaces.md) | datasets, threat model, what is stable |
 
@@ -192,12 +194,13 @@ Hashed locks: `requirements/`. Ubuntu 24.04 and macOS are tested.
 
 ## Roadmap
 
-- [x] ledger, runner, campaign, search ecology, interactive shell, janitor
-- [x] sealed-look accounting, chain anchors, promotion ladder with evidence
-- [x] pre-registered benchmark protocol
-- [ ] first long campaign on a 2 GB server
-- [ ] equal-budget comparison: ants against random 2× and TPE, at least 6 seeds
-- [ ] stronger cheap stage (see [open questions](docs/open.md))
+Dated plan, order of work, what starts a new epoch and how comparisons are kept honest: [docs/roadmap.md](docs/roadmap.md).
+
+- [x] ledger, runner, campaign, search ecology, janitor, sealed-look accounting, chain anchors, promotion ladder with evidence
+- [x] resident system: onboarding, service units with watchdog, verified backups, read-only SQL, update check, terminal interface
+- [x] first long campaign on a 2 GB server (three arms running since 2026-10-13)
+- [ ] equal-budget comparison: plain, one-shot model, agent that reads the ledger, random 2×, TPE; 8 seeds
+- [ ] a deeper stage that is not a copy of the one before it; stronger cheap stage ([open questions](docs/open.md))
 - [ ] artifact checks (E3), per-window losses for the registry
 - [ ] a worker pool per arm, for larger machines ([scaling](docs/scaling.md))
 - [ ] a second arena: one frozen model, many datasets

@@ -87,11 +87,79 @@ class Source:
         by = {r[0]: r[1] for r in rows}
         snap["rate_6h"] = [by.get(i, 0) for i in range(35, -1, -1)]                 # finished per 10 minutes, oldest first
         snap["totals"] = {r[0]: r[1] for r in self.led.conn.execute("SELECT state, COUNT(*) FROM trials WHERE gym=? AND arm=? GROUP BY state", (self.c.gym, self.arm))}
-        snap["curve"] = self.best_curve()
+        timeline = self.best_timeline()
+        snap["curve"] = self.thin([v for _, v in timeline])
+        snap["running"] = self.running(now)
+        snap["events_min"] = self.events_per_minute(now)
+        snap["calls_hour"] = self.calls_per_hour(now)
+        snap["mood"] = self.mood_inputs(snap, timeline, now)
         return snap
 
+    @staticmethod
+    def thin(out: list, points: int = 40) -> list:
+        if len(out) > points:
+            step = len(out) / points
+            out = [out[int(i * step)] for i in range(points - 1)] + [out[-1]]
+        return out
+
+    def best_timeline(self) -> list[tuple]:
+        """(finish time, best-so-far) for every deepest-stage evaluation, in finish order"""
+        last = self.c.stages[-1]
+        sign = self.hist.sign
+        best, out = None, []
+        for t, v in self.led.conn.execute(
+                "SELECT finished_at, json_extract(metrics, ?) FROM trials WHERE gym=? AND arm=? AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at, id",
+                (f"$.{self.c.primary}", self.c.gym, self.arm, last)):
+            if v is None:
+                continue
+            best = v if best is None or sign * v < sign * best else best
+            out.append((t, best))
+        return out
+
+    def running(self, now: float) -> list[dict]:
+        rows = self.led.conn.execute("SELECT id, stage, source, started_at FROM trials WHERE gym=? AND arm=? AND state='running' ORDER BY started_at", (self.c.gym, self.arm)).fetchall()
+        from ..textsafe import clean_text
+        return [{"id": r[0], "stage": r[1], "source": clean_text(r[2], 40), "for_s": now - r[3] if r[3] else None} for r in rows]
+
+    def events_per_minute(self, now: float, minutes: int = 60) -> list[int]:
+        by = {r[0]: r[1] for r in self.led.conn.execute("SELECT CAST((? - ts)/60 AS INTEGER) b, COUNT(*) FROM events WHERE ts>? GROUP BY b", (now, now - minutes * 60))}
+        return [by.get(i, 0) for i in range(minutes - 1, -1, -1)]
+
+    def calls_per_hour(self, now: float, hours: int = 24) -> list[tuple]:
+        """(ok, failed) model calls per hour, oldest first"""
+        ok, bad = {}, {}
+        for b, good, n in self.led.conn.execute("SELECT CAST((? - ts)/3600 AS INTEGER) b, ok, COUNT(*) FROM llm_calls WHERE ts>? GROUP BY b, ok", (now, now - hours * 3600)):
+            (ok if good else bad)[b] = n
+        return [(ok.get(i, 0), bad.get(i, 0)) for i in range(hours - 1, -1, -1)]
+
+    def mood_inputs(self, snap: dict, timeline: list, now: float) -> dict:
+        import statistics
+        rate = snap["rate_6h"]
+        fin = [r[0] for r in self.led.conn.execute("SELECT state FROM trials WHERE gym=? AND arm=? AND state IN ('done','failed','timeout','crashed') ORDER BY finished_at DESC LIMIT 40", (self.c.gym, self.arm))]
+        improved = None
+        prev = None
+        for t, v in timeline:
+            if prev is None or self.hist.sign * v < self.hist.sign * prev:
+                improved = t
+            prev = v
+        calls = self.led.conn.execute("SELECT COUNT(*), COALESCE(SUM(ok),0) FROM llm_calls WHERE ts>?", (now - 3600,)).fetchone()
+        backup_age = None
+        try:
+            from .. import system
+            from ..backup import list_backups
+            d = system.backup_dir(self.workdir)
+            bk = list_backups(d) if d.exists() else []
+            backup_age = (now - bk[0]["created"]) / 3600 if bk else None
+        except Exception:
+            pass
+        return {"paused": snap["paused"], "chain_ok": snap["chain_tail_ok"], "free_gb": snap["free_gb"], "evals": snap["totals"].get("done", 0),
+                "finished_1h": snap["finished_1h"], "rate_median_1h": (statistics.median(rate) * 6) if rate else 0, "last_age_s": snap["last_finish_age_s"],
+                "fail_share": (sum(1 for s in fin if s != "done") / len(fin)) if fin else 0.0,
+                "best_age_s": (now - improved) if improved else None,
+                "llm_fail_share": ((calls[0] - calls[1]) / calls[0]) if calls[0] >= 4 else None, "backup_age_h": backup_age}
+
     def best_curve(self, points: int = 40) -> list[float]:
-        """best deepest-stage primary value over time (finish order), thinned to `points`: how the search is going at a glance"""
+        """best deepest-stage primary value over time (finish order), thinned to `points`: how the search is going at a glance (kept for callers)"""
         last = self.c.stages[-1]
         sign = self.hist.sign
         vals = [(r[0], r[1]) for r in self.led.conn.execute(
@@ -132,6 +200,25 @@ class Source:
 
     def events(self, n: int = 200, kind: str | None = None) -> list[dict]:
         return ui.log(self.led, n, kind)
+
+    def health_extra(self) -> dict:
+        import shutil
+        out = {}
+        try:
+            du = shutil.disk_usage(self.workdir)
+            out["disk_used_frac"] = du.used / du.total
+        except OSError:
+            pass
+        try:
+            out["ledger_mb"] = (self.workdir / "ledger.sqlite").stat().st_size / 1e6
+            from .. import system
+            from ..backup import list_backups
+            d = system.backup_dir(self.workdir)
+            bk = list_backups(d) if d.exists() else []
+            out["backup_age_h"] = (time.time() - bk[0]["created"]) / 3600 if bk else None
+        except Exception:
+            pass
+        return out
 
     def health(self) -> list[tuple[str, str]]:
         from ..system import durability_checks
@@ -186,7 +273,7 @@ def fleet(sources: list["Source"]) -> list[dict]:
         deepest = s.c.stages[-1]
         n_deep = snap["stages"].get(deepest, {}).get("done", 0)
         out.append({"workdir": str(s.workdir), "arm_name": s.arm, "arm": s.arm if s.workdir.name == s.arm else f"{s.workdir.name}/{s.arm}", "epoch": snap["epoch"], "evals": done, "deep": n_deep, "h1": snap["finished_1h"],
-                    "last_age": snap["last_finish_age_s"], "paused": snap["paused"], "chain": snap["chain_tail_ok"],
+                    "last_age": snap["last_finish_age_s"], "paused": snap["paused"], "chain": snap["chain_tail_ok"], "mood": snap["mood"], "rate_6h": snap["rate_6h"], "ops": snap["operators"],
                     "best": {k: v[0] for k, v in snap["best_by_cap"].items() if v}, "free_gb": snap["free_gb"], "curve": snap["curve"]})
     return out
 
@@ -227,6 +314,8 @@ def system_info(source: "Source | None") -> dict:
         from ..llm import daily_cap
         info["llm_24h"] = {"calls": calls[0], "ok": calls[1], "cap": daily_cap()}
         info["agent_tools_24h"] = source.led.conn.execute("SELECT COUNT(*) FROM events WHERE kind='agent_tool' AND ts>?", (time.time() - 86400,)).fetchone()[0]
+        info["calls_hour"] = source.calls_per_hour(time.time())
+        info["now"] = time.time()
     try:
         unit = f"ants@{source.arm}" if source and Path("/etc/systemd/system/ants@.service").exists() else None
         if unit:

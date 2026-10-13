@@ -175,3 +175,57 @@ def test_running_a_query_that_streams_and_stalls_is_refused_not_raised(ledger, m
     monkeypatch.setattr(sqlview, "MAX_SECONDS", 1.0)
     with pytest.raises(SqlRefused):
         run_query(ledger.path, "WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM r) SELECT x FROM r WHERE x < 0", 5)
+
+
+def test_a_language_model_operator_has_a_guaranteed_slice_of_every_batch(ledger, make_contract):
+    from antslab.history import History
+    c = make_contract()
+    p = make_proposer("portfolio_agent", c, 3, client=Script([]))
+    assert p.floors == {"agent": 0.2}
+    h = History(ledger, c, "arm")
+    h.update()
+    got = sum(p.allocation(h, 100).get("agent", 0) for _ in range(40)) / 4000
+    assert 0.15 < got < 0.30                                       # about a fifth, whatever the bandit thinks of it
+    q = make_proposer("portfolio_llm", c, 3, client=Script([]))
+    assert q.floors == {"llm": 0.2}
+    assert make_proposer("portfolio", c, 3).floors == {}
+
+
+def test_promotion_by_cap_lets_small_models_compete_with_their_own_size(ledger, make_contract, tmp_path):
+    from antslab.campaign import Campaign
+    from antslab.contract import load_contract
+    from antslab.history import History
+    c = make_contract()
+    c.raw.setdefault("cascade", {})["promote_by_cap"] = True
+    h = History(ledger, c, "arm")
+    # 10 big models with good values, 10 small ones with worse values: a global cut would never promote a small one
+    for i in range(10):
+        for cap_params, base in ((250, 2.0), (80, 3.0)):
+            tid = ledger.enqueue(c.gym, "arm", i, {"a": (i + 1) / 20, "b": 1 + i + (0 if cap_params > 100 else 15), "c": "u"}, "random")
+            t = ledger.claim(60, c.gym, "arm")
+            ledger.finish(t["id"], t["attempt"], "done", metrics={"val_mse": base + i * 0.01, "n_params": cap_params})
+    h.update()
+    sm = {"val_mse": 3.005, "n_params": 80}
+    class P:                                                        # a campaign shell exposing only what _should_promote reads
+        pass
+    cp = Campaign.__new__(Campaign)
+    cp.c, cp.hist = c, h
+    t = {"stage": "s0"}
+    assert cp._should_promote(t, sm) is True                       # the small models' own median is near 3.0
+    c.raw["cascade"]["promote_by_cap"] = False
+    assert cp._should_promote(t, sm) is False                      # against everything it would be cut
+
+
+def test_every_model_call_leaves_a_yield_event_saying_what_survived(ledger, make_contract):
+    from antslab.proposers import LLMProposer
+    c = make_contract()
+    reply = {"proposals": [GOOD, {"a": 9, "b": 3, "c": "v"}, dict(GOOD)], "rationale": "r"}
+    p = LLMProposer(c, Script([reply, None]), EvoProposer(c, random.Random(0)), random.Random(0), per_call=6)
+    p.refill(ledger, "arm", set()); _drain(p, ledger, 1)
+    p.refill(ledger, "arm", set()); _drain(p, ledger, 1)
+    ev = [e["payload"] for e in ledger.events("proposer_yield")]
+    assert ev and ev[0]["proposed"] == 3 and ev[0]["invalid"] == 1 and ev[0]["accepted"] == 1 and ev[0]["operator"] == "llm"
+    a = _agent(c, Script([{"proposals": [GOOD], "hypothesis": "h", "axis": "mechanism"}]))
+    a.refill(ledger, "arm", set()); _drain(a, ledger)
+    assert any(e["payload"].get("operator") == "agent" and e["payload"]["accepted"] == 1 and e["payload"]["axis"] == "mechanism" for e in ledger.events("proposer_yield"))
+    assert ledger.verify_chain()[0]

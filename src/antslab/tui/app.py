@@ -11,7 +11,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import model, render, views
+from . import anim, model, render, views
 from .views import Ctx, S
 
 REFRESH_S = 3.0
@@ -49,6 +49,10 @@ class App:
         self.sources: dict[str, model.Source] = {}
         self.failed: dict = {}
         self.label = "no ledger"
+        self.ranks: dict = {}
+        self.refreshing = False
+        self.frozen = False
+        self.note, self.note_until = "", 0.0
         self.refresh = threading.Event()
         self.stop = threading.Event()
         self.detail_id: int | None = None
@@ -106,15 +110,19 @@ class App:
         if screen == "overview":
             return {"snap": src.overview()}
         if screen == "board":
-            return {"lb": src.leaderboard(10)}
+            lb = src.leaderboard(10)
+            ranks = {r["trial"]: r["rank"] for rows in lb.values() for r in rows}
+            out = {"lb": lb, "prev_ranks": dict(self.ranks)}                  # ranks as of the previous refresh: the ▲ ▼ marks
+            self.ranks = ranks
+            return out
         if screen == "trials":
             return {"rows": src.trials(filt.get("state"), filt.get("stage")), "now": time.time()}
         if screen == "detail":
             return {"detail": src.detail(detail_id)}
         if screen == "events":
-            return {"rows": src.events(200, filt.get("kind"))}
+            return {"rows": src.events(200, filt.get("kind")), "per_minute": src.events_per_minute(time.time())}
         if screen == "health":
-            return {"rows": src.health()}
+            return {"rows": src.health(), "extra": src.health_extra()}
         if screen == "data":
             try:
                 return {"data": model.data_overview()}
@@ -129,6 +137,10 @@ class App:
             with self.lock:
                 screen, filt, did = self.screen, dict(self.filt), self.detail_id
             key = self.key()
+            if self.frozen and self.data.key == key and self.data.value is not None:
+                self.refresh.wait(REFRESH_S); self.refresh.clear()
+                continue
+            self.refreshing = True
             try:
                 val, err = self.load("detail" if screen == "detail" else screen, filt, did), None
             except Exception as e:                          # the screen shows the reason; the loop goes on
@@ -136,6 +148,7 @@ class App:
             d = Data()
             d.value, d.error, d.at, d.key = val, err, time.time(), key
             self.data = d
+            self.refreshing = False
             self.refresh.wait(REFRESH_S)
             self.refresh.clear()
 
@@ -170,6 +183,10 @@ class App:
         if d.value is None:
             return views.View([[S(" loading…", "dim")]])
         c.filt = self.filt
+        c.t = time.time()
+        c.ascii_only = "UTF" not in (os.environ.get("LC_ALL") or os.environ.get("LC_CTYPE") or os.environ.get("LANG") or "UTF").upper()
+        if isinstance(d.value, dict):
+            c.prev_ranks = d.value.get("prev_ranks") or {}
         fn = {"home": views.home, "overview": views.overview, "board": views.board, "trials": views.trials, "detail": views.detail, "fleet": views.fleet_screen,
               "events": views.events, "health": views.health, "data": views.data_screen, "system": views.system_screen}[self.screen]
         try:
@@ -244,6 +261,20 @@ class App:
             return self.prompt(K)
         elif ch in (ord("r"), ord("R")):
             self.refresh.set()
+        elif ch == ord(" "):
+            self.frozen = not self.frozen
+            self.say("refresh frozen (space to continue)" if self.frozen else "refresh continues")
+            self.refresh.set()
+        elif ch == ord("p") and self.screen != "pager":
+            self.toggle_pause()
+        elif ch == ord("h") and self.screen != "pager":
+            return self.prompt(K, "hint ")
+        elif ch == ord("]") or ch == ord("["):
+            self.step_search(1 if ch == ord("]") else -1)
+        elif ch == ord("g"):
+            c.sel = 0; self.scroll = 0
+        elif ch == ord("G"):
+            c.sel = max(v.rows - 1, 0); self.scroll = max(0, len(v.lines) - (c.height - 3))
         elif ord("0") <= ch <= ord("8"):
             order = ["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system"]
             self.goto(order[ch - ord("0")])
@@ -283,6 +314,41 @@ class App:
         elif ch == ord("a"):
             self.next_arm()
         return True
+
+    def say(self, text: str, seconds: float = 6.0):
+        self.note, self.note_until = text, time.time() + seconds
+
+    def toggle_pause(self):
+        """the PAUSE flag of the search on screen, through the ordinary CLI command (the only thing here that writes, besides a hint)"""
+        from .. import cli, ui
+        try:
+            src = self.current()
+        except Exception as e:
+            self.say(f"cannot pause: {e}")
+            return
+        if src is None:
+            return
+        flag = Path(src.workdir) / ui.PAUSE_FILE
+        cmd = "resume" if flag.exists() else "pause"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            try:
+                cli.main([cmd, "--workdir", str(src.workdir), "--contract", self.contract, "--arm", src.arm])
+            except SystemExit:
+                pass
+            except Exception as e:
+                buf.write(f"error: {e}")
+        self.say(f"{src.workdir.name}/{src.arm}: " + (buf.getvalue().strip().splitlines() or [cmd])[0][:80])
+        self.refresh.set()
+
+    def step_search(self, d: int):
+        if not self.workdirs:
+            return
+        self.wd_i = (self.wd_i + d) % len(self.workdirs)
+        self.arm = None
+        self.ctx.sel = 0
+        self.refresh.set()
+        self.say(f"now looking at {self.workdirs[self.wd_i].name}")
 
     def cycle_screen(self, d: int):
         order = ["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system"]
@@ -324,9 +390,9 @@ class App:
                         self.wd_i, self.arm = i, rows[c.sel].get("arm_name") or rows[c.sel]["arm"]
                 self.goto("overview")
 
-    def prompt(self, K) -> bool:
+    def prompt(self, K, initial: str = "") -> bool:
         scr = self.scr
-        buf = ""
+        buf = initial
         scr.timeout(-1)
         K.curs_set(1)
         try:
@@ -352,7 +418,7 @@ class App:
                     buf += ch
         finally:
             K.curs_set(0)
-            scr.timeout(200)
+            scr.timeout(400 if anim.slow_link() else 150)
         if buf.strip():
             self.run_command(buf)
         return True
@@ -381,13 +447,20 @@ class App:
                 x += len(text)
         tabs = " ".join((f"[{k}]" if self.screen == s or (self.screen == "detail" and s == "trials") else k) for s, k in
                         [(s, str(i)) for i, (s, _) in enumerate(views.SCREENS)])
-        status = f" {self.label} · {tabs} · / command · ? help · q quit"
+        now = time.time()
+        glyph = anim.frame("loading" if self.refreshing else "alive", now, c.ascii_only)
+        status = f" {glyph} {self.label} · {tabs}"
+        hint = views.KEYS.get(self.screen, views.KEYS["home"])
         try:
+            if self.note and now < self.note_until:
+                scr.addnstr(h - 2, 0, " " + self.note[: w - 3], w - 1, paint("accent"))
+            else:
+                scr.addnstr(h - 2, 0, " " + hint[: w - 3], w - 1, paint("dim"))
             scr.addnstr(h - 1, 0, status[: w - 1], w - 1, paint("dim"))
-            age = time.time() - self.data.at if self.data.at else None
+            age = now - self.data.at if self.data.at else None
             if age is not None:
-                tag = f"{age:.0f}s ago "
-                scr.addnstr(h - 1, max(0, w - len(tag) - 1), tag, len(tag), paint("dim"))
+                tag = ("frozen " if self.frozen else "") + f"{age:.0f}s ago "
+                scr.addnstr(h - 1, max(0, w - len(tag) - 1), tag, len(tag), paint("warn" if self.frozen else "dim"))
         except K.error:
             pass
         scr.refresh()
@@ -434,7 +507,7 @@ def run(contract=None, workdir=None, arm=None) -> int:
             curses.start_color()
             curses.use_default_colors()
         scr.keypad(True)
-        scr.timeout(200)
+        scr.timeout(400 if anim.slow_link() else 150)             # the key loop is the animation clock: about 7 frames a second, 2.5 over ssh
         paint = make_painter(curses)
         t = threading.Thread(target=app.loader, daemon=True)
         t.start()

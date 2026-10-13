@@ -47,7 +47,7 @@ Unit of search budget: **finished ledger rows of any stage** (`--max-evals`, cou
 | `ridge_unconstrained` | `core=linear`, look-back 96/336/720, ridge 1/100/1e4 | `handbuilt.py`; reference row only | 27 specs |
 | `seasonal_naive` | the reference itself | `rel_mse = 1` by definition (`tinyts.py`, ratio to the seasonal-naive MSE) | none |
 
-The LLM arms (`portfolio_llm`, ...) are excluded from v0: Not run, no endpoint configured, and an LLM benefit is a separate question ([open.md](open.md) question 2).
+The LLM arms (`portfolio_llm`, ...) are excluded from v0: an LLM benefit is a separate question (the server runs `portfolio_llm` and `portfolio_agent` since 2026-10-13; no result yet) ([open.md](open.md) question 2).
 
 Hand-built grids, saved as `handbuilt.py` and run once, deterministically (no seeds). Verified in `--quick` mode (first grid point per family; the full grid, 243 evaluations of about 11 s each, was Not run):
 

@@ -97,7 +97,7 @@ over-cap model that must not become a leader.
 
 ## How the two shipped gyms do it
 
-| | `gyms/toy.py` (stdlib, 40 lines) | `gyms/tinyts.py` (numpy, 664 lines) |
+| | `gyms/toy.py` (stdlib, 40 lines) | `gyms/tinyts.py` (numpy, 840 lines) |
 |---|---|---|
 | purpose | CI and fault injection | ultra-light forecasters trained in closed form |
 | metrics | `val_mse`, `n_params` | `rel_mse`, `rel_mae`, `val_mse`, `n_params`, `bytes`, `n_tasks`, `fit_s`; s2 adds `robustness_index seasonal_fidelity horizon_decay` |

@@ -19,7 +19,7 @@ Files: `deploy/install.sh`, `deploy/remote_deploy.sh`, `deploy/PREFLIGHT.md`, `d
 rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw data/processed data/MANIFEST.dev.sha256 contracts/tinyts.toml`; builds the venv from the hashed lock
 `requirements/server.txt` (`--require-hashes`); installs six units; warns if `/etc/ants/llm.env` is not `600 ants`. It starts nothing.
 
-Not run: `remote_deploy.sh` (no server). `install.sh` was read, not executed.
+`remote_deploy.sh` has been run against the server (install, data, llmkey, start, status, pull-backups untested). `install.sh` was read, not executed.
 `remote_deploy.sh install` globs `dist/antslab-*.tar.gz`: build the package with `scripts/pack_public.sh` first.
 
 ## 2. Units and limits
@@ -80,11 +80,11 @@ l.verify_anchor_file("/var/lib/ants/anchors.jsonl")   # (True, None); (False, "t
 
 Copy `anchors.jsonl` off the machine (mail, a git remote, object lock) at every freeze and after every sealed look. `gate.seal(..., anchor_file=...)` refuses to run if the
 ledger no longer contains every anchored head. `ants status` prints the head (16 hex characters) if you only want to note it down.
-Not run on the target machine: the backup and anchor commands.
+The backup unit has run on the target machine; `pull-backups` has not.
 
 ## 5. What `ants doctor` checks
 
-Seven checks plus four on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup), the thresholds are in [cli.md](cli.md#doctor). `ants-health@<arm>.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
+Eight checks (chain, disk, freshness, failure rate, stale runners, unarchived artifacts, model parse rate, epochs) plus up to five on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup) and a version line, the thresholds are in [cli.md](cli.md#doctor). `ants-health@<arm>.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
 30 min **while work is queued**, but an `s2` stage may legitimately run up to 1800 s (30 min) in `tinyts_real`, so a slow s2 can produce a transient FAIL.
 
 ## 6. Failure modes

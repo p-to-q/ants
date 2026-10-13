@@ -25,6 +25,7 @@ stone_quota = 0.05
 stages = ["s0", "s1", "s2"]
 promote_quantile = 0.25
 min_history = 15
+promote_by_cap = true          # epoch 2 (2026-10-13): each size cap is cut against its own results, so the 100 and 300 caps reach the deeper stages
 
 [record]
 full_stages = ["s2"]

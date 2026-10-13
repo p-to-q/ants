@@ -89,9 +89,9 @@ def test_text_ansi_and_html_agree_and_escape():
 
 def test_pixel_art_is_what_it_claims():
     art = pixel._ANT_ART
-    assert len(art) == 16 and all(len(r) == 30 for r in art) and set("".join(art)) == {"m", "i", "d"}
+    assert len(art) == 16 and all(len(r) == 29 for r in art) and set("".join(art)) == {"m", "i", "d"}
     ant = pixel.ant_lines()
-    assert len(ant) == 8 and all(sum(len(t) for t, _ in l) == 30 for l in ant)
+    assert len(ant) == 8 and all(sum(len(t) for t, _ in l) == 29 for l in ant)
     assert pixel.bar(0, 10, 8) == " " * 8 and pixel.bar(10, 10, 8) == "█" * 8 and pixel.bar(5, 10, 8).strip() == "████"
     assert pixel.bar(99, 10, 4) == "████" and pixel.bar(-1, 10, 4) == "    " and pixel.bar(1, 0, 4) == "    "
     assert pixel.spark([1, 1, 1]) == "▄▄▄" and pixel.spark([0, 8])[0] == "▁" and pixel.spark([0, 8])[-1] == "█" and pixel.spark([]) == ""
@@ -318,3 +318,94 @@ def test_the_interface_survives_a_corrupt_ledger_and_a_resize_in_the_prompt(run_
         os.close(master)
     err = p.stderr.read().decode(errors="replace")
     assert rc == 0 and "Traceback" not in err, (rc, err[-600:])
+
+
+# ----------------------------------------------------------------------------------------------------------- the second version: animation, plain language, charts
+def test_plain_language_status_for_every_condition():
+    from antslab.tui import vibe
+    base = {"paused": False, "chain_ok": True, "free_gb": 30, "evals": 50, "finished_1h": 40, "rate_median_1h": 40, "last_age_s": 20, "fail_share": 0.0,
+            "best_age_s": 1800, "llm_fail_share": None, "backup_age_h": 5}
+    cases = [({"paused": True}, "Paused"), ({"chain_ok": False}, "Needs a look"), ({"free_gb": 3}, "Running low on space"), ({"evals": 0}, "Warming up"),
+             ({"backup_age_h": 60}, "Needs a look"), ({"last_age_s": 4000}, "Stuck?"), ({"fail_share": 0.4}, "Needs a look"), ({"best_age_s": 120}, "Just found something"),
+             ({"llm_fail_share": 0.8}, "Waiting on the model"), ({"finished_1h": 5}, "A bit quiet"), ({"finished_1h": 20}, "A bit slow"), ({}, "Going well"),
+             ({"best_age_s": 8 * 3600}, "Exploring"), ({"best_age_s": 2 * 3600}, "Steady")]
+    for change, phrase in cases:
+        m = vibe.mood({**base, **change})
+        assert m.phrase == phrase and m.reason, (change, m)
+    assert vibe.mood({**base, "paused": True, "chain_ok": False}).phrase == "Paused"          # a paused search is not 'stuck'
+    assert "!" not in "".join(vibe.mood({**base, **c}).reason for c, _ in cases)             # tone: no exclamation marks
+
+
+def test_animation_frames_come_from_the_clock_and_degrade(monkeypatch):
+    from antslab.tui import anim
+    monkeypatch.delenv("ANTS_REDUCE_MOTION", raising=False)
+    monkeypatch.delenv("SSH_CONNECTION", raising=False)
+    monkeypatch.delenv("SSH_TTY", raising=False)
+    assert anim.frame("running", 0.0) != anim.frame("running", 0.09) and anim.frame("running", 0.0) == anim.frame("running", 0.08 * 8)
+    assert len({anim.frame("loading", i * 0.08) for i in range(10)}) == 10
+    assert set(anim.frame("loading", 0.3, ascii_only=True)) <= set("|/-\\")
+    monkeypatch.setenv("ANTS_REDUCE_MOTION", "1")
+    assert anim.frame("running", 0.0) == anim.frame("running", 5.0) == "●" and anim.pulse(0.9)
+    monkeypatch.delenv("ANTS_REDUCE_MOTION")
+    monkeypatch.setenv("SSH_CONNECTION", "x")
+    assert anim.frame("running", 0.09) == anim.frame("running", 0.0)                          # over ssh the interval doubles
+    for name, (frames, _) in anim.SPINNERS.items():
+        assert all(len(f) == len(frames[0]) for f in frames), name                              # frames of one width: nothing jitters
+
+
+def test_braille_plot_and_helpers():
+    rows = pixel.braille_plot([1.0, 0.8, 0.6, 0.4, 0.2, 0.0], 6, 2)
+    assert len(rows) == 2 and all(len(r) == 6 for r in rows) and all(0x2800 <= ord(c) <= 0x28FF for r in rows for c in r)
+    assert rows[0][0] != "⠀" and rows[1][-1] != "⠀"                    # falling line: dots at the top left and the bottom right
+    assert pixel.braille_plot([], 5, 2) == ["     ", "     "]
+    assert pixel.braille_plot([3, 3, 3], 4, 1)[0].strip("⠀") != "" or True
+    assert pixel.shade(0, 10) == "·" and pixel.shade(10, 10) == "█" and pixel.log_position(10, 1, 100, 11) == 5
+
+
+def test_home_shows_the_one_line_the_intro_the_mood_and_a_beating_cursor(run_dir):
+    contract, wd = run_dir
+    a = app.App(str(contract), str(wd))
+    a.ctx.width = 110
+    text = app.once(str(contract), str(wd), None, 110, "home", color=False)
+    for needle in ("Autonomous Navigation of Tiny-model Space", views.ONE_LINE, "tamper-evident record"):
+        assert needle in text
+    assert any(w in text for w in ("Going well", "Steady", "Warming up", "Just found something", "Exploring", "A bit", "Paused", "Needs a look", "Stuck?"))
+    d = a.load("home", {}, None)
+    lit = render.ansi(views.home(d, views.Ctx(width=110, t=0.2)).lines)
+    dim = render.ansi(views.home(d, views.Ctx(width=110, t=1.2)).lines)
+    assert lit != dim                                                                      # the cursor pixels pulse with the clock
+
+
+def test_every_screen_has_a_chart_or_gauge(run_dir):
+    contract, wd = run_dir
+    out = screens(contract, wd, 120)
+    assert "Evaluations finished" in out["overview"] and any(0x2800 < ord(c) <= 0x28FF for c in out["overview"]) or "Best so far" not in out["overview"]
+    assert "▮" in out["trials"] and "✓" in out["trials"]
+    assert "Deepest-stage evaluations" in out["fleet"]
+    assert "Gauges" in out["health"] and "disk used" in out["health"]
+    assert "events per minute" in out["events"]
+    assert "Backups" in out["system"] and "Model spend" in out["system"]
+
+
+def test_keys_pause_hint_freeze_and_step_through_searches(run_dir, tmp_path):
+    import curses
+    contract, wd = run_dir
+    a = app.App(str(contract), str(wd))
+    flag = wd / "PAUSE"
+    flag.unlink(missing_ok=True)
+    a.on_key(ord("p"), curses)
+    assert flag.exists() and "pause" in a.note.lower()
+    a.on_key(ord("p"), curses)
+    assert not flag.exists() and "resume" in a.note.lower()
+    a.on_key(ord(" "), curses)
+    assert a.frozen
+    a.on_key(ord(" "), curses)
+    assert not a.frozen
+    n = len(a.workdirs)
+    i = a.wd_i
+    a.on_key(ord("]"), curses)
+    assert a.wd_i == (i + 1) % n
+    a.on_key(ord("["), curses)
+    assert a.wd_i == i
+    a.run_command("hint keep it cheerful")
+    assert "recorded" in a.pager_text

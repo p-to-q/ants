@@ -6,11 +6,11 @@ Status: `stable` for the read commands and the shell (`tests/test_ui.py`), `expe
 
 ```bash
 .venv/bin/ants <command> [flags]        # or: PYTHONPATH=src .venv/bin/python -m antslab.cli <command> [flags]
-.venv/bin/ants                          # no command: opens the interactive shell
-.venv/bin/ants --version                # `ants <package version>`; `unknown` if not installed
+.venv/bin/ants                          # no command: the terminal interface on a terminal (docs/tui.md), the line shell in a pipe; onboarding the first time
+.venv/bin/ants --version                # `ants <package version>` (from the installed metadata: re-run `pip install -e .` after a version bump); `unknown` if not installed
 ```
 
-## Common flags (accepted by every command except `data`)
+## Common flags (the loop and the read commands; the system commands list their own flags below)
 
 | flag | default | meaning |
 |---|---|---|
@@ -18,7 +18,7 @@ Status: `stable` for the read commands and the shell (`tests/test_ui.py`), `expe
 | `--workdir DIR` | resolved | holds `ledger.sqlite`, `ants.lock`, `runs/`, `PAUSE`. Relative paths are resolved to absolute before use |
 | `--arm NAME` | resolved | proposer arm; the ledger is filtered by it |
 | `--seed N` | 0 | used by `run` only; accepted and ignored elsewhere |
-| `--json` | off | machine output; honoured by `top best show log doctor` only (`status` is always JSON) |
+| `--json` | off | machine output; honoured by `top best show diff log doctor`, and by `backup backups restore sql update` where they have the flag (`status` is always JSON); `hint pause resume export workspace` accept it and ignore it |
 
 ## Flag-less resolution (`cli._resolve`)
 
@@ -30,7 +30,7 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 | workdir | `--workdir` | `$ANTS_WORKDIR` | `[run] workdir` in `config.toml` | newest-mtime `/var/lib/ants/*/ledger.sqlite`, then `runs/*/ledger.sqlite` | `runs/default` |
 | arm | `--arm` | `$ANTS_ARM` | `[run] arm` in `config.toml` | `arm` of the newest trial in the ledger | `portfolio` |
 
-Verified: `cd empty-dir && ants top` prints the `no contract found` message and exits 1.
+`cd empty-dir && ants top` prints the `no contract found` message and exits 1 (`tests/test_ui.py`). A bundled contract can be named instead of a path: `--contract tinyts_real`.
 
 ## Exit codes
 
@@ -62,7 +62,7 @@ Verified: `cd empty-dir && ants top` prints the `no contract found` message and 
 | `shell` | interactive session; plain `ants` opens it once `ants onboard` has run | as its commands |
 | `data` | catalog list / verify / build / fetch | `data/processed` (build), `data/raw` (fetch) |
 | `onboard` | create `~/.ants`, stage the catalog, fetch datasets, write `config.toml` | `~/.ants`, `data/raw`, `data/processed` |
-| `service install\|uninstall\|status\|logs` | keep `ants run` resident: systemd user unit (+ daily backup timer) or launchd agent | unit files |
+| `service install\|uninstall\|status\|logs\|restart` | keep `ants run` resident: systemd user unit (+ daily backup timer) or launchd agent | unit files |
 | `backup` / `backups` / `restore` | verified online snapshot of the ledger / list / put one back | backup directory; `restore` replaces the ledger (old one moved aside) |
 | `ui` / `home` | the terminal interface (plain `ants` on a terminal) / one screen printed and exit ([tui](tui.md)) | no |
 | `update` | look for a newer ants (npm registry, or GitHub releases with `[update] source = "github"`); `--apply` installs it with the method that installed ants (npm, git pull, or pip) | install only with `--apply` |
@@ -173,7 +173,7 @@ artifact_archived archive_mismatch artifact_deleted artifact_changed candidate_f
 
 ### doctor
 
-Seven checks (levels `OK`/`WARN`/`FAIL`); exit 2 on any `FAIL`.
+Eight checks (levels `OK`/`WARN`/`FAIL`); exit 2 on any `FAIL`.
 
 | check | WARN | FAIL |
 |---|---|---|
@@ -250,16 +250,16 @@ and a daily `ants-N-backup.timer`; macOS writes `~/Library/LaunchAgents/io.ptoq.
 After `--now` on Linux run `loginctl enable-linger $USER` so it survives logout. The loop sends the watchdog heartbeat itself, so a hung loop is restarted and a long evaluation is not.
 
 `ants backup [--dest D] [--keep 14] [--gzip]` snapshots with SQLite's online backup API, keeps it only if SQLite's integrity check and the event-chain check pass, writes a sidecar
-(sha256, event count, chain head, schema version) and appends the head to `anchors.jsonl` (never pruned). `ants restore [NAME]` verifies the snapshot first, refuses while a daemon holds the
-workdir, and moves the old ledger aside instead of deleting it. Default destination `~/.ants/backups/<workdir name>` (`$ANTS_BACKUP_DIR`, `[backup] dest`).
+(sha256, event count, chain head, schema version) and appends the head to `anchors.jsonl` (never pruned). `ants restore [NAME] [--dest D] [--force] [--allow-different]` verifies the snapshot first, refuses while a daemon holds the
+workdir, moves the old ledger (and any stale write-ahead log) aside instead of deleting it, refuses a snapshot older than the current ledger or taken from another one unless `--allow-different`, and writes a `restored` event. Default destination `~/.ants/backups/<workdir name>` (`$ANTS_BACKUP_DIR`, `[backup] dest`).
 
-`ants sql "SELECT ..."` opens the ledger read-only with an authorizer that allows nothing but SELECT, a 10 s time limit and a 1000-row cap. `--format csv` neutralises formula cells.
+`ants sql "SELECT ..."` opens the ledger read-only with an authorizer that allows nothing but SELECT, a 10 s time limit and a 1000-row cap. `--format csv` neutralises formula cells; `--limit N` (at most 1000); `--schema` prints the tables.
 
 `ants update` caches the answer for a day in `~/.ants/update.json`. Interactive commands (`shell`, `top`, `best`, `status`) print one line on stderr when the cache knows a newer version; nothing is printed in scripts (no terminal), with `ANTS_NO_UPDATE_CHECK=1`, or with `[update] check = false`. `ants run` never checks and never updates itself: a resident daemon must not change under itself, so update, then `ants service restart`. `ants doctor` reads the cache only.
 
 ### data
 
-No `--contract`. Flags: `--catalog` (default: found by `locate_catalog`), `--names a,b`, `--all`, `--partial`, `--tier` (fetch).
+No `--contract`. Flags: `--catalog` (default: found by `locate_catalog`), `--names a,b`, `--present` (build every dataset whose raw files exist), `--all`, `--partial`, `--tier` (fetch).
 
 | action | what | verified output |
 |---|---|---|
@@ -274,6 +274,12 @@ No `--contract`. Flags: `--catalog` (default: found by `locate_catalog`), `--nam
 |---|---|---|
 | `ANTS_CONTRACT`, `ANTS_WORKDIR`, `ANTS_ARM` | `cli._resolve` | flag-less defaults |
 | `ANTS_BACKUP_DIR` | `system.backup_dir` | where `ants backup` writes and `ants doctor` looks |
+| `ANTS_ROOT` | `cli._contract_path`, `home.package_root` | the package directory (the npm launcher sets it): bundled contracts and the data catalog are found there |
+| `ANTS_NO_TUI`, `ANTS_REDUCE_MOTION`, `NO_COLOR` | `cli._can_tui`, `tui.anim`, `tui.render` | line shell instead of the interface; no animation; no colour ([tui](tui.md)) |
+| `ANTS_NO_UPDATE_CHECK` | `update.notice` | never look for a newer version |
+| `ANTS_ALLOWED_ROLES` | `campaign` (set to `dev` for the loop), `gate.seal` | which dataset roles a process may read ([data](modules/data.md)) |
+| `ANTS_LLM_MAX_CALLS_PER_DAY` | `llm.daily_cap` | model calls per rolling 24 h, default 1500, `0` = no cap |
+| `NOTIFY_SOCKET`, `WATCHDOG_USEC` | `notify` | set by systemd (`Type=notify`, `WatchdogSec`); the loop answers the watchdog itself |
 | `ANTS_CATALOG`, `ANTS_HOME` | `data.locate_catalog` | where `data/catalog.toml` is; `ANTS_HOME` is also the launcher's venv root (`bin/ants.js`) |
 | `ANTS_MAX_WINDOW_ELEMS` | `gyms/tinyts.py` | cap on a window matrix, default 4 000 000 float64 elements. **Changes memory and results; set it only deliberately** |
 | `ANTS_PYTHON` | `bin/ants.js` | interpreter for the `npx` launcher |
@@ -287,5 +293,4 @@ variables, `PYTHONPATH`, plus the names in the contract's `env_passthrough`). `A
 
 | symptom | cause | status |
 |---|---|---|
-| `top` / `best` numbers differ from `show` | the leaderboard uses the s0 value, see `top` above | open: read `show`, or `export` and filter `stage == s2` |
 | `run` with a relative `--workdir` failed every trial (`spec.json` not found from the trial directory) | paths were not made absolute | **fixed in the current tree**: reproduced earlier the same day with 3 `failed` rows and an open breaker; after the change `ants run --workdir rel2 --max-evals 8` printed `budget`, exit 0 |

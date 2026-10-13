@@ -327,8 +327,9 @@ class PortfolioProposer:
     name = "portfolio"
 
     def __init__(self, c: Contract, ops: dict, rng: random.Random, min_share: float = 0.04,
-                 probe: float = 0.05, stagnation_n: int = 300, delayed_weight: float = 1.0):
+                 probe: float = 0.05, stagnation_n: int = 300, delayed_weight: float = 1.0, floors: dict | None = None):
         self.c, self.ops, self.rng, self.min_share, self.probe, self.stag = c, ops, rng, min_share, probe, stagnation_n
+        self.floors = floors or {}                         # operator -> guaranteed share of every batch (the language-model operators: see build_portfolio)
         self.delayed_weight = delayed_weight
         self.burst, self.burst_left, self.last_jump = 30, 0, 0
         self.stats = {"errors": {}, "filtered_tabu": 0, "filtered_retired": 0, "jumps": 0, "alloc": {}}
@@ -356,9 +357,14 @@ class PortfolioProposer:
         tot = sum(theta.values()) or 1.0
         share = {n: max(self.min_share, t / tot) for n, t in theta.items()}
         z = sum(share.values())
+        probs = {n: share[n] / z for n in names}
+        for n, f in self.floors.items():                  # a floor is a guarantee: that operator gets at least f of the batch, the rest share what is left
+            if n in probs and probs[n] < f:
+                rest = sum(p for m, p in probs.items() if m != n) or 1.0
+                probs = {m: (f if m == n else p * (1 - f) / rest) for m, p in probs.items()}
         counts = {n: 0 for n in names}
         for _ in range(k - b):
-            counts[self.rng.choices(names, [share[n] / z for n in names])[0]] += 1
+            counts[self.rng.choices(names, [probs[n] for n in names])[0]] += 1
         div = [n for n in ("random", "aco", "qd", "sa") if n in names]
         for i in range(b if div else 0):
             counts[div[i % len(div)]] += 1
@@ -408,6 +414,9 @@ class PortfolioProposer:
                 o.close()
 
 
+LLM_FLOOR = 0.2
+
+
 def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tpe=True, agent=False) -> PortfolioProposer:
     rng = lambda i: random.Random(seed * 101 + i)
     ops = {"random": RandomProposer(c, rng(1)), "sweep": SweepProposer(c, rng(2)),
@@ -425,4 +434,8 @@ def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tp
         ops["agent"] = AgentProposer(c, client, None, rng(9), memory_fn=memory_fn)
     elif client is not None:
         ops["llm"] = LLMStrict(c, client, None, rng(9), memory_fn=memory_fn)
-    return PortfolioProposer(c, ops, rng(0))
+    # A language-model operator earns credit only when its proposals are promoted, and its proposals start weaker at the cheap stage, so the
+    # bandit starves it (in eight hours 137 good calls produced two evaluated trials). To compare what a model proposes, not how the bandit
+    # treats it, it is given a fixed slice of every batch. The slice is part of the arm's definition.
+    floors = {k: LLM_FLOOR for k in ("llm", "agent") if k in ops}
+    return PortfolioProposer(c, ops, rng(0), floors=floors)

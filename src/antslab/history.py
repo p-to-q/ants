@@ -20,6 +20,7 @@ class History:
         self.epoch, self.max_records = epoch, max_records       # epoch=None: ingest every epoch (tools/tests)
         self.cursor, self.cursor_id = -1.0, -1
         self.stage_sorted: dict = {}                            # stage index -> sorted signed values (feasible)
+        self.stage_sorted_cap: dict = {}                        # (stage index, cap bin) -> the same, per size cap
         self.best: dict = {}            # spec_key -> record at the deepest stage reached
         self.s0: dict = {}              # spec_key -> first-stage value
         self.s0_sorted: list = []       # sorted first-stage values (for running quantiles)
@@ -76,6 +77,7 @@ class History:
             rec["feasible"] = self.feasible(m)
             if rec["feasible"]:
                 bisect.insort(self.stage_sorted.setdefault(si, []), self.sign * rec["value"])
+                bisect.insort(self.stage_sorted_cap.setdefault((si, self.cap_bin(rec["metrics"])), []), self.sign * rec["value"])
             cur = self.best.get(rec["key"])
             if rec["feasible"] and (cur is None or si > cur["stage_idx"]):
                 self.best[rec["key"]] = rec
@@ -88,9 +90,9 @@ class History:
                 self._evict()
         return added, len(rows)
 
-    def stage_cut(self, si: int, q: float):
-        """Signed value at quantile q of a stage's feasible results (None while empty)."""
-        v = self.stage_sorted.get(si, [])
+    def stage_cut(self, si: int, q: float, cap_bin=None):
+        """Signed value at quantile q of a stage's feasible results (None while empty); with `cap_bin`, of the results in that size cap only."""
+        v = self.stage_sorted.get(si, []) if cap_bin is None else self.stage_sorted_cap.get((si, cap_bin), [])
         return v[max(0, int(len(v) * q) - 1)] if v else None
 
     def _evict(self):

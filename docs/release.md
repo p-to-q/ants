@@ -5,7 +5,7 @@ One version number lives in three files and a test keeps them equal: `package.js
 
 | channel | name | how it ships | status |
 |---|---|---|---|
-| npm | [`ants-lab`](https://www.npmjs.com/package/ants-lab) | `npm publish` from a tagged commit | published, 0.1.0 |
+| npm | [`ants-lab`](https://www.npmjs.com/package/ants-lab) | `npm publish` from a tagged commit | the registry shows the latest: `npm view ants-lab version` |
 | GitHub | [p-to-q/ants](https://github.com/p-to-q/ants) | the tag and its release notes | public |
 | PyPI | `ants-lab` | not published | planned |
 

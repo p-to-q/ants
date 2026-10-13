@@ -233,12 +233,15 @@ class Campaign:
             return False                                           # infeasible under the hard cap
         self.hist.update()
         si = self.c.stages.index(t["stage"])
-        n = len(self.hist.stage_sorted.get(si, []))
+        # contract [cascade] promote_by_cap = true: a spec competes with the specs of its own size cap, so the small caps are searched too
+        # (a global cut sends almost only the largest models deeper: in the first eight hours of the real contract no ≤100 model reached s2)
+        bin_ = self.hist.cap_bin(metrics) if (self.c.raw.get("cascade", {}).get("promote_by_cap") and self.c.caps) else None
+        n = len(self.hist.stage_sorted.get(si, []) if bin_ is None else self.hist.stage_sorted_cap.get((si, bin_), []))
         if n < max(3, self.c.min_history // 3):
             return True                                            # tiny warm-up: just enough results to have a median
         if n < self.c.min_history:                                 # still building the distribution: promote the better half only
-            return self.hist.sign * metrics[self.c.primary] <= self.hist.stage_cut(si, 0.5)
-        cut = self.hist.stage_cut(si, self.c.promote_quantile)
+            return self.hist.sign * metrics[self.c.primary] <= self.hist.stage_cut(si, 0.5, bin_)
+        cut = self.hist.stage_cut(si, self.c.promote_quantile, bin_)
         return self.hist.sign * metrics[self.c.primary] <= cut
 
     # ---- riding out transient errors ----------------------------------------

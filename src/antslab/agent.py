@@ -151,6 +151,7 @@ class AgentProposer(LLMStrict):
                 return
             self.inflight += 1
         self._ledger, self._arm = ledger, arm
+        self._yield_ledger = ledger
         memory = self.memory_fn(arm) if self.memory_fn else ""
         hints = [e["payload"]["text"] for e in ledger.recent_events("user_hint", 3)]
         specs = [r["spec"] for r in self._hist().ranked(200)]              # on the loop thread, with the loop's own History
@@ -186,6 +187,7 @@ class AgentProposer(LLMStrict):
             if not isinstance(obj, dict):
                 with self.lock:
                     self.stats["calls"] += 1; self.stats["failed_calls"] += 1
+                self.record_yield({"operator": self.name, "failed": True, "capped": bool(meta.get("capped")), "tools": used})
                 return
             if "proposals" in obj:
                 break
@@ -210,6 +212,7 @@ class AgentProposer(LLMStrict):
             self._log(ledger, used, tool, args, result, ok)
             msgs += [{"role": "assistant", "content": json.dumps(obj, default=str)[:1500]},
                      {"role": "user", "content": f"Result of {clean_text(tool, 40)}:\n{result}"}]
+        self._used = used
         self._accept(obj, meta, seen_snapshot, seen_specs, job)
 
     def _accept(self, obj, meta, seen_snapshot, seen_specs, job):
@@ -248,3 +251,5 @@ class AgentProposer(LLMStrict):
             st = self.stats
             st["calls"] += 1; st["proposed"] += len(props); st["invalid"] += inv
             st["duplicate"] += dup; st["accepted"] += len(good)
+        self.record_yield({"operator": self.name, "ep": meta.get("ep"), "proposed": len(props), "invalid": inv, "duplicate": dup, "accepted": len(good),
+                           "tools": getattr(self, "_used", 0), "axis": axis})

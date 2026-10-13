@@ -218,6 +218,7 @@ class LLMProposer:
         if not isinstance(obj, dict):
             with self.lock:
                 self.stats["calls"] += 1; self.stats["failed_calls"] += 1
+            self.record_yield({"operator": self.name, "failed": True, "capped": bool(meta.get("capped")), "attempts": len(meta.get("attempts", []))})
             return
         props = obj.get("proposals")
         props = props if isinstance(props, list) else []
@@ -236,6 +237,18 @@ class LLMProposer:
             st = self.stats
             st["calls"] += 1; st["proposed"] += len(props); st["invalid"] += inv
             st["duplicate"] += dup; st["accepted"] += len(good)
+        self.record_yield({"operator": self.name, "ep": meta.get("ep"), "proposed": len(props), "invalid": inv, "duplicate": dup, "accepted": len(good)})
+
+    def record_yield(self, row: dict):
+        """one chained event per model call: what came back and what survived the filters. The counters above live in memory; this is how
+        the next reader learns why an operator produced little (an eight-hour arm once yielded two trials and nothing recorded why)."""
+        led = getattr(self, "_yield_ledger", None)
+        if led is None:
+            return
+        try:
+            led.event("proposer_yield", row)
+        except Exception:
+            pass
 
     def _ranked_for_prompt(self, ledger, arm):
         h = getattr(self, "_h", None)
@@ -251,6 +264,7 @@ class LLMProposer:
             if not need:
                 return
             self.inflight += 1
+        self._yield_ledger = ledger
         ranked = self._ranked_for_prompt(ledger, arm)
         specs = [r["spec"] for r in ranked[:200]]
         memory = self.memory_fn(arm) if self.memory_fn else ""
