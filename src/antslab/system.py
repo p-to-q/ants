@@ -30,7 +30,7 @@ def backup_dir(workdir) -> Path:
     cfg = load_config().get("backup", {})
     wd = Path(workdir).expanduser().resolve()
     tag = f"{wd.name}-{hashlib.sha256(str(wd).encode()).hexdigest()[:6]}"          # two workdirs both called `default` must not share backups
-    if not (os.environ.get("ANTS_BACKUP_DIR") or cfg.get("dest")) and ((wd.parent / "backups" / wd.name).is_dir() or str(wd.parent) == "/var/lib/ants"):
+    if not (os.environ.get("ANTS_BACKUP_DIR") or cfg.get("dest")) and ((wd.parent / "backups" / wd.name).is_dir() or wd.parent.as_posix().endswith("/var/lib/ants")):
         return wd.parent / "backups" / wd.name                       # the server layout: /var/lib/ants/backups/<arm> next to /var/lib/ants/<arm>
     return Path(os.environ.get("ANTS_BACKUP_DIR") or cfg.get("dest") or home() / "backups" / tag).expanduser()
 

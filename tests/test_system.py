@@ -536,4 +536,4 @@ def test_a_gzip_backup_leaves_no_working_copy_behind(work):
 def test_the_service_layout_backup_directory_is_reported_before_the_first_backup(monkeypatch, tmp_path):
     monkeypatch.delenv("ANTS_BACKUP_DIR", raising=False)
     monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
-    assert system.backup_dir("/var/lib/ants/portfolio") == Path("/var/lib/ants/backups/portfolio")
+    assert system.backup_dir("/var/lib/ants/portfolio").as_posix().endswith("/var/lib/ants/backups/portfolio")
