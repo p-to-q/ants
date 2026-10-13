@@ -229,3 +229,12 @@ def test_every_model_call_leaves_a_yield_event_saying_what_survived(ledger, make
     a.refill(ledger, "arm", set()); _drain(a, ledger)
     assert any(e["payload"].get("operator") == "agent" and e["payload"]["accepted"] == 1 and e["payload"]["axis"] == "mechanism" for e in ledger.events("proposer_yield"))
     assert ledger.verify_chain()[0]
+
+
+def test_the_one_shot_operator_accepts_a_proposal_that_names_only_the_levers_it_changes(ledger, make_contract):
+    from antslab.proposers import LLMProposer
+    c = make_contract()
+    p = LLMProposer(c, Script([{"proposals": [{"a": 0.3}, {"b": 12, "c": "w"}, {"a": 7}], "rationale": "r"}]), EvoProposer(c, random.Random(0)), random.Random(0), per_call=6)
+    p.refill(ledger, "arm", set()); _drain(p, ledger, 1)
+    y = [e["payload"] for e in ledger.events("proposer_yield")][0]
+    assert y["proposed"] == 3 and y["accepted"] == 2 and y["invalid"] == 1 and "last_invalid" in p.stats

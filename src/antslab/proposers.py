@@ -224,9 +224,11 @@ class LLMProposer:
         props = props if isinstance(props, list) else []
         for raw in props[: self.per_call * 2]:
             try:
-                s = self.c.space.validate(raw)
-            except SpecError:
-                inv += 1; continue
+                s = self.c.space.validate({**self.c.space.defaults(), **raw} if isinstance(raw, dict) else raw)      # levers left out keep their defaults
+            except SpecError as e:
+                inv += 1
+                self.stats["last_invalid"] = f"{str(e)[:100]} | {str(raw)[:120]}"
+                continue
             k = self.c.space.key(s)
             near = min((self.c.space.distance(s, o) for o in seen_specs + [g.spec for g in good]), default=1.0)
             if k in seen_snapshot or near < self.eps:
