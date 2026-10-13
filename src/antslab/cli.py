@@ -337,7 +337,11 @@ def cmd_doctor(a):
     wd, led, c = _open(a)
     res = ui.doctor(led, c, a.arm, wd)
     from .system import durability_checks
+    from .update import current_version, is_newer, read_cache
     res = res + durability_checks(led, wd)
+    known = read_cache().get("latest")
+    res.append(("WARN", f"ants {known} is available (running {current_version()}); `ants update`") if known and is_newer(known, current_version())
+               else ("OK", f"ants {current_version()}" + (f" (latest known {known})" if known else "")))
     _emit(a, [{"level": l, "message": m} for l, m in res], lambda d: "\n".join(f"[{x['level']:>4}] {x['message']}" for x in d))
     return 2 if any(l == "FAIL" for l, _ in res) else 0
 
@@ -412,7 +416,7 @@ def cmd_janitor(a):
 
 def _first_run_done() -> bool:
     from .home import config_path
-    return config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT")) or Path("runs").is_dir()
+    return config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT")) or any(Path("runs").glob("*/ledger.sqlite"))
 
 
 def _first_run(ap) -> int:
@@ -435,7 +439,7 @@ def _system_parsers(sub) -> None:
         s.set_defaults(needs_workdir=needs_workdir)
     s = sub.add_parser("onboard", help="create ~/.ants, fetch datasets, write the config")
     s.add_argument("--tier", default="dev"); s.add_argument("--no-fetch", action="store_true")
-    s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default="portfolio")
+    s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None)
     s.set_defaults(fn=system.cmd_onboard)
     s = sub.add_parser("backup", help="verified online snapshot of the ledger")
     common(s); s.add_argument("--dest"); s.add_argument("--keep", type=int, default=14); s.add_argument("--gzip", action="store_true")
@@ -445,14 +449,18 @@ def _system_parsers(sub) -> None:
     s = sub.add_parser("restore", help="verify a snapshot and put it in place (the daemon must be stopped)")
     common(s); s.add_argument("which", nargs="?", help="file name or timestamp prefix; default the newest")
     s.add_argument("--dest"); s.add_argument("--force", action="store_true", help="move an existing ledger aside and restore over it")
+    s.add_argument("--allow-different", action="store_true", help="also accept a snapshot of another ledger, or one older than the current ledger")
     s.set_defaults(fn=system.cmd_restore)
     for name in ("sql", "query"):
         s = sub.add_parser(name, help="read-only SELECT over the ledger")
         common(s); s.add_argument("sql", nargs="?"); s.add_argument("--schema", action="store_true")
         s.add_argument("--format", choices=["table", "json", "jsonl", "csv"], default="table"); s.add_argument("--limit", type=int, default=1000)
         s.set_defaults(fn=system.cmd_sql)
+    s = sub.add_parser("update", help="look for a newer ants; --apply installs it")
+    s.add_argument("--apply", action="store_true"); s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=lambda a: __import__("antslab.update", fromlist=["cmd_update"]).cmd_update(a))
     s = sub.add_parser("service", help="keep `ants run` resident (systemd user unit or launchd agent)")
-    s.add_argument("action", choices=["install", "uninstall", "status", "logs"])
+    s.add_argument("action", choices=["install", "uninstall", "status", "logs", "restart"])
     s.add_argument("--name", default="default"); s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None)
     s.add_argument("--seed", type=int, default=1); s.add_argument("--llm-env"); s.add_argument("--now", action="store_true", help="install: also start it")
     s.add_argument("--print", action="store_true", help="install: show the unit files and write nothing")
@@ -515,6 +523,11 @@ def main(argv=None):
         if not _first_run_done():
             return _first_run(ap)
         a = ap.parse_args(["shell"])
+    if a.fn in (cmd_shell, cmd_top, cmd_best, cmd_status):
+        from .update import notice
+        line = notice()
+        if line:
+            print(line, file=sys.stderr)
     if getattr(a, "needs_workdir", False):
         _resolve_workdir(a)
         a.workdir = str(Path(a.workdir).expanduser().resolve())

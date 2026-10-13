@@ -220,13 +220,13 @@ def test_scanner_tar_mode_reads_what_is_really_inside(S, tmp_path):
 
 
 # --------------------------------------------------------------------------- systemd units and shell scripts
-UNITS = ["ants@.service", "ants-board.service", "ants-janitor.service", "ants-health.service"]
+UNITS = ["ants@.service", "ants-board.service", "ants-janitor@.service", "ants-health@.service", "ants-backup@.service"]
 KNOWN = set("""Description Wants After StartLimitIntervalSec StartLimitBurst Type User Group WorkingDirectory ExecStart Restart RestartSec RestartPreventExitStatus TimeoutStopSec
 KillMode CPUQuota MemoryHigh MemoryMax OOMPolicy OOMScoreAdjust TasksMax LimitFSIZE Environment NoNewPrivileges CapabilityBoundingSet
 AmbientCapabilities PrivateTmp PrivateDevices ProtectSystem ProtectHome ReadWritePaths InaccessiblePaths ProtectKernelTunables
 ProtectKernelModules ProtectKernelLogs ProtectControlGroups ProtectClock ProtectHostname ProtectProc RestrictAddressFamilies RestrictNamespaces
 RestrictRealtime RestrictSUIDSGID LockPersonality SystemCallArchitectures UMask IPAddressDeny IPAddressAllow WantedBy OnBootSec OnUnitActiveSec
-Persistent""".split())
+Persistent NotifyAccess WatchdogSec Nice IOSchedulingClass OnCalendar RandomizedDelaySec""".split())
 
 
 def parse(name):
@@ -238,8 +238,8 @@ def parse(name):
 
 def test_unit_files_referenced_by_the_installer_and_remote_deploy_exist():
     install = (DEPLOY / "install.sh").read_text() + (DEPLOY / "remote_deploy.sh").read_text() + (DEPLOY / "PREFLIGHT.md").read_text()
-    wanted = set(re.findall(r"\b(ants(?:-[a-z]+)?(?:@\.service|\.service|\.timer))", install))
-    assert wanted >= {"ants@.service", "ants-janitor.service", "ants-janitor.timer", "ants-board.service", "ants-health.service", "ants-health.timer"}
+    wanted = set(re.findall(r"\b(ants(?:-[a-z]+)?(?:@\.service|@\.timer|\.service|\.timer))", install))
+    assert wanted >= {"ants@.service", "ants-janitor@.service", "ants-janitor@.timer", "ants-board.service", "ants-health@.service", "ants-health@.timer", "ants-backup@.service", "ants-backup@.timer"}
     for w in wanted:
         assert (DEPLOY / w).exists(), f"{w} is installed by install.sh but does not exist in deploy/"
     assert all(p.name.startswith(("ants", "install", "remote_deploy", "PREFLIGHT")) for p in DEPLOY.iterdir()), "deploy files are named ants-*"
@@ -295,10 +295,10 @@ def test_no_per_file_size_limit_that_a_weeks_old_ledger_would_hit():
 def test_the_campaign_restarts_forever_and_a_health_timer_runs_doctor():
     s = parse("ants@.service")
     assert s["Service"]["Restart"] == "always" and s["Unit"]["StartLimitIntervalSec"] == "0" and 0 < int(s["Service"]["RestartSec"].rstrip("s")) <= 60
-    h = parse("ants-health.service")["Service"]
+    h = parse("ants-health@.service")["Service"]
     assert " doctor " in h["ExecStart"] and h["Type"] == "oneshot" and h["IPAddressDeny"] == "any"
-    t = parse("ants-health.timer")["Timer"]
-    assert t["OnUnitActiveSec"].endswith("min") and "ants-health.timer" in (DEPLOY / "install.sh").read_text()
+    t = parse("ants-health@.timer")["Timer"]
+    assert t["OnUnitActiveSec"].endswith("min") and "ants-health@.timer" in (DEPLOY / "install.sh").read_text()
 
 
 @pytest.mark.parametrize("script", [DEPLOY / "install.sh", DEPLOY / "remote_deploy.sh", ROOT / "scripts/pack_public.sh"])
@@ -341,3 +341,19 @@ def test_installer_protects_server_state_from_rsync_delete():
     rsync = text[text.index("rsync -a --delete"):text.index("chown -R")]
     for keep in ("data/raw", "data/processed", "data/MANIFEST.dev.sha256", "contracts/tinyts.toml", "runs", "*.sqlite*", "*.env", ".venv"):
         assert f"--exclude '{keep}'" in rsync or f"--exclude {keep}" in rsync, keep
+
+
+def test_the_campaign_unit_is_notify_with_a_watchdog_and_the_backup_unit_runs_a_verified_backup():
+    m = parse("ants@.service")["Service"]
+    assert m["Type"] == "notify" and m["NotifyAccess"] == "main" and 120 <= int(m["WatchdogSec"]) <= 900
+    b = parse("ants-backup@.service")["Service"]
+    assert " backup " in b["ExecStart"] and "--dest /var/lib/ants/backups/%i" in b["ExecStart"] and b["Type"] == "oneshot"
+    assert parse("ants-backup@.timer")["Timer"]["Persistent"] == "true"
+    h = parse("ants-health@.service")["Service"]
+    assert h["Environment"] == "ANTS_BACKUP_DIR=/var/lib/ants/backups/%i"          # doctor looks where the backup unit writes
+
+
+def test_two_instances_fit_the_two_gigabyte_host():
+    m = parse("ants@.service")["Service"]
+    mem = lambda v: int(v.rstrip("M"))
+    assert 2 * mem(m["MemoryMax"]) <= 1900 and m["CPUQuota"] == "100%"

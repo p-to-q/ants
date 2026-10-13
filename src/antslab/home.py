@@ -34,7 +34,11 @@ def load_config() -> dict:
     try:
         with open(p, "rb") as f:
             return tomllib.load(f)
-    except (OSError, tomllib.TOMLDecodeError):
+    except OSError:
+        return {}
+    except tomllib.TOMLDecodeError as e:
+        import sys
+        print(f"ants: ignoring {p}: {e}", file=sys.stderr)      # never silently: the defaults it falls back to may point at a different ledger
         return {}
 
 

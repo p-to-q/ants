@@ -24,7 +24,7 @@ import shutil
 
 from .history import History
 from .ledger import FINAL_STATES, GateError, Ledger
-from .notify import heartbeat, sd_notify
+from .notify import heartbeat, keepalive, sd_notify
 from .proposers import rank_specs
 from .runner import run_command
 
@@ -353,7 +353,8 @@ class Campaign:
             self._last_dream = self.evals_done()
             self.interruptible = True
             try:
-                self.dream_fn()
+                with keepalive():                  # up to three blocking model calls in turn; systemd's watchdog must not read that as a hang
+                    self.dream_fn()
             finally:
                 self.interruptible = False
         lease = max(list(self.c.stage_timeouts.values()) + [self.c.trial_timeout_s]) + 60
@@ -361,7 +362,8 @@ class Campaign:
         if t is None:
             self.interruptible = True              # LLM calls can block for minutes; nothing is in flight, so a stop may interrupt
             try:
-                self._refill()
+                with keepalive():
+                    self._refill()
             finally:
                 self.interruptible = False
             t = self.l.claim(lease, self.c.gym, self.arm, epoch=self.epoch)
@@ -405,7 +407,8 @@ class Campaign:
         n, last, streak, unexpected = 0, "idle", 0, 0
         sd_notify("READY=1")
         try:
-            self._db(self.recover)
+            with keepalive():
+                self._db(self.recover)
             while not stop():
                 try:
                     last = self.step()

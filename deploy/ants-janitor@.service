@@ -1,12 +1,12 @@
 [Unit]
-Description=ants archive + safe cleanup
+Description=ants archive and safe cleanup (%i)
 
 [Service]
 Type=oneshot
 User=ants
 Group=ants
 WorkingDirectory=/opt/ants
-ExecStart=/opt/ants/.venv/bin/ants janitor --contract /opt/ants/contracts/tinyts.toml --workdir /var/lib/ants/portfolio --archive-dir /var/lib/ants/archive
+ExecStart=/opt/ants/.venv/bin/ants janitor --contract /opt/ants/contracts/tinyts.toml --workdir /var/lib/ants/%i --archive-dir /var/lib/ants/archive/%i
 CPUQuota=50%
 MemoryMax=300M
 TasksMax=64

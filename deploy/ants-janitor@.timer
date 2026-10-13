@@ -1,5 +1,5 @@
 [Unit]
-Description=Run the ants janitor every 30 minutes
+Description=Run the ants janitor (%i) every 30 minutes
 
 [Timer]
 OnBootSec=10min

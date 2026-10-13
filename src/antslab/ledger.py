@@ -130,23 +130,59 @@ class Ledger:
                                     check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA busy_timeout=30000")
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute("PRAGMA synchronous=FULL")
-        self.conn.execute("PRAGMA journal_size_limit=67108864")          # the WAL file may not stay larger than 64 MB after a checkpoint
-        self.conn.execute("PRAGMA wal_autocheckpoint=1000")
-        self._upgrade()
+        try:
+            self._refuse_newer()                                             # before any pragma that would write to the file
+            self.conn.execute("PRAGMA journal_mode=WAL")
+            self.conn.execute("PRAGMA synchronous=FULL")
+            self.conn.execute("PRAGMA journal_size_limit=67108864")          # the WAL file may not stay larger than 64 MB after a checkpoint
+            self.conn.execute("PRAGMA wal_autocheckpoint=1000")
+            self._upgrade()
+        except BaseException:
+            self.conn.close()
+            raise
+
+    def _refuse_newer(self):
+        v = self.schema_version()
+        if v > SCHEMA_VERSION:
+            raise LedgerTooNew(f"{self.path} has schema version {v}; this ants understands up to {SCHEMA_VERSION}. Upgrade ants; the file was not touched.")
 
     def schema_version(self) -> int:
         return self.conn.execute("PRAGMA user_version").fetchone()[0]
 
     def _upgrade(self):
         v = self.schema_version()
-        if v > SCHEMA_VERSION:
-            raise LedgerTooNew(f"{self.path} has schema version {v}; this ants understands up to {SCHEMA_VERSION}. Upgrade ants; the file was not touched.")
+        self._refuse_newer()
         self.conn.executescript(SCHEMA)                                   # creates anything missing; never alters existing data
-        for ver in range(v + 1, SCHEMA_VERSION + 1):
-            MIGRATIONS[ver](self)
-            self.conn.execute(f"PRAGMA user_version={ver}")
+        if v >= SCHEMA_VERSION:
+            return
+        if self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]:
+            self._safety_copy(v)
+        self.conn.execute("BEGIN IMMEDIATE")                               # several processes may open an old file at once: one migrates, the rest re-check
+        try:
+            v = self.schema_version()
+            for ver in range(v + 1, SCHEMA_VERSION + 1):
+                MIGRATIONS[ver](self)
+                self.conn.execute(f"PRAGMA user_version={ver}")
+            self.conn.execute("COMMIT")
+        except BaseException:
+            self._abort()
+            raise
+
+    def _safety_copy(self, v: int):
+        """a full copy next to the ledger before the first migration of its data (kept; delete it by hand once the new version has run)"""
+        dest = Path(self.path + f".pre-migration-v{v}")
+        if dest.exists():
+            return
+        part = Path(f"{dest}.partial.{os.getpid()}.{threading.get_ident()}")          # several openers may get here at once
+        out = sqlite3.connect(part)
+        try:
+            self.conn.backup(out)
+        except BaseException:
+            out.close()
+            part.unlink(missing_ok=True)
+            raise
+        out.close()
+        os.replace(part, dest)
 
     def _m1_baseline(self):
         """version 1 is the layout every earlier ledger already has (plus the columns added in place before versions existed)"""
@@ -298,7 +334,8 @@ class Ledger:
         """Check every anchor line of a file written by write_anchor against this ledger."""
         for i, line in enumerate(Path(path).read_text().splitlines(), 1):
             if line.strip():
-                ok, why = self.verify_against_anchor(Anchor(**json.loads(line)))
+                d = json.loads(line)
+                ok, why = self.verify_against_anchor(Anchor(**{k: d[k] for k in Anchor._fields}))      # extra keys (e.g. `file` from backups) are fine
                 if not ok:
                     return False, f"anchor line {i}: {why}"
         return True, None

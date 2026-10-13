@@ -31,6 +31,17 @@ def run_args(contract: str, workdir: str, arm: str, seed: int = 1, llm_env: str 
     return a
 
 
+def _exec_quote(x: str) -> str:
+    """one ExecStart word. systemd expands `%` specifiers and `$VAR` even in quotes and reads backslashes as C escapes, so all four are escaped"""
+    if "\n" in x or "\r" in x or "\0" in x:
+        raise ValueError("a line break in a path or argument cannot be put in a unit file")
+    return '"' + x.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%").replace("$", "$$") + '"'
+
+
+def _exec(argv: list[str]) -> str:
+    return " ".join(_exec_quote(x) for x in argv)
+
+
 def _env_lines(env: dict[str, str]) -> list[str]:
     q = lambda x: x.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%")      # systemd: double quotes, `%` is a specifier
     return [f'Environment="{q(k)}={q(v)}"' for k, v in sorted(env.items())]
@@ -40,7 +51,7 @@ def render_systemd(name: str, argv: list[str], env: dict[str, str], user: bool =
     env = {**{k: "1" for k in THREADS}, **env}
     lines = [
         "[Unit]",
-        f"Description=ants ({name})",
+        f"Description=ants ({name.replace('%', '%%')})",
         "Wants=network-online.target",
         "After=network-online.target",
         "# never give up: RestartSec spaces the retries, and `ants doctor` makes a crash loop visible",
@@ -50,7 +61,7 @@ def render_systemd(name: str, argv: list[str], env: dict[str, str], user: bool =
         "Type=notify",
         "NotifyAccess=main",
         f"WatchdogSec={watchdog_s}",
-        "ExecStart=" + " ".join(shlex.quote(x) for x in argv),
+        "ExecStart=" + _exec(argv),
         "Restart=always",
         "RestartSec=30",
         "# exit 3 = another ants holds this workdir: do not restart-loop",
@@ -70,13 +81,13 @@ def render_systemd(name: str, argv: list[str], env: dict[str, str], user: bool =
 
 def render_backup_units(name: str, argv: list[str], env: dict[str, str], user: bool = True) -> tuple[str, str]:
     svc = "\n".join([
-        "[Unit]", f"Description=ants backup ({name})", "",
-        "[Service]", "Type=oneshot", "ExecStart=" + " ".join(shlex.quote(x) for x in argv), *_env_lines(env),
+        "[Unit]", f"Description=ants backup ({name.replace('%', '%%')})", "",
+        "[Service]", "Type=oneshot", "ExecStart=" + _exec(argv), *_env_lines(env),
         "Nice=10", "IOSchedulingClass=idle", "",
     ])
     timer = "\n".join([
         "[Unit]", f"Description=daily ants backup ({name})", "",
-        "[Timer]", "OnCalendar=*-*-* 03:15:00", "RandomizedDelaySec=15m", "Persistent=true", "",
+        "[Timer]", "OnCalendar=*-*-* 03:15:00", "RandomizedDelaySec=15min", "Persistent=true", "",
         "[Install]", f"WantedBy={'timers.target'}", "",
     ])
     return svc, timer
@@ -96,6 +107,14 @@ def render_plist(name: str, argv: list[str], env: dict[str, str], logdir: Path) 
         "StandardOutPath": str(logdir / f"{unit_name(name)}.log"),
         "StandardErrorPath": str(logdir / f"{unit_name(name)}.log"),
     }
+    return plistlib.dumps(d)
+
+
+def render_backup_plist(name: str, argv: list[str], env: dict[str, str], logdir: Path) -> bytes:
+    """launchd: once a day at 03:15 (missed runs fire when the Mac wakes)"""
+    d = {"Label": f"io.ptoq.{unit_name(name)}-backup", "ProgramArguments": argv, "EnvironmentVariables": env,
+         "StartCalendarInterval": {"Hour": 3, "Minute": 15}, "ProcessType": "Background", "LowPriorityIO": True, "Nice": 10,
+         "StandardOutPath": str(logdir / f"{unit_name(name)}-backup.log"), "StandardErrorPath": str(logdir / f"{unit_name(name)}-backup.log")}
     return plistlib.dumps(d)
 
 

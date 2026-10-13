@@ -2,7 +2,7 @@
 
 Target: Ubuntu 24.04, 2 vCPU, 2 GB RAM, 2 GB swap as a buffer. Status: `experimental`. The units and scripts have **not been run on the target
 machine** ([surfaces.md](surfaces.md)); numbers below were measured on a macOS arm64 development machine unless a row says otherwise.
-Files: `deploy/install.sh`, `deploy/remote_deploy.sh`, `deploy/PREFLIGHT.md`, `deploy/ants@.service`, `ants-janitor.*`, `ants-health.*`, `ants-board.service`.
+Files: `deploy/install.sh`, `deploy/remote_deploy.sh`, `deploy/PREFLIGHT.md`, `deploy/ants@.service`, `ants-janitor@.*`, `ants-health@.*`, `ants-backup@.*`, `ants-board.service`.
 
 ## 1. Install
 
@@ -13,7 +13,7 @@ Files: `deploy/install.sh`, `deploy/remote_deploy.sh`, `deploy/PREFLIGHT.md`, `d
 | 2 | `deploy/remote_deploy.sh install` | uploads the newest `dist/antslab-*.tar.gz`, checks its SHA-256 on the server, runs `install.sh`, installs `contracts/tinyts_real.toml` as `/opt/ants/contracts/tinyts.toml` |
 | 3 | `deploy/remote_deploy.sh data` | fetches the dev-tier datasets on the server, builds `etth1 ettm1 weather exchange`, `ants data verify --partial` |
 | 4 | `deploy/remote_deploy.sh smoke 60` | 60 evaluations as user `ants` into `/var/lib/ants/smoke`, then `top --once` and `doctor` |
-| 5 | `deploy/remote_deploy.sh start` | `systemctl enable --now ants@portfolio ants-janitor.timer ants-health.timer` |
+| 5 | `deploy/remote_deploy.sh start [ARM..]` | `systemctl enable --now` per arm: `ants@<arm>`, `ants-janitor@<arm>.timer`, `ants-health@<arm>.timer`, `ants-backup@<arm>.timer` |
 
 `install.sh` (root, Ubuntu 24.04): refuses if `/var` has < 15 GB free or the source is not an ants tree; creates system user `ants` (home `/var/lib/ants`);
 rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw data/processed data/MANIFEST.dev.sha256 contracts/tinyts.toml`; builds the venv from the hashed lock
@@ -26,9 +26,10 @@ Not run: `remote_deploy.sh` (no server). `install.sh` was read, not executed.
 
 | unit | key limits | note |
 |---|---|---|
-| `ants@<arm>.service` | `CPUQuota=150%`, `MemoryHigh=900M`, `MemoryMax=1100M`, `OOMPolicy=kill`, `OOMScoreAdjust=500`, `TasksMax=256`, `Restart=always`, `RestartPreventExitStatus=3`, `RestartSec=30`, `StartLimitIntervalSec=0`, `TimeoutStopSec=60`, `KillMode=control-group` | one instance per arm; workdir `/var/lib/ants/<arm>`; runs `ants run --seed 1 --llm-env /etc/ants/llm.env` with **no** `--max-evals` (forever). Sandboxed: `ProtectSystem=strict`, writes only `/var/lib/ants`, no capabilities, `UMask=0077` |
-| `ants-janitor.timer` -> `.service` | first run 10 min after boot, then every 30 min; `CPUQuota=50%`, `MemoryMax=300M`; `InaccessiblePaths=/etc/ants` | `ants janitor --archive-dir /var/lib/ants/archive` |
-| `ants-health.timer` -> `.service` | first run 20 min after boot, then every 15 min; `MemoryMax=200M`; no network | `ants doctor`; exit 2 puts the unit in `systemctl --failed` |
+| `ants@<arm>.service` | `Type=notify`, `WatchdogSec=300`, `CPUQuota=100%`, `MemoryHigh=700M`, `MemoryMax=900M`, `OOMPolicy=kill`, `OOMScoreAdjust=500`, `TasksMax=256`, `Restart=always`, `RestartPreventExitStatus=3`, `RestartSec=30`, `StartLimitIntervalSec=0`, `TimeoutStopSec=60`, `KillMode=control-group` | one instance per arm; workdir `/var/lib/ants/<arm>`; runs `ants run --seed 1 --llm-env /etc/ants/llm.env` with **no** `--max-evals` (forever). Sandboxed: `ProtectSystem=strict`, writes only `/var/lib/ants`, no capabilities, `UMask=0077` |
+| `ants-janitor@<arm>.timer` -> `.service` | first run 10 min after boot, then every 30 min; `CPUQuota=50%`, `MemoryMax=300M`; `InaccessiblePaths=/etc/ants` | `ants janitor --archive-dir /var/lib/ants/archive/<arm>` |
+| `ants-health@<arm>.timer` -> `.service` | first run 20 min after boot, then every 15 min; `MemoryMax=200M`; no network | `ants doctor`; exit 2 puts the unit in `systemctl --failed` |
+| `ants-backup@<arm>.timer` -> `.service` | daily 03:15 (random delay up to 15 min, catches up after downtime); `MemoryMax=400M`, no network | `ants backup --dest /var/lib/ants/backups/<arm> --keep 14 --gzip` |
 | `ants-board.service` | `CPUQuota=25%`, `MemoryMax=200M`, `IPAddressDeny=any`, `IPAddressAllow=localhost` | optional; `ssh -N -L 8765:127.0.0.1:8765 user@host` |
 
 Deliberately absent (comment in the unit): `LimitFSIZE` (would kill the supervisor when `ledger.sqlite` grows past it; the runner gives each **child**
@@ -83,7 +84,7 @@ Not run on the target machine: the backup and anchor commands.
 
 ## 5. What `ants doctor` checks
 
-Seven checks plus four on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup), the thresholds are in [cli.md](cli.md#doctor). `ants-health.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
+Seven checks plus four on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup), the thresholds are in [cli.md](cli.md#doctor). `ants-health@<arm>.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
 30 min **while work is queued**, but an `s2` stage may legitimately run up to 1800 s (30 min) in `tinyts_real`, so a slow s2 can produce a transient FAIL.
 
 ## 6. Failure modes
@@ -96,7 +97,7 @@ Seven checks plus four on the ledger file (SQLite integrity, schema version and 
 | `no contract found` | `/opt/ants/contracts/tinyts.toml` missing (it is excluded from rsync on purpose) | copy a contract there |
 | disk under 8 GB, `paused:disk:pause` | trials and logs grew | `ants janitor --archive-dir ...`; delete old workdirs (`runs/smoke`); loop resumes within 60 s |
 | `doctor` FAIL `hash chain broken at event N` / `ants status` exit 2 | edit or deletion inside the chain, disk corruption | stop the unit, keep the file, restore the newest backup, compare with `anchors.jsonl`; do not claim sealed looks from this ledger |
-| process killed, service restarts after 30 s | OOM (`MemoryMax=1100M`, `OOMPolicy=kill`) or a crash | check `journalctl -u ants@portfolio`; lower `mem_cap_mb`; rows are reclaimed by `recover()`. Child killed by signal is retried, then `crashed` |
+| process killed, service restarts after 30 s | OOM (`MemoryMax=900M`, `OOMPolicy=kill`) or a crash | check `journalctl -u ants@portfolio`; lower `mem_cap_mb`; rows are reclaimed by `recover()`. Child killed by signal is retried, then `crashed` |
 | doctor WARN `N trial(s) running past their lease` | runner died; the lease is `max(timeouts)+60` s | none; reclaimed at next start |
 | doctor WARN `2 epoch(s) recorded` | code, contract or data manifest changed during the ledger's life (a redeploy rewrites the code hash) | expected after an upgrade; `History` ignores older epochs, so proposers restart from empty memory. Never compare numbers across epochs |
 | `PermissionError: ... must be chmod 600` | `llm.env` has group/other bits | `chmod 600`, owner `ants`. The installer warns about this |
@@ -121,7 +122,7 @@ Demo ledger (`runs/demo`, 61 rows, same profile): median `cpu_s` s0 0.22 (n=21),
 |---|---|---|
 | seconds per proposal, steady state | `c0 + p*c1 + p*p*c2` with `p = promote_quantile = 0.25`: 0.20 + 0.25 x 4.95 + 0.0625 x 10.87 = 2.1 s | extrapolated; the demo was entirely warm-up (nearly every row promoted) |
 | proposals per day, one worker | 86 400 / 2.1 = about 41 000 (plus about 10 000 s1 and 2 500 s2 rows: about 53 000 ledger rows per day) | extrapolated; assumes no idle time, p exactly at the quantile |
-| memory per evaluation | peak 745 MiB at s2 + supervisor 53 MiB = about 800 MiB against `MemoryHigh=900M`, `MemoryMax=1100M` | macOS RSS; `est_mem_mb` says 560 for this spec, so it under-predicts by 33% here |
+| memory per evaluation | measured on the server (Linux, real data, 2026-10-13): plain spec 102 MiB at s1 and 201 MiB at s2, the largest spec 201 MiB at s1 and 266 MiB at s2; with the supervisor about 100 MiB more, against `MemoryHigh=700M`, `MemoryMax=900M` per instance, two instances | `est_mem_mb` says 365 and 622 for these, so it over-predicts by 1.8 to 2.3 times and never under-predicts; the cap of 750 MB therefore binds earlier than it needs to, and was left alone because changing it would change the feasible region (a protocol change) |
 | ledger growth | about 2.1 KB of payload per row (38 174 B trials + 92 466 B events over 61 rows); file size 274 KB / 61 = 4.5 KB per row (small-file upper bound) -> 0.1 to 0.25 GB per day | extrapolated |
 | artifact growth | 4 files per s2 row (`spec.json`, `metrics.json`, 2 logs), 15 887 B in total over 19 s2 rows; with 4 KB blocks about 16 KB per s2 row -> about 40 MB per day | extrapolated |
 | CPU speed on the target | unknown: multiply the seconds by the ratio server/dev after running `deploy/remote_deploy.sh smoke 60` | Not measured on the target machine |

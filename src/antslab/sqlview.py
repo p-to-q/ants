@@ -31,6 +31,9 @@ def connect_readonly(path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA query_only=ON")
     conn.set_authorizer(_authorizer)
+    for lim, val in ((sqlite3.SQLITE_LIMIT_LENGTH, 1 << 20), (sqlite3.SQLITE_LIMIT_SQL_LENGTH, 20_000), (sqlite3.SQLITE_LIMIT_EXPR_DEPTH, 100),
+                     (sqlite3.SQLITE_LIMIT_COMPOUND_SELECT, 20)):
+        conn.setlimit(lim, val)                      # a value, a statement or an expression can not grow past a megabyte or so (randomblob(1e9) fails)
     return conn
 
 

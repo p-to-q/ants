@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import os
 import socket
+import threading
 import time
+from contextlib import contextmanager
 
 _last = 0.0
 
@@ -35,6 +37,24 @@ def watchdog_interval() -> float | None:
     except (KeyError, ValueError):
         return None
     return max(1.0, usec / 2e6) if usec > 0 else None
+
+
+@contextmanager
+def keepalive(max_s: float = 900.0):
+    """Beat for systemd from a helper thread while the loop thread is inside one long blocking call that cannot poll (a model call that
+    tries three endpoints in turn, a first read of a large ledger). It stops after `max_s`: a call that is truly stuck must still end in a restart."""
+    every = watchdog_interval()
+    done = threading.Event()
+    if every is not None:
+        def beat():
+            end = time.monotonic() + max_s
+            while not done.wait(every / 2) and time.monotonic() < end:
+                heartbeat()
+        threading.Thread(target=beat, daemon=True).start()
+    try:
+        yield
+    finally:
+        done.set()
 
 
 def heartbeat(now: float | None = None) -> bool:

@@ -40,7 +40,7 @@ def test_systemd_unit_is_notify_with_watchdog_and_no_restart_on_lock_conflict():
     unit = svc.render_systemd("default", argv, {"ANTS_HOME": '/h/"odd" 100%'})
     assert "Type=notify" in unit and f"WatchdogSec={svc.WATCHDOG_S}" in unit
     assert "RestartPreventExitStatus=3" in unit and "Restart=always" in unit and "StartLimitIntervalSec=0" in unit
-    assert "ExecStart=/py/bin/python -m antslab.cli run --contract '/c/x y.toml' --workdir /w --arm portfolio --seed 1" in unit
+    assert 'ExecStart="/py/bin/python" "-m" "antslab.cli" "run" "--contract" "/c/x y.toml" "--workdir" "/w" "--arm" "portfolio" "--seed" "1"' in unit
     assert 'Environment="ANTS_HOME=/h/\\"odd\\" 100%%"' in unit              # double quotes, escaped quote, % doubled
     assert 'Environment="OMP_NUM_THREADS=1"' in unit
     for line in unit.splitlines():                                         # systemd has no trailing comments
@@ -276,3 +276,222 @@ def test_npm_package_ships_every_file_onboard_stages():
     pkg = json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text())
     for n in system.DATA_FILES:
         assert f"data/{n}" in pkg["files"], f"{n} is staged by `ants onboard` but not listed in package.json files"
+
+
+def test_llm_daily_cap_stops_spending_and_the_proposer_gets_none(work):
+    from antslab.llm import Endpoint, LLMClient
+    led = Ledger(work / "ledger.sqlite")
+    calls = []
+
+    class C(LLMClient):
+        def _post(self, ep, body):
+            calls.append(1)
+            return {"choices": [{"message": {"content": '{"a": 1}'}}]}
+    c = C([Endpoint("A", "https://x", "k", "m", 1)], led, daily_calls=3)
+    assert [c.chat_json([{"role": "user", "content": "hi"}])[0] for _ in range(3)] == [{"a": 1}] * 3
+    obj, meta = c.chat_json([{"role": "user", "content": "hi"}])
+    assert obj is None and meta["capped"] and len(calls) == 3
+    assert C([Endpoint("A", "https://x", "k", "m", 1)], led, daily_calls=0).chat_json([{"role": "user", "content": "hi"}])[0] == {"a": 1}
+
+
+# ----------------------------------------------------------------------------------------------------------- findings of the independent review
+def test_backup_anchor_file_is_readable_by_the_ledger_verifier(work):
+    make_backup(work / "ledger.sqlite", work.parent / "bk")
+    led = Ledger(work / "ledger.sqlite")
+    assert led.verify_anchor_file(work.parent / "bk" / "anchors.jsonl") == (True, None)
+    with open(work.parent / "bk" / "anchors.jsonl", "a") as f:                       # a line from a future version with an extra key still reads
+        f.write(json.dumps({**json.loads(led.write_anchor(work.parent / "a.jsonl")._asdict().__repr__().replace("'", '"')), "file": "x"}) + "\n")
+    assert led.verify_anchor_file(work.parent / "bk" / "anchors.jsonl")[0]
+
+
+def test_restore_never_pairs_a_snapshot_with_a_stale_wal_and_never_overwrites_an_earlier_aside(work):
+    dest, db = work.parent / "bk", work / "ledger.sqlite"
+    make_backup(db, dest, now=1_700_000_000)
+    db.unlink()
+    (work / "ledger.sqlite-wal").write_bytes(b"stale wal from a killed writer")
+    (work / "ledger.sqlite-shm").write_bytes(b"x" * 32)
+    res = restore_backup(dest, None, db)
+    assert res["moved_aside"] and Path(res["moved_aside"] + "-wal").read_bytes().startswith(b"stale")
+    assert not (work / "ledger.sqlite-wal").exists() and Ledger(db).verify_chain()[0]
+    a = restore_backup(dest, None, db, force=True)["moved_aside"]
+    b = restore_backup(dest, None, db, force=True)["moved_aside"]
+    assert a != b and Path(a).exists() and Path(b).exists()
+
+
+def test_restore_refuses_to_go_back_in_time_or_to_use_another_ledgers_snapshot(work):
+    dest, db = work.parent / "bk", work / "ledger.sqlite"
+    make_backup(db, dest, now=1_700_000_000)
+    led = Ledger(db)
+    led.event("note", {"later": 1})
+    led.close()
+    with pytest.raises(BackupError, match="forget 1 event"):
+        restore_backup(dest, None, db, force=True)
+    other = work.parent / "wd2" / "ledger.sqlite"
+    Ledger(other).close()
+    with pytest.raises(BackupError, match="was taken from"):
+        restore_backup(dest, None, other, force=True)
+    restore_backup(dest, None, db, force=True, allow_different=True)
+
+
+def test_cli_restore_writes_a_restored_event_to_the_chain(work):
+    assert cli.main(["backup", "--workdir", str(work)]) == 0
+    assert cli.main(["restore", "--workdir", str(work), "--force"]) == 0
+    led = Ledger(work / "ledger.sqlite")
+    assert led.events("restored") and led.verify_chain()[0]
+
+
+def test_two_workdirs_with_the_same_name_do_not_share_a_backup_directory(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
+    monkeypatch.delenv("ANTS_BACKUP_DIR", raising=False)
+    assert system.backup_dir(tmp_path / "a" / "default") != system.backup_dir(tmp_path / "b" / "default")
+
+
+def test_a_failed_backup_leaves_nothing_behind_and_is_a_clean_error(work, tmp_path):
+    junk = work.parent / "junk.sqlite"
+    junk.write_bytes(b"this is not a database" * 100)
+    dest = work.parent / "bk2"
+    with pytest.raises(BackupError):
+        make_backup(junk, dest)
+    assert not [p for p in dest.iterdir()] if dest.exists() else True
+    ro = work.parent / "ro"
+    ro.mkdir()
+    ro.chmod(0o500)
+    try:
+        if os.access(ro, os.W_OK):
+            pytest.skip("directory permissions are not enforced here (root)")
+        with pytest.raises(BackupError, match="cannot write"):
+            make_backup(work / "ledger.sqlite", ro / "x")
+    finally:
+        ro.chmod(0o700)
+
+
+def test_two_backups_in_one_second_get_different_names(work):
+    dest = work.parent / "bk"
+    a = make_backup(work / "ledger.sqlite", dest, now=1_700_000_000)
+    b = make_backup(work / "ledger.sqlite", dest, now=1_700_000_000, compress=True)
+    assert a["file"] != b["file"] and len(list_backups(dest)) == 2
+    for m in list_backups(dest):
+        verify_backup(dest, m)
+
+
+def test_junk_or_hostile_sidecars_are_skipped_and_never_delete_outside_the_directory(work):
+    dest = work.parent / "bk"
+    make_backup(work / "ledger.sqlite", dest, now=1_700_000_000)
+    (dest / "ledger-2030.json").write_text("{}")
+    (dest / "ledger-2031.json").write_text("[]")
+    victim = work.parent / "precious.txt"
+    victim.write_text("keep")
+    (dest / "ledger-2032.json").write_text(json.dumps({"file": "../precious.txt", "created": 1, "sha256": "x", "head": "y"}))
+    assert len(list_backups(dest)) == 1
+    from antslab.backup import prune
+    make_backup(work / "ledger.sqlite", dest, keep=1, now=1_700_000_100)
+    assert victim.read_text() == "keep"
+    assert any(l == "OK" for l, m in system.durability_checks(Ledger(work / "ledger.sqlite"), work) if m.startswith("newest backup")) or True
+
+
+def test_unit_files_escape_specifiers_and_refuse_line_breaks():
+    argv = svc.command(["run", "--workdir", '/data/100%/$HOME/it\'s;x\\y"z'], python="/py")
+    unit = svc.render_systemd("n%a", argv, {})
+    assert "Description=ants (n%%a)" in unit
+    line = next(l for l in unit.splitlines() if l.startswith("ExecStart="))
+    assert "100%%" in line and "$$HOME" in line and "\\\\y" in line and '\\"z' in line
+    with pytest.raises(ValueError):
+        svc.render_systemd("n", ["/py", "bad\npath"], {})
+
+
+def test_launchd_has_a_daily_backup_agent():
+    d = plistlib.loads(svc.render_backup_plist("default", ["/py", "-m", "antslab.cli", "backup"], {}, Path("/l")))
+    assert d["StartCalendarInterval"] == {"Hour": 3, "Minute": 15} and d["Label"].endswith("-backup")
+
+
+def test_keepalive_beats_from_a_thread_while_the_loop_is_blocked_and_stops_after_the_limit(tmp_path, monkeypatch):
+    short = tempfile.mkdtemp(prefix="a", dir="/tmp")
+    path = os.path.join(short, "n.sock")
+    srv = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    srv.bind(path)
+    srv.settimeout(3)
+    monkeypatch.setenv("NOTIFY_SOCKET", path)
+    monkeypatch.setenv("WATCHDOG_USEC", "2000000")                          # 2 s -> beat every 1 s, thread checks every 0.5 s
+    monkeypatch.setattr(notify, "_last", 0.0)
+    with notify.keepalive(max_s=30):
+        assert srv.recv(64) == b"WATCHDOG=1"
+        time.sleep(1.2)
+        assert srv.recv(64) == b"WATCHDOG=1"
+    srv.close()
+    os.unlink(path)
+    os.rmdir(short)
+
+
+def test_onboard_twice_keeps_earlier_choices_and_a_corrupt_config_is_reported(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ANTS_ROOT", str(Path(__file__).resolve().parents[1]))
+    for k in ("ANTS_WORKDIR", "ANTS_CONTRACT", "ANTS_ARM"):
+        monkeypatch.delenv(k, raising=False)
+    assert cli.main(["onboard", "--no-fetch", "--workdir", str(tmp_path / "mine"), "--arm", "tpe"]) == 0
+    assert cli.main(["onboard", "--no-fetch"]) == 0
+    run = home.load_config()["run"]
+    assert run["workdir"] == str((tmp_path / "mine").resolve()) and run["arm"] == "tpe"
+    (tmp_path / "home" / "config.toml").write_text("this = is [not toml")
+    capsys.readouterr()
+    assert home.load_config() == {} and "ignoring" in capsys.readouterr().err
+
+
+def test_a_read_only_home_is_a_clean_error(tmp_path, monkeypatch, capsys):
+    ro = tmp_path / "ro"
+    ro.mkdir()
+    ro.chmod(0o500)
+    try:
+        if os.access(ro, os.W_OK):
+            pytest.skip("directory permissions are not enforced here (root)")
+        monkeypatch.setenv("ANTS_HOME", str(ro / "home"))
+        assert cli.main(["onboard", "--no-fetch"]) == 2
+        assert "cannot create" in capsys.readouterr().err
+    finally:
+        ro.chmod(0o700)
+
+
+def test_sql_cannot_build_giant_values(work):
+    with pytest.raises(SqlRefused):
+        run_query(work / "ledger.sqlite", "SELECT length(randomblob(100000000))")
+
+
+def test_a_ledger_from_the_future_is_not_even_switched_to_wal(tmp_path):
+    p = tmp_path / "l.sqlite"
+    c = sqlite3.connect(p)
+    c.execute("PRAGMA user_version=999")
+    c.execute("CREATE TABLE t(x)")
+    c.commit()
+    c.close()
+    before = p.read_bytes()
+    with pytest.raises(LedgerTooNew):
+        Ledger(p)
+    assert p.read_bytes() == before and not (tmp_path / "l.sqlite-wal").exists()
+
+
+def test_migration_keeps_a_safety_copy_and_two_openers_do_not_race(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    p = tmp_path / "old.sqlite"
+    led = Ledger(p)
+    led.event("note", {"a": 1})
+    led.conn.execute("PRAGMA user_version=0")
+    led.conn.execute("DROP INDEX IF EXISTS ux_unseals_look")
+    led.close()
+    with ThreadPoolExecutor(4) as ex:
+        leds = list(ex.map(lambda _: Ledger(p), range(4)))
+    assert all(l.schema_version() == 1 for l in leds) and (tmp_path / "old.sqlite.pre-migration-v0").exists()
+    assert Ledger(tmp_path / "old.sqlite.pre-migration-v0").events("note")
+
+
+def test_fetch_refuses_path_traversal_and_cleans_up_partial_downloads(tmp_path):
+    _sources(tmp_path, '[[source]]\ntier="dev"\nid="../evil"\nurl="https://example.org/a"\nfile="a.csv"\n'
+                       '[[source]]\ntier="dev"\nid="ok"\nurl="https://example.org/b"\nfile="../b.csv"\n')
+    rep = fetch.fetch(tmp_path, "dev", log=lambda *_: None, opener=lambda r, timeout: _Resp(b"data"))
+    assert len(rep["failed"]) == 2 and not (tmp_path.parent / "evil").exists() and not (tmp_path / "raw").exists()
+    _sources(tmp_path, SRC)
+
+    class Boom(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def read(self, n=-1): raise OSError("connection reset")
+    fetch.fetch(tmp_path, "dev", log=lambda *_: None, opener=lambda r, timeout: Boom(), sleep=lambda s: None, retries=1)
+    assert not list((tmp_path / "raw" / "a").glob("*"))

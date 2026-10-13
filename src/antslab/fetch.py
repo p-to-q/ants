@@ -8,10 +8,12 @@ the new truth.
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import ssl
 import time
 import tomllib
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -43,7 +45,8 @@ def tls_context() -> ssl.SSLContext:
 
 
 def default_opener(req, timeout):
-    return urllib.request.urlopen(req, timeout=timeout, context=tls_context())
+    op = urllib.request.build_opener(_HttpsOnly, urllib.request.HTTPSHandler(context=tls_context()))
+    return op.open(req, timeout=timeout)
 
 
 def load_sources(base: Path) -> list[dict]:
@@ -71,25 +74,41 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+class _HttpsOnly(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not newurl.startswith("https://"):
+            raise urllib.error.URLError(f"refusing a redirect to a non-https address: {newurl[:80]}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+DEADLINE_S = 1800                       # one file may not take longer than this overall (the socket timeout only bounds each read)
+SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
 def _download(url: str, dest: Path, opener, timeout: float) -> str:
     if not url.startswith("https://"):
         raise ValueError(f"refusing a non-https source: {url}")
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     part = dest.with_name(dest.name + ".part")
-    h, n = hashlib.sha256(), 0
-    with opener(req, timeout=timeout) as r, open(part, "wb") as f:
-        while True:
-            chunk = r.read(1 << 20)
-            if not chunk:
-                break
-            n += len(chunk)
-            if n > MAX_BYTES:
-                raise ValueError(f"{url} is larger than {MAX_BYTES >> 30} GB: aborting")
-            h.update(chunk)
-            f.write(chunk)
-    if n == 0:
-        part.unlink(missing_ok=True)
-        raise ValueError("empty response")
+    h, n, end = hashlib.sha256(), 0, time.monotonic() + DEADLINE_S
+    try:
+        with opener(req, timeout=timeout) as r, open(part, "wb") as f:
+            while True:
+                chunk = r.read(1 << 20)
+                if not chunk:
+                    break
+                n += len(chunk)
+                if n > MAX_BYTES:
+                    raise ValueError(f"{url} is larger than {MAX_BYTES >> 30} GB: aborting")
+                if time.monotonic() > end:
+                    raise TimeoutError(f"{url} did not finish within {DEADLINE_S} s")
+                h.update(chunk)
+                f.write(chunk)
+        if n == 0:
+            raise ValueError("empty response")
+    except BaseException:
+        part.unlink(missing_ok=True)               # a failed or oversize download leaves nothing behind
+        raise
     part.replace(dest)
     return h.hexdigest()
 
@@ -106,6 +125,9 @@ def fetch(base: Path, tier: str = "dev", log=print, opener=default_opener, retri
     pins = pinned(base)
     rep = {"fetched": [], "have": [], "failed": [], "mismatch": [], "unpinned": []}
     for s in (s for s in load_sources(base) if s["tier"] in TIERS[tier]):
+        if not (SAFE_NAME.match(str(s.get("id", ""))) and SAFE_NAME.match(str(s.get("file", "")))):
+            rep["failed"].append((f"{s.get('id')}/{s.get('file')}", "unsafe id or file name in sources.toml"))
+            continue
         rel = f"raw/{s['id']}/{s['file']}"
         dest = base / rel
         dest.parent.mkdir(parents=True, exist_ok=True)

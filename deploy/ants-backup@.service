@@ -1,14 +1,16 @@
 [Unit]
-Description=ants health check (ants doctor; fails the unit when the lab is unhealthy)
+Description=ants ledger backup (%i): verified online snapshot
 
 [Service]
 Type=oneshot
 User=ants
 Group=ants
 WorkingDirectory=/opt/ants
-ExecStart=/opt/ants/.venv/bin/ants doctor --contract /opt/ants/contracts/tinyts.toml --workdir /var/lib/ants/portfolio --arm portfolio
-CPUQuota=25%
-MemoryMax=200M
+ExecStart=/opt/ants/.venv/bin/ants backup --workdir /var/lib/ants/%i --dest /var/lib/ants/backups/%i --keep 14 --gzip
+Nice=10
+IOSchedulingClass=idle
+CPUQuota=50%
+MemoryMax=400M
 TasksMax=64
 
 NoNewPrivileges=yes

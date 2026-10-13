@@ -149,10 +149,21 @@ def load_endpoints(env_path, models: dict | None = None, conc: int = 3) -> list[
     return eps
 
 
+DEFAULT_DAILY_CALLS = 1500          # model calls (every endpoint attempt counts) per rolling 24 h; ANTS_LLM_MAX_CALLS_PER_DAY overrides, 0 = no cap
+
+
+def daily_cap() -> int:
+    try:
+        return max(0, int(os.environ.get("ANTS_LLM_MAX_CALLS_PER_DAY", DEFAULT_DAILY_CALLS)))
+    except ValueError:
+        return DEFAULT_DAILY_CALLS
+
+
 class LLMClient:
     def __init__(self, endpoints: list[Endpoint], ledger=None, timeout_s: float = 100,
-                 max_tokens: int = 4000, rng: random.Random | None = None):
+                 max_tokens: int = 4000, rng: random.Random | None = None, daily_calls: int | None = None):
         self.eps, self.ledger, self.timeout_s, self.max_tokens = endpoints, ledger, timeout_s, max_tokens
+        self.daily_calls = daily_cap() if daily_calls is None else daily_calls
         self.rng = rng or random.Random(0)
         self._lock = threading.Lock()
 
@@ -180,6 +191,9 @@ class LLMClient:
         server (or the ledger) does, the caller gets (None, meta) at worst."""
         meta = {"attempts": []}
         for ep in self._pick_order():
+            if self._capped():                           # spend is bounded no matter what the proposers ask: callers fall back to search
+                meta["capped"] = True
+                return None, meta
             t = time.time()
             ok, note, toks, obj = False, "", None, None
             try:
@@ -209,6 +223,14 @@ class LLMClient:
                 meta["ep"] = ep.name
                 return obj, meta
         return None, meta
+
+    def _capped(self) -> bool:
+        if not (self.ledger and self.daily_calls):
+            return False
+        try:
+            return self.ledger.llm_calls_since(time.time() - 86400) >= self.daily_calls
+        except Exception:                                # a ledger that cannot be read must not take the proposer down (see test_security_llm)
+            return False
 
     def stats(self) -> dict:
         return {e.name: {"ok": e.ok, "bad": e.bad,

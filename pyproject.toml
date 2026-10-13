@@ -1,6 +1,6 @@
 [project]
 name = "ants-lab"
-version = "0.1.0"
+version = "0.2.0"
 description = "ants: Autonomous Navigation of Tiny-model Space. A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it."
 requires-python = ">=3.11"
 license = "Apache-2.0"

@@ -25,7 +25,7 @@ chown -R ants:ants /opt/ants
 sudo -u ants /opt/ants/.venv/bin/pip install -q --require-hashes -r /opt/ants/requirements/server.txt
 sudo -u ants /opt/ants/.venv/bin/pip install -q --no-deps -e /opt/ants
 echo "== units"
-for u in ants@.service ants-janitor.service ants-janitor.timer ants-health.service ants-health.timer ants-board.service; do
+for u in ants@.service ants-janitor@.service ants-janitor@.timer ants-health@.service ants-health@.timer ants-backup@.service ants-backup@.timer ants-board.service; do
   install -m 644 "/opt/ants/deploy/$u" "/etc/systemd/system/$u"
 done
 systemctl daemon-reload
@@ -36,4 +36,4 @@ fi
 echo "== swap (safety buffer, not working memory)"
 swapon --show | grep -q . || echo "no swap configured: see deploy/PREFLIGHT.md"
 echo "== done. Next: put keys in /etc/ants/llm.env (install -m 600 -o ants -g ants), copy a contract to /opt/ants/contracts/tinyts.toml,"
-echo "   run the test suite, then: systemctl enable --now ants@portfolio ants-janitor.timer ants-health.timer   (check: systemd-analyze security ants@portfolio)"
+echo "   run the test suite, then: deploy/remote_deploy.sh start portfolio   (check: systemd-analyze security ants@portfolio)"

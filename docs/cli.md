@@ -62,6 +62,7 @@ Verified: `cd empty-dir && ants top` prints the `no contract found` message and 
 | `onboard` | create `~/.ants`, stage the catalog, fetch datasets, write `config.toml` | `~/.ants`, `data/raw`, `data/processed` |
 | `service install\|uninstall\|status\|logs` | keep `ants run` resident: systemd user unit (+ daily backup timer) or launchd agent | unit files |
 | `backup` / `backups` / `restore` | verified online snapshot of the ledger / list / put one back | backup directory; `restore` replaces the ledger (old one moved aside) |
+| `update` | look for a newer ants (npm registry, or GitHub releases with `[update] source = "github"`); `--apply` installs it with the method that installed ants (npm, git pull, or pip) | install only with `--apply` |
 | `sql` (alias `query`) | one read-only SELECT over the ledger, `--format table\|json\|jsonl\|csv`, `--schema` | no |
 
 ### run
@@ -250,6 +251,8 @@ After `--now` on Linux run `loginctl enable-linger $USER` so it survives logout.
 workdir, and moves the old ledger aside instead of deleting it. Default destination `~/.ants/backups/<workdir name>` (`$ANTS_BACKUP_DIR`, `[backup] dest`).
 
 `ants sql "SELECT ..."` opens the ledger read-only with an authorizer that allows nothing but SELECT, a 10 s time limit and a 1000-row cap. `--format csv` neutralises formula cells.
+
+`ants update` caches the answer for a day in `~/.ants/update.json`. Interactive commands (`shell`, `top`, `best`, `status`) print one line on stderr when the cache knows a newer version; nothing is printed in scripts (no terminal), with `ANTS_NO_UPDATE_CHECK=1`, or with `[update] check = false`. `ants run` never checks and never updates itself: a resident daemon must not change under itself, so update, then `ants service restart`. `ants doctor` reads the cache only.
 
 ### data
 
