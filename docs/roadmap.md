@@ -28,6 +28,11 @@ What can change next, in order, what each step needs and which ones start a new 
 | 12 | A second arena with parameters shared across datasets | question 5 | a new gym | 5+ | large | yes | deferred |
 | 13 | Academic-compatible report (Tier A): per-dataset, per-horizon MSE/MAE on the standard LTSF protocol for frozen candidates | our numbers can be read next to the literature's | a gym `ltsf` profile that emits per-dataset MSE/MAE | 0.3 | [benchmark §13](benchmark.md) | no (report only) | planned, after 2 |
 | 14 | In-house references under the same harness: DLinear, SparseTSF, FITS, PatchTST, ridge, naive floors, optionally one zero-shot foundation model | where we stand against what the field uses, at equal tuning budget | reference harness | 1 to 2 | step 13 | no | planned |
+| 16 | Standard search baselines as reference arms: Optuna TPE with a Hyperband pruner, SMAC, NSGA-II, aging evolution, random | is the portfolio worth its complexity | arms in step 2, same budget | 1 | thin wrappers (optuna and smac are optional extras) | no | planned, with 2 |
+| 17 | Leave-one-operator-out ablation of the portfolio; operator-only arms | which of the nine earn their place | arms | 1.5 | nothing | no | planned, with 2 |
+| 18 | Search redesign: ASHA rungs, aging evolution plus one surrogate proposer, a Pareto archive with MAP-Elites cells, re-evaluation of the top | the standard shape does at least as well with fewer parts | [search.md](search.md) | 3 | build after 16 and 17 | yes (stages) | proposal |
+| 19 | Self-adapting and cross-run evolution of the searcher (operator settings, priors passed from run to run) | the searcher improves without a person | [search.md](search.md) | 2 | after 18 | no | proposal |
+| 20 | Direction report (lever importance, exhausted regions) and a training hand-off (refit winners with more data; optional gradient fine-tune) | what the search teaches, and what a model gains from real training | analysis, a gym profile | 1 to 2 | after 2 | no | planned |
 | 15 | TinyTS-Bench v1: three tiers and one pre-registered family-weighted composite; `ants bench` re-runs it anywhere | one reproducible conclusion, not a pile of tables | `bench` command, pre-registered weights | 2 to 3 | steps 13, 14, 8 | no | planned |
 
 ## Adjacent problems, in the same plan

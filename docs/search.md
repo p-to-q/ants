@@ -44,3 +44,44 @@ Measured on the first eight hours (one seed per arm):
 | a recorded estimate of headroom: the gap between the best found and the best reference, per cap, in the interface | the answer to 'how far' on the home screen | small | planned after the references exist |
 
 The short answer to "is it like that": the mechanisms for many methods, shared credit, diversity and stepping stones exist and run; the claim that they find *more* than one method would is not yet shown, and the measurements say the search is still too crowded and too blind at the cheap stage. The roadmap is built to test that.
+
+## A redesign of the search layer (proposal, nothing built)
+
+The question behind it: nine operators were chosen because each is a known family, not because each earns its place here. The first eight hours say they do not all earn it (shares are proposals that reached the deepest stage s2; one seed per arm, so read the order, not the decimals):
+
+| operator | share of its proposals reaching s2 | note |
+|---|---|---|
+| evolutionary crossover | 72 to 84% | every top-10 spec in all three arms came from evolutionary mutation or crossover |
+| evolutionary mutation | 48 to 57% | as above |
+| differential evolution | 7 to 13% | |
+| TPE | 7 to 9% | |
+| random | 3 to 7% | the control; also the only one that cannot get stuck |
+| quality-diversity | 2 to 5% | its job is coverage, which this number does not measure |
+| ant-colony | 0 to 1% | |
+| model operators (after the 0.5.1 fix) | too early | |
+
+**What the field would call this problem.** A multi-fidelity, multi-objective hyper-parameter and architecture search over a conditional mixed space (a lever matters only for some cores), with noisy evaluations: error against parameter count. The standard tools: successive halving and its asynchronous form (ASHA, Hyperband) for the stages; BOHB or SMAC (a surrogate model that handles conditional spaces) for sample efficiency; NSGA-II or ParEGO for the error-versus-size frontier; regularised (aging) evolution, the workhorse of neural architecture search under a memory budget; MAP-Elites and CMA-ME for diversity; evolution through language models (FunSearch, AlphaEvolve) when the variation operator is a model. Ours maps onto these but is built differently: a bandit over operators ("adaptive operator selection" in the literature), a quantile promotion rule, the caps as four separate bins, stepping stones. None of it has been compared with the standard versions at equal budget, which is the gap to close first.
+
+**Proposed shape** (each piece replaces something, not adds to it):
+
+| layer | now | proposed | why |
+|---|---|---|---|
+| stages | a quantile cut per stage and cap | rungs of ASHA with a stated reduction factor; the rung fidelity chosen by measured rank correlation, not by habit | the cheap stage has near-zero rank information among near-equal candidates; successive halving is the standard answer and comes with analysis |
+| main engine | nine operators | regularised (aging) evolution with tournament selection as the exploiter; one surrogate-assisted proposer (TPE or a random-forest surrogate, SMAC-style) as the explorer; random as the control; the model operators as variation and analysis operators | the data say the exploiters find what is found; the rest cost evaluations |
+| objective | four independent caps | one archive ordered by Pareto dominance on (error, parameters), with niche cells by size and core type (MAP-Elites) | a model found at 1000 parameters is often a seed for 300; separate hills throw that information away |
+| noise | best of N single evaluations | re-evaluation (racing) of the top few before they count as best; report best-of-N and confirm score side by side | the best of many noisy evaluations is optimistic |
+| waste | 35 to 45% coarse duplicates | grid keys for levers that only jitter | free |
+
+**Evolving the searcher itself.** Yes, and it can be done in the order biology does it, with the same care about what selection pressure means:
+
+1. *Selection among operators* exists (the bandit). It is selection without variation, and its fitness signal is proposals promoted, which is noisy and favours cheap, safe moves.
+2. *Variation inside an operator*: let an operator's own settings (mutation rate, tournament size, step scale) be a small genome that is mutated and selected by discovery rate per CPU-second, not per proposal. This is the self-adaptation of evolution strategies and costs little.
+3. *Evolution across runs*: each finished run (a seed) is a generation; the final operator shares and settings become the prior of the next run. Selection is slow on purpose, one step per run.
+4. *Variation by a model*: a language model as the mutation operator over specs (the agent arm is the first version), and later over the operators' code, scored by replaying the ledger. That is the Meta-Harness direction and is recorded as roadmap step 14 in the research note.
+5. *Guard*: selection at the meta level uses the same dev-data signal, so it can overfit the dev data just as the models can. Meta-level choices are checked on confirm data once per run, never per step.
+
+**The honest order of work**: add the standard baselines as reference arms (Optuna TPE with a Hyperband pruner, SMAC, NSGA-II, aging evolution, random) in the equal-budget experiment; run a leave-one-operator-out ablation of the current portfolio; then decide what to drop and what to build. The proposal above is a hypothesis about the outcome, not a plan to act before it.
+
+## What the aim is, and what the search is for
+
+The aim is better models and better directions, not a better search for its own sake. Two outputs follow from that and are not produced yet: a **direction report** (which levers matter and how much, by an importance analysis over the ledger; which regions of the space are exhausted), and a **training hand-off** (the winners' specs fitted again with more data and compute, and optionally fine-tuned by gradient with low-rank adapters, to see how much the cheap closed-form fit left on the table). The search is the instrument; these are the measurements.
