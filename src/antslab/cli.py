@@ -334,6 +334,19 @@ def cmd_workspace(a):
     return 0
 
 
+def cmd_epochs(a):
+    from . import ui
+    wd, led, c = _open(a)
+    rows = ui.epochs(led, c)
+    def text(rs):
+        import time as _t
+        f = lambda t: _t.strftime("%m-%d %H:%M", _t.localtime(t)) if t else "-"
+        cur = led.conn.execute("SELECT epoch FROM trials ORDER BY id DESC LIMIT 1").fetchone()
+        return "\n".join(f"{'*' if cur and r['epoch'] == cur[0] else ' '} {r['epoch']:<14} {r['trials']:>7} trials {r['done']:>7} done  {f(r['first'])} .. {f(r['last'])}  ants {', '.join(map(str, r['versions'])) or '?'}" for r in rs) + "\n(* = the epoch the search is in now; results of different epochs are never pooled)"
+    _emit(a, rows, text)
+    return 0
+
+
 def cmd_hint(a):
     from . import ui
     wd, led, c = _open(a)
@@ -529,7 +542,7 @@ def main(argv=None):
     ap.add_argument("--version", action="version", version="ants " + _version())
     sub = ap.add_subparsers(dest="cmd", required=False)
     for name, fn in (("run", cmd_run), ("status", cmd_status), ("export", cmd_export), ("janitor", cmd_janitor), ("board", cmd_board), ("serve", cmd_serve),
-                     ("top", cmd_top), ("best", cmd_best), ("show", cmd_show), ("diff", cmd_diff), ("workspace", cmd_workspace), ("log", cmd_log), ("hint", cmd_hint),
+                     ("top", cmd_top), ("best", cmd_best), ("show", cmd_show), ("diff", cmd_diff), ("workspace", cmd_workspace), ("epochs", cmd_epochs), ("log", cmd_log), ("hint", cmd_hint),
                      ("pause", cmd_pause), ("resume", cmd_pause), ("doctor", cmd_doctor), ("shell", cmd_shell)):
         s = sub.add_parser(name)
         s.add_argument("--contract"); s.add_argument("--workdir")

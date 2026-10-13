@@ -134,9 +134,33 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
     calls = led.conn.execute("SELECT COUNT(*), COALESCE(SUM(ok),0) FROM llm_calls WHERE ts>?", (now - 86400,)).fetchone()
     if calls[0]:
         out.append(("OK" if calls[1] / calls[0] > .6 else "WARN", f"LLM calls in 24 h: {calls[0]}, parseable {calls[1] / calls[0]:.0%}"))
+    starts = [json.loads(r[0]) for r in led.conn.execute("SELECT payload FROM events WHERE kind='daemon_started' ORDER BY seq")]
+    hashes = []
+    for s in starts:
+        h = s.get("arm_def_hash") if isinstance(s, dict) else None
+        if h and (not hashes or hashes[-1] != h):
+            hashes.append(h)
+    if len(hashes) > 1:
+        out.append(("WARN", f"the arm's definition changed {len(hashes) - 1} time(s) inside this ledger: results before and after are not one experiment; "
+                            "start a fresh workdir to compare (docs/upgrading.md)"))
     ep = _q1(led, "SELECT epoch FROM trials WHERE gym=? AND arm=? ORDER BY id DESC LIMIT 1", c.gym, arm)
     n_ep = _q1(led, "SELECT COUNT(*) FROM epochs")
     out.append(("OK" if n_ep <= 1 else "WARN", f"{n_ep} epoch(s) recorded; current {ep or '-'}" + ("" if n_ep <= 1 else " (evaluator, contract or data changed during this ledger's life)")))
+    return out
+
+
+def epochs(led, c, arm: str | None = None) -> list[dict]:
+    """every measuring epoch the ledger has seen: how many trials, when, and which versions of ants ran in it"""
+    rows = led.conn.execute("SELECT epoch, COUNT(*), MIN(created_at), MAX(finished_at), SUM(state='done') FROM trials WHERE gym=? GROUP BY epoch ORDER BY MIN(id)", (c.gym,)).fetchall()
+    ver: dict = {}
+    for r in led.conn.execute("SELECT payload FROM events WHERE kind='daemon_started' ORDER BY seq"):
+        p = json.loads(r[0])
+        if isinstance(p, dict):
+            ver.setdefault(p.get("epoch"), []).append(p.get("version"))
+    out = []
+    for ep, n, t0, t1, done in rows:
+        vs = list(dict.fromkeys(ver.get(ep, [])))
+        out.append({"epoch": ep or "(none)", "trials": n, "done": done or 0, "first": t0, "last": t1, "versions": vs})
     return out
 
 

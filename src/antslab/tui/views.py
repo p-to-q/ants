@@ -165,12 +165,23 @@ def fleet_table(rows, width, ctx: Ctx, caps=None, selectable=False, sel=0, wide=
 # ---------------------------------------------------------------------------------------------------------------- screens
 def home(d, ctx: Ctx) -> View:
     w = ctx.width
-    logo = (pixel.side_by_side(pixel.ant_lines(anim.pulse(ctx.t)), pixel.word_lines("ants", "mint_txt", None), gap=3) if w >= 84 else pixel.ant_lines(anim.pulse(ctx.t)))
-    lines = [[]] + [[S("  ")] + l for l in logo]
-    lines.append([S("  "), S(TAGLINE, "bold"), S(f"   {ctx.version}", "dim")])
+    ant = pixel.ant_lines(anim.pulse(ctx.t))
+    chip = S(f" {ctx.version} ", ("ink", "mint")) if ctx.version else S("")
+    if w >= 84:
+        right = [[]] + pixel.word_lines("ants", "mint_txt", None) + [[], [S(TAGLINE, "bold"), S("  "), chip]]       # the word beside the ant, the name under the word
+        logo = pixel.side_by_side(ant, right, gap=3, valign="top")
+        lines = [[]] + [[S("  ")] + l for l in logo]
+    else:
+        lines = [[]] + [[S("  ")] + l for l in ant] + [[], [S("  "), S(TAGLINE, "bold"), S("  "), chip]]
+    lines.append([])                                                       # air between the picture and the words
     lines.append([S("  " + ONE_LINE, "none")])
     for l in INTRO:
         lines.append([S("  " + l, "dim")])
+    rows0 = [r for r in (d.get("fleet") or []) if "error" not in r]
+    if rows0:
+        found = sum(1 for r in rows0 if mood_of(r["mood"])["phrase"] == "Just found something")
+        ok = sum(1 for r in rows0 if mood_of(r["mood"])["style"] in ("ok", "accent"))
+        lines.append([S("  "), S(spin("alive", ctx), "accent"), S(f" {len(rows0)} searches · {ok} doing well" + (f" · {found} just found something" if found else ""), "dim")])
     lines.append([])
     rows = d.get("fleet") or []
     if rows:

@@ -51,6 +51,7 @@ class App:
         self.label = "no ledger"
         self.ranks: dict = {}
         self.refreshing = False
+        self.load_s = 0.0
         self.frozen = False
         self.note, self.note_until = "", 0.0
         self.refresh = threading.Event()
@@ -141,6 +142,7 @@ class App:
                 self.refresh.wait(REFRESH_S); self.refresh.clear()
                 continue
             self.refreshing = True
+            t0 = time.monotonic()
             try:
                 val, err = self.load("detail" if screen == "detail" else screen, filt, did), None
             except Exception as e:                          # the screen shows the reason; the loop goes on
@@ -149,7 +151,8 @@ class App:
             d.value, d.error, d.at, d.key = val, err, time.time(), key
             self.data = d
             self.refreshing = False
-            self.refresh.wait(REFRESH_S)
+            self.load_s = time.monotonic() - t0
+            self.refresh.wait(max(REFRESH_S, 4 * self.load_s))                    # a slow ledger is asked less often: the interface stays responsive
             self.refresh.clear()
 
     # ---- navigation ----------------------------------------------------
@@ -459,7 +462,7 @@ class App:
             scr.addnstr(h - 1, 0, status[: w - 1], w - 1, paint("dim"))
             age = now - self.data.at if self.data.at else None
             if age is not None:
-                tag = ("frozen " if self.frozen else "") + f"{age:.0f}s ago "
+                tag = ("frozen " if self.frozen else "") + (f"slow ledger ({self.load_s:.1f}s) " if self.load_s > 0.8 else "") + f"{age:.0f}s ago "
                 scr.addnstr(h - 1, max(0, w - len(tag) - 1), tag, len(tag), paint("warn" if self.frozen else "dim"))
         except K.error:
             pass

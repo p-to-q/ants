@@ -26,11 +26,16 @@ case "${1:-preflight}" in
     # hash is checked on the server before `sudo bash` runs it: another local user cannot swap the installer between extraction and execution.
     PKG=$(ls -t dist/antslab-*.tar.gz | head -1)
     SUM=$({ sha256sum "$PKG" 2>/dev/null || shasum -a 256 "$PKG"; } | cut -d' ' -f1)
+    # Nothing of the experiments is touched by a deploy: the code tree is replaced, /var/lib/ants (ledgers, backups, archive) never is. As a
+    # belt for the braces, every ledger gets a verified backup first, and the deploy stops if one fails.
+    "${SSH[@]}" 'set -e; for w in /var/lib/ants/*/ledger.sqlite; do [ -e "$w" ] || continue; d=$(dirname "$w"); n=$(basename "$d"); [ -x /opt/ants/.venv/bin/ants ] || break
+                 sudo -n -u ants /opt/ants/.venv/bin/ants backup --workdir "$d" --dest "/var/lib/ants/backups/$n" --keep 14 --gzip >/dev/null || { echo "pre-deploy backup of $n failed: not deploying"; exit 1; }; done; echo "pre-deploy backups ok"'
     "${SSH[@]}" 'rm -rf "$HOME/.ants_deploy" && mkdir -m 700 "$HOME/.ants_deploy"'
     scp -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes "$PKG" "$USER_@$HOST:.ants_deploy/antslab.tar.gz"
     "${SSH[@]}" 'set -e; D="$HOME/.ants_deploy"; echo "'"$SUM"'  $D/antslab.tar.gz" | sha256sum -c - >/dev/null
                  mkdir -m 700 "$D/src" && tar -xzf "$D/antslab.tar.gz" -C "$D/src" && sudo -n bash "$D/src/antslab/deploy/install.sh" "$D/src/antslab"
-                 sudo -n install -m 640 -o ants -g ants /opt/ants/contracts/tinyts_real.toml '"$CT"' && echo "contract installed"; rm -rf "$D"' ;;
+                 sudo -n install -m 640 -o ants -g ants /opt/ants/contracts/tinyts_real.toml '"$CT"' && echo "contract installed"
+                 echo "$(date -Is) $(/opt/ants/.venv/bin/ants --version) package-sha256 '"$SUM"'" | sudo -n tee -a /var/lib/ants/DEPLOY.log >/dev/null; rm -rf "$D"' ;;
   data)
     T="${2:-dev}"; [[ "$T" =~ ^(dev|standard|extended|all)$ ]] || { echo "tier: dev|standard|extended|all"; exit 1; }
     run_as_service ".venv/bin/ants data fetch --tier $T --catalog /opt/ants/data/catalog.toml && .venv/bin/ants data build --catalog /opt/ants/data/catalog.toml --present && .venv/bin/ants data verify --partial --catalog /opt/ants/data/catalog.toml" ;;

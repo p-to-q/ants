@@ -51,6 +51,7 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 | `best` | leaderboard per parameter cap | no |
 | `show REF` | one trial: spec, stage metrics, lineage | no |
 | `log` | recent ledger events | no |
+| `epochs` | every measuring epoch in the ledger: trials, dates, versions of ants that ran in it | no |
 | `diff A B` | the levers and per-stage metrics that differ between two trials | no |
 | `workspace --out DIR` | the ledger as plain files (`trials.jsonl`, `frontier.json`, `failures.jsonl`, `trials/<id>/`, `SKILL.md`) for an agent or `grep` | `--out` dir |
 | `doctor` | health check | no |

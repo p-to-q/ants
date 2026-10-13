@@ -139,6 +139,20 @@ class Campaign:
                 return hashlib.sha256(cand.read_bytes()).hexdigest()[:16]
         return ""
 
+    def arm_definition(self) -> dict:
+        """what makes this arm this arm, apart from the measuring machinery (that is the epoch): its operators, their guaranteed shares,
+        the stage budgets. If it changes inside one ledger, results before and after are not one experiment."""
+        ops = sorted(getattr(self.p, "ops", {}) or [getattr(self.p, "name", "?")])
+        return {"arm": self.arm, "operators": ops, "floors": dict(sorted((getattr(self.p, "floors", {}) or {}).items())),
+                "promote_quantile": self.c.promote_quantile, "promote_by_cap": bool(self.c.raw.get("cascade", {}).get("promote_by_cap")),
+                "min_history": self.c.min_history, "batch": self.batch}
+
+    def start_record(self) -> dict:
+        from .update import current_version
+        d = self.arm_definition()
+        return {"version": current_version(), "epoch": self.epoch, "arm": self.arm, "python": platform.python_version(), "arm_def": d,
+                "arm_def_hash": hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:12]}
+
     def _epoch(self) -> str:
         i = self._epoch_info()
         ident = {k: i[k] for k in ("code", "contract", "data_manifest")}
@@ -408,6 +422,10 @@ class Campaign:
             return user_stop()
         self._stop, self._sleep = stop, sleep
         n, last, streak, unexpected = 0, "idle", 0, 0
+        try:
+            self.l.event("daemon_started", self.start_record())             # which code, which epoch, which arm definition ran from here on
+        except Exception:
+            pass
         sd_notify("READY=1")
         try:
             with keepalive():

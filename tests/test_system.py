@@ -537,3 +537,59 @@ def test_the_service_layout_backup_directory_is_reported_before_the_first_backup
     monkeypatch.delenv("ANTS_BACKUP_DIR", raising=False)
     monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
     assert system.backup_dir("/var/lib/ants/portfolio").as_posix().endswith("/var/lib/ants/backups/portfolio")
+
+
+# ----------------------------------------------------------------------------------------------------------- versions and continuity
+def test_the_loop_records_which_code_and_arm_definition_ran(tmp_path):
+    from .conftest import TOML, TOY
+    contract = tmp_path / "task.toml"
+    contract.write_text(TOML.format(toy=TOY, timeout=20))
+    wd = tmp_path / "wd"
+    env = {**os.environ, "ANTS_ALLOWED_ROLES": "dev"}
+    import subprocess, sys
+    for _ in range(2):
+        r = subprocess.run([sys.executable, "-m", "antslab.cli", "run", "--contract", str(contract), "--workdir", str(wd), "--arm", "evo", "--max-evals", "4"],
+                           capture_output=True, text=True, timeout=120, env=env)
+        assert r.returncode == 0, r.stderr[-300:]
+    led = Ledger.open_readonly(wd / "ledger.sqlite")
+    starts = [e["payload"] for e in led.events("daemon_started")]
+    assert len(starts) == 2 and starts[0]["arm_def_hash"] == starts[1]["arm_def_hash"] and starts[0]["epoch"] == starts[1]["epoch"]
+    assert starts[0]["version"] and starts[0]["arm_def"]["arm"] == "evo"
+    from antslab.contract import load_contract
+    rows = __import__("antslab.ui", fromlist=["x"]).epochs(led, load_contract(contract))
+    assert len(rows) == 1 and rows[0]["trials"] >= 4 and rows[0]["versions"]
+    assert cli.main(["epochs", "--workdir", str(wd), "--contract", str(contract), "--arm", "evo"]) == 0
+
+
+def test_doctor_warns_when_the_arms_definition_changes_inside_one_ledger(tmp_path):
+    from .conftest import TOML, TOY
+    from antslab import ui
+    from antslab.contract import load_contract
+    contract = tmp_path / "task.toml"
+    contract.write_text(TOML.format(toy=TOY, timeout=20))
+    c = load_contract(contract)
+    led = Ledger(tmp_path / "wd" / "ledger.sqlite")
+    led.event("daemon_started", {"version": "0.5.0", "epoch": "e1", "arm_def_hash": "aaaa"})
+    led.event("daemon_started", {"version": "0.5.1", "epoch": "e1", "arm_def_hash": "aaaa"})
+    assert not any("definition changed" in m for _, m in ui.doctor(led, c, "evo", tmp_path / "wd"))
+    led.event("daemon_started", {"version": "0.6.0", "epoch": "e1", "arm_def_hash": "bbbb"})
+    assert any(l == "WARN" and "definition changed 1 time" in m for l, m in ui.doctor(led, c, "evo", tmp_path / "wd"))
+
+
+def test_the_deploy_backs_everything_up_first_logs_itself_and_never_touches_the_state_directory():
+    root = Path(__file__).resolve().parents[1]
+    remote = (root / "deploy" / "remote_deploy.sh").read_text()
+    assert remote.index("pre-deploy backup") < remote.index("antslab.tar.gz") and "not deploying" in remote and "DEPLOY.log" in remote
+    install = (root / "deploy" / "install.sh").read_text()
+    for keep in ("--exclude '*.sqlite*'", "--exclude 'data/raw'", "--exclude runs"):
+        assert keep in install
+    assert "rm -rf /var/lib/ants" not in install + remote
+
+
+def test_the_upgrade_guide_exists_and_matches_the_code_it_describes():
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "docs" / "upgrading.md").read_text()
+    from antslab.ledger import SCHEMA_VERSION
+    assert "daemon_started" in text and "pre-migration" in text and "ants epochs" in text and "LedgerTooNew" in text
+    assert "SCHEMA_VERSION" in text and SCHEMA_VERSION >= 1
+    assert "upgrading.md" in (root / "README.md").read_text()

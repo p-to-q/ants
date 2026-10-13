@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-13 · Versions, upgrades and continuity (0.6.0)
+Changed: every start of the loop writes a `daemon_started` event (ants version, epoch, python, arm definition and its hash); `ants epochs` lists the epochs of a ledger with counts, dates and versions; `ants doctor` warns when an arm's definition changed inside one ledger; the server deploy takes a verified backup of every ledger first, stops if one fails and appends the version and package hash to `/var/lib/ants/DEPLOY.log`; `docs/upgrading.md` states what an upgrade never touches, what each kind of change does to a running search, the compatibility promises, how to go back and five rules for changing the harness without losing results. The interface: the word and the name sit beside the ant with air under the picture, a live line says how many searches are doing well, the refresh interval adapts to a slow ledger.
+Why: moving the first three arms by hand was the right call once; the next change must not depend on anyone remembering to.
+Forecloses: an upgrade that replaces or deletes a workdir; reusing an arm name for a different definition; an epoch change that nobody can see afterwards.
+
 ## 2026-10-13 · Why the one-shot model operator produced nothing (0.5.1)
 Changed: the new `proposer_yield` events showed it within minutes: every proposal the one-shot operator received (6 of 6, five calls in a row) was rejected by the strict spec validator, because the model returned only the levers it wanted to change and the validator demands all keys. The operator now fills left-out levers with their defaults, as the agent operator already did. The first epoch's `portfolio_llm` was therefore never an LLM arm, and not only because the bandit starved it.
 Why: a counter that lives in memory could not say it; a recorded one did on the first look.
