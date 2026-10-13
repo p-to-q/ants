@@ -467,7 +467,12 @@ def _first_run(ap) -> int:
     msg = f"ants is not set up yet. `ants onboard` creates {home()}, downloads the public datasets (about 50 MB for the dev tier) and writes the config."
     if sys.stdin.isatty() and sys.stdout.isatty():
         print(msg)
-        if input("Set up now? [Y/n] ").strip().lower() in ("", "y", "yes"):
+        try:
+            answer = input("Set up now? [Y/n] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+        if answer in ("", "y", "yes"):
             return ap.parse_args(["onboard"]).fn(ap.parse_args(["onboard"]))
         return 0
     print(msg, file=sys.stderr)

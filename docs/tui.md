@@ -22,7 +22,7 @@ ants home     print one screen and exit: --screen overview|board|trials|fleet|ev
 | 7 | Data | datasets by role (dev, confirm, sealed, stress), which are present, size on disk |
 | 8 | System | version and update, service state, model spend against its cap, agent tool reads, backups |
 
-`/` opens a command line: `best --top 3`, `show 12`, `diff 5 7`, `log`, `sql SELECT … `, `doctor`, `hint try a longer look-back`, `pause`, `resume`. Output goes to a pager. `run`, `restore`, `service`, `janitor`, `data fetch` and `update --apply` are refused here: starting, replacing or installing things is done from a shell on purpose. `?` lists the keys, `q` quits, `r` refreshes (it refreshes every 3 seconds anyway), `a` and `w` switch arm and workdir when there are several.
+`/` opens a command line: `best --top 3`, `show 12`, `diff 5 7`, `log`, `status`, `sql SELECT … `, `backups`, `doctor`, `hint try a longer look-back`, `pause`, `resume`. Output goes to a pager. `top`, `export` and `workspace` are not offered here (the first never returns, the other two write files). `run`, `restore`, `service`, `janitor`, `data fetch` and `update --apply` are refused here: starting, replacing or installing things is done from a shell on purpose. `?` lists the keys, `q` quits, `r` refreshes (it refreshes every 3 seconds anyway), `a` and `w` switch arm and workdir when there are several.
 
 ## Design
 

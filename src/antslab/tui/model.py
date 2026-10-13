@@ -53,7 +53,8 @@ def find_contract(explicit: str | None = None) -> str:
         root = os.environ.get("ANTS_ROOT")
         if c and root and (Path(root) / "contracts" / f"{c}.toml").exists():
             return str(Path(root) / "contracts" / f"{c}.toml")
-    root = os.environ.get("ANTS_ROOT")
+    from ..home import package_root
+    root = os.environ.get("ANTS_ROOT") or package_root()
     if root and (Path(root) / "contracts" / "tinyts_real.toml").exists():
         return str(Path(root) / "contracts" / "tinyts_real.toml")
     raise FileNotFoundError("no contract found: run `ants onboard` or pass --contract")
@@ -65,7 +66,8 @@ class Source:
         self.contract_path = contract_path
         self.c = load_contract(contract_path)
         self.led = Ledger.open_readonly(self.workdir / "ledger.sqlite")
-        self.arm = arm or self._latest_arm()
+        from ..textsafe import clean_text
+        self.arm = clean_text(arm or self._latest_arm(), 60)
         self.hist = History(self.led, self.c, self.arm)
 
     def _latest_arm(self) -> str:
@@ -116,7 +118,14 @@ class Source:
             q += " AND stage=?"; args.append(stage)
         q += " ORDER BY id DESC LIMIT ?"
         args.append(limit)
-        return [dict(r) for r in self.led.conn.execute(q, args)]
+        from ..textsafe import clean_text
+        out = []
+        for r in self.led.conn.execute(q, args):
+            d = dict(r)
+            d["source"], d["state"] = clean_text(d["source"], 60), clean_text(d["state"], 20)     # anything a gym wrote reaches the screen cleaned
+            d["error"] = clean_text(d["error"], 300) if d["error"] else d["error"]
+            out.append(d)
+        return out
 
     def detail(self, tid: int) -> dict:
         return ui.show(self.led, self.c, str(tid))

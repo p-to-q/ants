@@ -15,8 +15,8 @@ from . import model, render, views
 from .views import Ctx, S
 
 REFRESH_S = 3.0
-PALETTE_COMMANDS = {"best", "show", "diff", "log", "doctor", "status", "top", "sql", "query", "backups", "hint", "pause", "resume", "export", "workspace"}
-NEEDS_CONTEXT = {"best", "show", "diff", "log", "doctor", "status", "top", "hint", "pause", "resume", "export", "workspace"}   # take --contract/--workdir/--arm
+PALETTE_COMMANDS = {"best", "show", "diff", "log", "doctor", "status", "sql", "query", "backups", "hint", "pause", "resume"}   # read-only, plus the three that write one small thing
+NEEDS_CONTEXT = {"best", "show", "diff", "log", "doctor", "status", "hint", "pause", "resume"}   # take --contract/--workdir/--arm
 KINDS = [None, "trial_finished", "agent_tool", "user_hint", "restored", "epoch_started"]
 
 
@@ -47,6 +47,8 @@ class App:
         self.filt: dict = {}
         self.data = Data()
         self.sources: dict[str, model.Source] = {}
+        self.failed: dict = {}
+        self.label = "no ledger"
         self.refresh = threading.Event()
         self.stop = threading.Event()
         self.detail_id: int | None = None
@@ -56,35 +58,51 @@ class App:
 
     # ---- data ----------------------------------------------------------
     def source(self, wd: Path, arm: str | None = None) -> model.Source:
+        """a Source per (workdir, arm); one that cannot be opened is remembered with its reason (and retried after a minute), so a bad
+        ledger is a line on a screen and never an exception in the key loop"""
         key = f"{wd}|{arm or ''}"
+        bad = self.failed.get(key)
+        if bad and time.time() - bad[0] < 60:
+            raise bad[1]
         if key not in self.sources:
-            self.sources[key] = model.Source(wd, self.contract, arm)
+            try:
+                self.sources[key] = model.Source(wd, self.contract, arm)
+                self.failed.pop(key, None)
+            except Exception as e:
+                self.failed[key] = (time.time(), e)
+                raise
         return self.sources[key]
 
     def current(self) -> model.Source | None:
+        """loader thread only"""
         if not self.workdirs:
             return None
         return self.source(self.workdirs[self.wd_i % len(self.workdirs)], self.arm)
 
-    def fleet_sources(self) -> list[model.Source]:
-        out = []
+    def fleet_sources(self):
+        out, errors = [], []
         for wd in self.workdirs:
             try:
                 out.append(self.source(wd))
-            except Exception:
-                continue
-        return out
+            except Exception as e:
+                errors.append({"workdir": str(wd), "arm": Path(wd).name, "error": f"{type(e).__name__}: {str(e)[:80]}"})
+        return out, errors
+
+    def key(self):
+        with self.lock:
+            return (self.screen, tuple(sorted(self.filt.items())), self.detail_id, self.wd_i, self.arm)
 
     def load(self, screen: str, filt: dict, detail_id: int | None) -> dict:
-        src = self.current()
         if screen == "home" or screen == "fleet":
-            srcs = self.fleet_sources()
-            out = {"fleet": model.fleet(srcs)}
-            if screen == "fleet":
+            srcs, errors = self.fleet_sources()
+            out = {"fleet": model.fleet(srcs) + errors}
+            if screen == "fleet" and srcs:
                 out["equal"] = model.equal_budget([s for s in srcs if s.c.stages == srcs[0].c.stages])      # only arms with the same stages are comparable
             return out
+        src = self.current()
         if src is None:
             raise FileNotFoundError("no ledger found")
+        self.label = f"{src.workdir.name}/{src.arm}"
         if screen == "overview":
             return {"snap": src.overview()}
         if screen == "board":
@@ -110,7 +128,7 @@ class App:
         while not self.stop.is_set():
             with self.lock:
                 screen, filt, did = self.screen, dict(self.filt), self.detail_id
-                key = (screen, tuple(sorted(filt.items())), did, self.wd_i, self.arm)
+            key = self.key()
             try:
                 val, err = self.load("detail" if screen == "detail" else screen, filt, did), None
             except Exception as e:                          # the screen shows the reason; the loop goes on
@@ -145,6 +163,8 @@ class App:
         if self.screen == "pager":
             return views.pager(self.pager_text, c, self.pager_title)
         d = self.data
+        if d.key is not None and d.key != self.key():                  # data for another screen or filter: never hand it to this view
+            return views.View([[S(" loading…", "dim")]])
         if d.error:
             return views.View([[S(" cannot show this screen: ", "warn"), S(d.error, "none")]])
         if d.value is None:
@@ -161,18 +181,23 @@ class App:
 
     def run_command(self, text: str):
         from .. import cli
-        try:
-            argv = shlex.split(text.lstrip("/ "))
-        except ValueError as e:
-            self.show_text(f"cannot parse: {e}", text)
-            return
+        raw = text.lstrip("/ ")
+        if raw.split(None, 1)[:1] == ["hint"]:                      # a hint is free text: quotes and apostrophes stay as typed
+            argv = ["hint", raw.split(None, 1)[1] if len(raw.split(None, 1)) > 1 else ""]
+        else:
+            try:
+                argv = shlex.split(raw)
+            except ValueError as e:
+                self.show_text(f"cannot parse: {e}", text)
+                return
         if not argv or argv[0] not in PALETTE_COMMANDS:
             self.show_text(f"unknown or not allowed here: {argv[0] if argv else ''}\nallowed: {', '.join(sorted(PALETTE_COMMANDS))}", text)
             return
-        src = self.current()
-        if argv[0] == "hint":
-            argv = ["hint", " ".join(argv[1:])]
-        elif argv[0] in ("sql", "query"):                        # the rest of the line is one statement; only these options are separate
+        try:
+            src = self.current()
+        except Exception:
+            src = None
+        if argv[0] in ("sql", "query"):                        # the rest of the line is one statement; only these options are separate
             flags, words, i = [], [], 1
             while i < len(argv):
                 if argv[i] == "--schema":
@@ -222,14 +247,17 @@ class App:
         elif ord("0") <= ch <= ord("8"):
             order = ["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system"]
             self.goto(order[ch - ord("0")])
+        elif self.screen == "pager" and ch in (K.KEY_DOWN, K.KEY_UP, K.KEY_NPAGE, K.KEY_PPAGE, ord("j"), ord("k")):
+            step = {K.KEY_DOWN: 1, ord("j"): 1, K.KEY_UP: -1, ord("k"): -1, K.KEY_NPAGE: 10, K.KEY_PPAGE: -10}[ch]
+            self.scroll = max(0, min(self.scroll + step, max(0, len(v.lines) - (c.height - 3))))
         elif ch == K.KEY_DOWN or ch == ord("j"):
             c.sel = min(max(v.rows - 1, 0), c.sel + 1)
         elif ch == K.KEY_UP or ch == ord("k") and self.screen != "events":
             c.sel = max(0, c.sel - 1)
         elif ch == K.KEY_NPAGE:
-            c.sel = min(max(v.rows - 1, 0), c.sel + 10); self.scroll += 10
+            c.sel = min(max(v.rows - 1, 0), c.sel + 10)
         elif ch == K.KEY_PPAGE:
-            c.sel = max(0, c.sel - 10); self.scroll = max(0, self.scroll - 10)
+            c.sel = max(0, c.sel - 10)
         elif ch == K.KEY_RIGHT:
             if self.screen == "board":
                 c.tab += 1; c.sel = 0
@@ -262,7 +290,10 @@ class App:
         self.goto(order[(i + d) % len(order)], push=False)
 
     def next_arm(self):
-        src = self.current()
+        try:
+            src = self.current()
+        except Exception:
+            return
         if src is None:
             return
         arms = [r[0] for r in src.led.conn.execute("SELECT DISTINCT arm FROM trials ORDER BY arm")]
@@ -295,15 +326,22 @@ class App:
 
     def prompt(self, K) -> bool:
         scr = self.scr
-        h, w = scr.getmaxyx()
         buf = ""
         scr.timeout(-1)
         K.curs_set(1)
         try:
             while True:
-                scr.move(h - 1, 0); scr.clrtoeol()
-                scr.addnstr(h - 1, 0, "/" + buf, w - 1)
-                ch = scr.get_wch()
+                try:
+                    h, w = scr.getmaxyx()                              # re-read every key: the window may have been resized
+                    scr.move(h - 1, 0); scr.clrtoeol()
+                    scr.addnstr(h - 1, 0, ("/" + buf)[-(w - 2):] if w > 2 else "", max(w - 1, 0))
+                    ch = scr.get_wch()
+                except K.error:
+                    continue
+                except KeyboardInterrupt:
+                    return True
+                if ch == K.KEY_RESIZE:
+                    continue
                 if ch in ("\n", "\r"):
                     break
                 if ch == "\x1b":
@@ -343,9 +381,7 @@ class App:
                 x += len(text)
         tabs = " ".join((f"[{k}]" if self.screen == s or (self.screen == "detail" and s == "trials") else k) for s, k in
                         [(s, str(i)) for i, (s, _) in enumerate(views.SCREENS)])
-        src = self.current()
-        where = f"{src.workdir.name}/{src.arm}" if src else "no ledger"
-        status = f" {where} · {tabs} · / command · ? help · q quit"
+        status = f" {self.label} · {tabs} · / command · ? help · q quit"
         try:
             scr.addnstr(h - 1, 0, status[: w - 1], w - 1, paint("dim"))
             age = time.time() - self.data.at if self.data.at else None

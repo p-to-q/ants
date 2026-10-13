@@ -207,3 +207,114 @@ def test_arms_are_compared_at_equal_budget(run_dir, tmp_path, monkeypatch):
     assert all(first[k] >= model.best_at(a, n_all)[k] for k in first)       # more evaluations never make the best worse (primary is minimised)
     text = app.once(str(contract), str(wd), None, 100, "fleet", color=False)
     assert "At equal budget" in text and "one seed per search" in text
+
+
+# ----------------------------------------------------------------------------------------------------------- findings of the independent review
+def test_a_ledger_that_cannot_be_opened_is_a_line_not_a_crash(run_dir, tmp_path, monkeypatch):
+    contract, wd = run_dir
+    bad = tmp_path / "bad"
+    bad.mkdir()
+    (bad / "ledger.sqlite").write_bytes(b"this is not a database" * 50)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
+    for screen in ("home", "fleet", "overview", "health"):
+        text = app.once(str(contract), str(bad), None, 100, screen, color=False) if screen in ("home", "fleet") else None
+    a = app.App(str(contract), str(bad))
+    try:
+        a.load("overview", {}, None)
+        raise AssertionError("expected an error")
+    except Exception as e:
+        assert "Traceback" not in str(e)
+    d = a.load("home", {}, None)
+    assert d["fleet"] and "error" in d["fleet"][0]
+
+
+def test_data_for_another_screen_is_never_given_to_a_view(run_dir):
+    contract, wd = run_dir
+    a = app.App(str(contract), str(wd))
+    d = app.Data()
+    d.value, d.key, d.at = {"snap": {}}, ("overview", (), None, 0, None), 1
+    a.data, a.screen = d, "board"
+    assert "loading" in render.plain(a.view().lines)
+
+
+def test_the_palette_allows_read_only_commands_and_hints_keep_their_quotes(run_dir):
+    contract, wd = run_dir
+    a = app.App(str(contract), str(wd))
+    for refused in ("top", "export --out /tmp/x", "workspace --out /tmp/x", "run", "restore"):
+        a.run_command(refused)
+        assert "not allowed" in a.pager_text, refused
+    a.run_command("hint don't use an apostrophe-free style")
+    assert "recorded" in a.pager_text
+    assert any("don't" in e["payload"]["text"] for e in Ledger.open_readonly(wd / "ledger.sqlite").events("user_hint"))
+
+
+def test_text_a_gym_wrote_reaches_the_screen_cleaned(tmp_path, run_dir):
+    contract, _ = run_dir
+    wd = tmp_path / "wd2"
+    led = Ledger(wd / "ledger.sqlite")
+    from antslab.contract import load_contract
+    c = load_contract(contract)
+    tid = led.enqueue(c.gym, "evo", 0, {"a": 0.5, "b": 3, "c": "u"}, "evo")
+    t = led.claim(60, c.gym, "evo")
+    led.finish(t["id"], t["attempt"], "failed", error="exit 3: \x1b]0;PWNED\x07\nsecond line\x1b[31m")
+    led.close()
+    src = model.Source(wd, str(contract))
+    rows = src.trials()
+    assert "\x1b" not in rows[0]["error"] and "\x07" not in rows[0]["error"] and "\n" not in rows[0]["error"]
+    out = app.once(str(contract), str(wd), None, 100, "trials", color=False)
+    assert "\x1b" not in out and "\x07" not in out
+
+
+def test_the_pager_scrolls_within_its_text(run_dir):
+    import curses
+    contract, wd = run_dir
+    a = app.App(str(contract), str(wd))
+    a.ctx.height = 12
+    a.show_text("\n".join(f"line {i}" for i in range(40)), "t")
+    for _ in range(5):
+        a.on_key(curses.KEY_DOWN, curses)
+    assert a.scroll == 5
+    a.on_key(curses.KEY_NPAGE, curses); a.on_key(curses.KEY_NPAGE, curses); a.on_key(curses.KEY_NPAGE, curses); a.on_key(curses.KEY_NPAGE, curses)
+    assert a.scroll == max(0, len(a.view().lines) - (a.ctx.height - 3))
+    a.on_key(curses.KEY_PPAGE, curses)
+    assert a.scroll >= 0
+
+
+@pytest.mark.skipif(not hasattr(os, "openpty"), reason="needs a pty")
+def test_the_interface_survives_a_corrupt_ledger_and_a_resize_in_the_prompt(run_dir, tmp_path):
+    contract, wd = run_dir
+    bad = tmp_path / "bad"
+    bad.mkdir()
+    (bad / "ledger.sqlite").write_bytes(b"x" * 4096)
+    master, slave = pty.openpty()
+    _winsize(slave, 30, 100)
+    env = {**os.environ, "TERM": "xterm-256color", "ANTS_HOME": str(tmp_path / "h"), "ANTS_NO_UPDATE_CHECK": "1"}
+    p = subprocess.Popen([sys.executable, "-m", "antslab.cli", "ui", "--contract", str(contract), "--workdir", str(bad)],
+                         stdin=slave, stdout=slave, stderr=subprocess.PIPE, env=env, cwd=str(tmp_path), close_fds=True)
+    os.close(slave)
+
+    def pump(seconds):
+        end = time.time() + seconds
+        while time.time() < end:
+            if select.select([master], [], [], 0.1)[0]:
+                try:
+                    os.read(master, 65536)
+                except OSError:
+                    return
+    try:
+        pump(2)
+        for key in (b"1", b"/", b"best", b"\x03"):
+            os.write(master, key); pump(0.3)
+        _winsize(master, 4, 20)
+        os.kill(p.pid, 28)                                              # SIGWINCH
+        pump(0.5)
+        for key in (b"\x1b", b"q"):
+            os.write(master, key); pump(0.4)
+        rc = p.wait(timeout=15)
+    finally:
+        if p.poll() is None:
+            p.kill()
+        os.close(master)
+    err = p.stderr.read().decode(errors="replace")
+    assert rc == 0 and "Traceback" not in err, (rc, err[-600:])
