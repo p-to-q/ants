@@ -99,6 +99,7 @@ def make_backup(ledger_path, dest, keep: int = 14, compress: bool = False, now: 
             with open(tmp, "rb") as fi, gzip.open(str(final) + ".partial", "wb", compresslevel=6) as fo:
                 shutil.copyfileobj(fi, fo)
             os.replace(str(final) + ".partial", final)
+            tmp.unlink()                                                  # the uncompressed working copy is not kept
         else:
             os.replace(tmp, final)
         meta = {"file": final.name, "created": t, "sha256": sha, "bytes": size, "stored_bytes": final.stat().st_size, "compressed": compress,

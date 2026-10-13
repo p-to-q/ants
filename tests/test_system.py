@@ -523,3 +523,17 @@ def test_bare_ants_does_not_offer_setup_where_a_ledger_already_exists(tmp_path, 
     assert cli._first_run_done() is False
     Ledger(tmp_path / "home" / "runs" / "x" / "ledger.sqlite").close()
     assert cli._first_run_done() is True
+
+
+def test_a_gzip_backup_leaves_no_working_copy_behind(work):
+    dest = work.parent / "bk"
+    make_backup(work / "ledger.sqlite", dest, compress=True)
+    assert sorted(p.name.rsplit(".", 1)[-1] for p in dest.iterdir()) == ["gz", "json", "jsonl"]
+    make_backup(work / "ledger.sqlite", dest, compress=False)
+    assert not [p for p in dest.iterdir() if "partial" in p.name]
+
+
+def test_the_service_layout_backup_directory_is_reported_before_the_first_backup(monkeypatch, tmp_path):
+    monkeypatch.delenv("ANTS_BACKUP_DIR", raising=False)
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
+    assert system.backup_dir("/var/lib/ants/portfolio") == Path("/var/lib/ants/backups/portfolio")
