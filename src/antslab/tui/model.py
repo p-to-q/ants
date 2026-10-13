@@ -134,6 +134,36 @@ class Source:
         return res
 
 
+def deep_series(src: "Source") -> list[tuple]:
+    """(finish time, value, size) of every finished evaluation at the deepest stage, in finish order: the unit arms are compared in"""
+    c = src.c
+    q = ("SELECT finished_at, json_extract(metrics, ?), " + (f"json_extract(metrics, '$.{c.cap_metric}')" if c.cap_metric else "NULL") +
+         " FROM trials WHERE gym=? AND arm=? AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at, id")
+    return [(r[0], r[1], r[2]) for r in src.led.conn.execute(q, (f"$.{c.primary}", c.gym, src.arm, c.stages[-1])) if r[1] is not None]
+
+
+def best_at(src: "Source", n: int) -> dict:
+    """best value per size cap among the first `n` deepest-stage evaluations (a cap bin holds models up to that size)"""
+    c = src.c
+    best: dict = {}
+    for _, v, size in deep_series(src)[:n]:
+        bins = [str(cap) for cap in c.caps if size is not None and size <= cap] if c.caps else ["all"]
+        for b in bins[:1]:
+            if b not in best or src.hist.sign * v < src.hist.sign * best[b]:
+                best[b] = v
+    return best
+
+
+def equal_budget(sources: list["Source"]) -> dict:
+    """the comparison that means something: every arm cut at the same number of deepest-stage evaluations (the smallest any of them has)"""
+    series = {id(s): deep_series(s) for s in sources}
+    n = min((len(v) for v in series.values() if v), default=0)         # an arm with nothing at the deepest stage yet does not pull everyone to zero
+    rows = []
+    for s in sources:
+        rows.append({"arm": s.arm if s.workdir.name == s.arm else f"{s.workdir.name}/{s.arm}", "best": best_at(s, n) if n and series[id(s)] else {}, "n": len(series[id(s)])})
+    return {"n": n, "rows": rows}
+
+
 def fleet(sources: list["Source"]) -> list[dict]:
     """one line per workdir/arm for the home screen and the comparison screen"""
     out = []

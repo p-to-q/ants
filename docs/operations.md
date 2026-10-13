@@ -140,3 +140,20 @@ df -h /var/lib/ants; ls -la /var/lib/ants/archive | tail -3
 journalctl -u ants@portfolio --since "30 days ago" -p warning
 systemctl --failed
 ```
+
+## 9. Check-in after a few days (what to look at, and what counts as a problem)
+
+On the server, as any user with ssh: `ants` opens the interface ([tui](tui.md)); each line below is also a command.
+
+| Look at | Command or screen | Fine | Act on |
+|---|---|---|---|
+| all searches alive | `ants` home, or `systemctl list-units 'ants@*'` | every arm `active`, `NRestarts=0` in `systemctl show ants@<arm> -p NRestarts` | a restart count that climbs: `journalctl -u ants@<arm> -p warning` |
+| health | screen 6, or `ants doctor --arm <arm> --workdir /var/lib/ants/<arm>` | no FAIL; WARN only for LLM parse rate | FAIL on chain, integrity, disk, or "no trial finished while work is queued" |
+| progress | screen 1 | evaluations per 10 minutes roughly steady; the best-so-far curve flat or falling | a flat rate of zero with the unit active (stuck), failures above 10% |
+| the comparison | screen 4 | the equal-budget table fills; read gaps only when they are large (one seed each) | an arm far behind on the same budget for the same operator class |
+| spend | screen 8 | model calls under the daily cap | calls at the cap every day: raise `ANTS_LLM_MAX_CALLS_PER_DAY` in the unit, or accept it |
+| backups | screen 8, `ants backups --workdir /var/lib/ants/<arm>` | a new backup each day, 14 kept | none for two days: `systemctl status ants-backup@<arm>.timer` |
+| copy off the machine | from a laptop: `deploy/remote_deploy.sh pull-backups <dir>` | `anchors.jsonl` grows | never done: the anchors next to the ledger prove nothing about a rewrite |
+| disk | screen 6 | free space above 15 GB | warn and clean levels ([section 3](#3-disk-levels-pause-breaker)) |
+
+Decisions to take at a check-in: whether to add seeds (a second and third seed per arm, one after another, since two cores serve three arms), whether the stage timeouts and the promotion quantile still fit what the stages cost, and whether any arm has earned the cores of another.

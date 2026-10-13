@@ -189,3 +189,21 @@ def test_a_working_directory_the_service_user_cannot_enter_does_not_break_discov
         assert isinstance(model.discover_workdirs(), list)
     finally:
         locked.chmod(0o700)
+
+
+def test_arms_are_compared_at_equal_budget(run_dir, tmp_path, monkeypatch):
+    contract, wd = run_dir
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
+    for k in ("ANTS_WORKDIR", "ANTS_CONTRACT"):
+        monkeypatch.delenv(k, raising=False)
+    a = model.Source(wd, str(contract))
+    n_all = len(model.deep_series(a))
+    assert n_all >= 1
+    one = model.equal_budget([a])
+    assert one["n"] == n_all and one["rows"][0]["n"] == n_all
+    first = model.best_at(a, 1)
+    assert len(first) == 1                                      # one evaluation lands in exactly one cap bin
+    assert all(first[k] >= model.best_at(a, n_all)[k] for k in first)       # more evaluations never make the best worse (primary is minimised)
+    text = app.once(str(contract), str(wd), None, 100, "fleet", color=False)
+    assert "At equal budget" in text and "one seed per search" in text

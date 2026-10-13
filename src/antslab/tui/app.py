@@ -78,7 +78,11 @@ class App:
     def load(self, screen: str, filt: dict, detail_id: int | None) -> dict:
         src = self.current()
         if screen == "home" or screen == "fleet":
-            return {"fleet": model.fleet(self.fleet_sources())}
+            srcs = self.fleet_sources()
+            out = {"fleet": model.fleet(srcs)}
+            if screen == "fleet":
+                out["equal"] = model.equal_budget([s for s in srcs if s.c.stages == srcs[0].c.stages])      # only arms with the same stages are comparable
+            return out
         if src is None:
             raise FileNotFoundError("no ledger found")
         if screen == "overview":

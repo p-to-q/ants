@@ -243,6 +243,15 @@ def fleet_screen(d, ctx: Ctx) -> View:
     for r in rows:
         if "error" not in r and r["curve"]:
             lines.append([S(f" {clip(r['arm'], 18):<18}", "bold"), S(pixel.spark(r["curve"], 50), "accent"), S(f"  {fmt_v(r['curve'][-1])}", "dim")])
+    eq = d.get("equal")
+    if eq and eq["n"]:
+        lines.append([])
+        lines.append(rule(w, f"At equal budget: each search cut at its first {eq['n']} deepest-stage evaluations"))
+        caps = sorted({k for r in eq["rows"] for k in r["best"]}, key=lambda x: float(x) if x != "all" else 0)
+        lines.append([S(f" {'arm':<18}", "dim"), S(f"{'evals':>6}", "dim")] + [S(f"{'≤' + c:>10}", "dim") for c in caps])
+        for r in eq["rows"]:
+            lines.append([S(f" {clip(r['arm'], 18):<18}", "bold"), S(f"{r['n']:>6}", "dim")] + [S(f"{fmt_v(r['best'].get(c)):>10}", "none") for c in caps])
+        lines.append([S(" lower is better; one seed per search, so only large gaps mean anything", "dim")])
     lines.append([]); lines.append([S(" Enter switches to that search", "dim")])
     return View(lines, len(rows), 3)
 
