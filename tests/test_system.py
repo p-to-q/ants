@@ -513,3 +513,13 @@ def test_read_only_ledger_reads_a_live_ledger_without_touching_it(work):
     live.close()
     with pytest.raises(FileNotFoundError):
         Ledger.open_readonly(work / "nope.sqlite")
+
+
+def test_bare_ants_does_not_offer_setup_where_a_ledger_already_exists(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "home"))
+    for k in ("ANTS_WORKDIR", "ANTS_CONTRACT"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.chdir(tmp_path)
+    assert cli._first_run_done() is False
+    Ledger(tmp_path / "home" / "runs" / "x" / "ledger.sqlite").close()
+    assert cli._first_run_done() is True

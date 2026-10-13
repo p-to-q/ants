@@ -456,7 +456,9 @@ def _can_tui() -> bool:
 
 def _first_run_done() -> bool:
     from .home import config_path
-    return config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT")) or bool(__import__("antslab.home", fromlist=["x"]).ledgers_in("runs"))
+    from .home import home, ledgers_in
+    return (config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT"))
+            or bool(ledgers_in("runs") or ledgers_in("/var/lib/ants") or ledgers_in(home() / "runs")))      # a ledger anywhere ants looks means it is set up
 
 
 def _first_run(ap) -> int:
