@@ -141,12 +141,12 @@ def fleet(sources: list["Source"]) -> list[dict]:
         try:
             snap = s.overview()
         except Exception as e:                       # a ledger that cannot be read must not blank the screen
-            out.append({"workdir": str(s.workdir), "arm": s.arm, "error": f"{type(e).__name__}: {str(e)[:80]}"})
+            out.append({"workdir": str(s.workdir), "arm": s.arm if s.workdir.name == s.arm else f"{s.workdir.name}/{s.arm}", "error": f"{type(e).__name__}: {str(e)[:80]}"})
             continue
         done = snap["totals"].get("done", 0)
         deepest = s.c.stages[-1]
         n_deep = snap["stages"].get(deepest, {}).get("done", 0)
-        out.append({"workdir": str(s.workdir), "arm": s.arm, "epoch": snap["epoch"], "evals": done, "deep": n_deep, "h1": snap["finished_1h"],
+        out.append({"workdir": str(s.workdir), "arm_name": s.arm, "arm": s.arm if s.workdir.name == s.arm else f"{s.workdir.name}/{s.arm}", "epoch": snap["epoch"], "evals": done, "deep": n_deep, "h1": snap["finished_1h"],
                     "last_age": snap["last_finish_age_s"], "paused": snap["paused"], "chain": snap["chain_tail_ok"],
                     "best": {k: v[0] for k, v in snap["best_by_cap"].items() if v}, "free_gb": snap["free_gb"], "curve": snap["curve"]})
     return out

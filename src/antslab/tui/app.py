@@ -286,7 +286,7 @@ class App:
                 wd = rows[c.sel]["workdir"]
                 for i, p in enumerate(self.workdirs):
                     if str(p) == wd:
-                        self.wd_i, self.arm = i, rows[c.sel]["arm"]
+                        self.wd_i, self.arm = i, rows[c.sel].get("arm_name") or rows[c.sel]["arm"]
                 self.goto("overview")
 
     def prompt(self, K) -> bool:
