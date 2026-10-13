@@ -26,6 +26,27 @@ What can change next, in order, what each step needs and which ones start a new 
 | 10 | The agent proposing structure only | mechanism beats parameter tweaks once the portfolio has converged (MH3) | a prompt switch in 2 | 1.3 | prompt flag | no | deferred |
 | 11 | Parent rules (greedy, restarts, aged eviction) | question 3 | arms | 2 | arms | no | deferred |
 | 12 | A second arena with parameters shared across datasets | question 5 | a new gym | 5+ | large | yes | deferred |
+| 13 | Academic-compatible report (Tier A): per-dataset, per-horizon MSE/MAE on the standard LTSF protocol for frozen candidates | our numbers can be read next to the literature's | a gym `ltsf` profile that emits per-dataset MSE/MAE | 0.3 | [benchmark §13](benchmark.md) | no (report only) | planned, after 2 |
+| 14 | In-house references under the same harness: DLinear, SparseTSF, FITS, PatchTST, ridge, naive floors, optionally one zero-shot foundation model | where we stand against what the field uses, at equal tuning budget | reference harness | 1 to 2 | step 13 | no | planned |
+| 15 | TinyTS-Bench v1: three tiers and one pre-registered family-weighted composite; `ants bench` re-runs it anywhere | one reproducible conclusion, not a pile of tables | `bench` command, pre-registered weights | 2 to 3 | steps 13, 14, 8 | no | planned |
+
+## Adjacent problems, in the same plan
+
+| problem | why it matters | change | priority |
+|---|---|---|---|
+| a limit on how long a search runs (evaluations, deepest-stage evaluations, CPU hours, a plateau rule), recorded and extendable only by a person; a model may advise, never decide | an unbounded search burns budget without saying when to stop | `gate.toml` per workdir, `gate_closed` / `gate_extended` events, `ants gate`; written once and set aside, to be rebuilt and tested | high |
+| an automatic polish stage: when a new best appears at a cap, a short deterministic burst of single-lever refinements around it (prune ratio, quantisation, distillation weight, ridge, ensemble size) | prune/quantise/distil are levers in the search today, never a post-selection step that triggers itself | a `polish` operator with a burst trigger on a new best; a new arm definition, so a fresh arm | medium |
+| no gradient or deep post-training: models are fitted in closed form | the 'post-training' of the task description is only levers | decide whether a small gradient-trained arm (low-rank adapters) belongs in the same cap; separate gym, not a lever | later |
+| fewer wasted steps: snap jitter-only levers to a grid in the spec key | 35 to 45% of proposals were coarse duplicates | `Space.key` change; changes which specs count as seen, so a new epoch | high |
+| more than one seed, and how often runs agree on the peak | the noise floor and the number of basins | step 2 | high |
+| ceiling references per cap and a headroom line on the home screen | 'how far from the top' has no answer today | step 7 plus an interface field | medium |
+| a wider development set (a non-ETT family, a seasonal family, an epidemic family) as a new epoch | s2 repeats s1; four datasets from three families is thin | step 6; confirm and sealed stay out | high |
+| latency, memory and on-device checks of the finished models (ONNX parity, fixed-point) | the case for tiny models is deployment; no number backs it yet | the stubbed artifact checks (E3) | medium |
+| cost-adjusted reporting (best per CPU-second next to best per evaluation) | arms differ in speed because of the ensemble lever | analysis only | medium |
+| multivariate and cross-channel structure | the models are channel-independent by construction | a new lever family or gym | later |
+| probabilistic forecasts (intervals) | point errors hide calibration | a metric and a gym profile | later |
+| the experiment registry, a seed runner, retention and off-machine copies | arms are started by hand today | see "Experiments, arms and seeds" | high |
+| a language-model review at checkpoints that proposes continue or stop | a person should not have to read every plateau | advisory event only; the deterministic gate stays the authority | later |
 
 Dropped for now: a red-team proposer (adds attack surface before the basic comparison exists), operator-code search and an agent that proposes cascade changes (the evaluator is the one thing the design keeps fixed; a human-approved lane with a new epoch is the only version consistent with the principles), velocity and acceleration predictors (the ledger holds three stage values per spec, not learning curves).
 

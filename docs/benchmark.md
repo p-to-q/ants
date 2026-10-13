@@ -106,7 +106,7 @@ Stage definitions (`gyms/tinyts.py::CAT_STAGES`): s0 = etth1, H=96, 1 fold; s1 =
 | secondary vector (s2) | `robustness_index seasonal_fidelity horizon_decay bytes` | reported, never summed into the headline |
 | budget accounting | rows per stage, summed `cpu_s` per arm | reported |
 
-**Do not read the endpoint off `ants top` or `ants best`:** they rank by the s0 value (`ui.leaderboard` uses `History.first`). Extract it like this (verified on the demo export: 13 rows <= 1000, minimum 0.8706):
+`ants top`, `ants best` and the interface rank by the deepest stage reached (fixed on 2026-10-13); the endpoint can also be extracted from an export like this (verified on the demo export: 13 rows <= 1000, minimum 0.8706):
 
 ```python
 import csv
@@ -211,3 +211,31 @@ Endpoint = median over 6 seeds of the lowest s2 `rel_mse` with `n_params <= cap`
 | sealed look, best competitor | pending | pending | pending | pending |
 
 Verdicts: H1 pending, H2 pending, H3 pending. Amendments and deviations: none yet.
+
+## 13. Planned: an academic-compatible report, and one composite (nothing built, nothing run)
+
+Two questions the primary metric cannot answer. Published work reports **MSE and MAE per dataset and horizon on standardised data**; ours is `rel_mse` against seasonal naive, family-weighted, with a parameter cap. A reader cannot put one next to the other. And a number measured only on our own protocol says nothing about how the models do on the protocols the field uses.
+
+### 13.1 Tier A: the field's table, produced by our machinery
+
+For every frozen candidate (and for each reference below), on the **same windows** as the standard LTSF protocol: chronological splits (ETT 12/4/4 months, which the catalog already uses for ETTh1/ETTh2/ETTm1/ETTm2; 7/1/2 for the others), z-score with training statistics only, lookback 96 (and one longer setting, 336, reported separately), horizons 96/192/336/720, **no dropped last batch**, MSE and MAE on the standardised values, per dataset and horizon, plus the average over horizons. Datasets: the four development sets for the report of the search, confirm and sealed sets for the claim.
+
+Rules: the numbers are *produced here* and never copied from papers (their splits, batch handling and seeds differ); the report states the protocol in its first lines; Tier A is a report of frozen candidates and never feeds the search (the search sees `rel_mse` only), so it cannot be gamed by it.
+
+### 13.2 References: what we run beside it, in-house
+
+DLinear, SparseTSF, FITS (all linear or near-linear and small), PatchTST as a deep reference, ridge with the best lookback, seasonal naive and the mean as floors, optionally one zero-shot foundation model (Chronos or TimesFM) as a ceiling for what pre-training buys; each under the identical Tier A harness, tuned with the same budget as one ants arm (a fixed number of trials on the development data), three seeds where the method is stochastic. Parameter counts are reported next to every row, because "better at 3 000 parameters" and "better at 10 000" are different claims.
+
+### 13.3 Tier B and C, and the composite
+
+| tier | what | source | role |
+|---|---|---|---|
+| A | per-dataset, per-horizon MSE/MAE, standard splits | 13.1 | comparability with the literature; a report |
+| B | `rel_mse` per size cap, family-weighted, with `rel_mae` as a guard | sections 5 and 6 | the primary result and the search objective |
+| C | the same frozen models on confirm and sealed sets, and zero-shot on a held-out family | roles | generalisation; the claim |
+
+A composite is allowed only as a **pre-registered, family-weighted geometric mean of per-dataset ratios against a stated reference**, reported next to its parts, never instead of them: one weight per data family (so the four ETT-like sets do not outvote everything else), computed on confirm and sealed sets only, with win counts and the average rank across datasets beside it and a bootstrap interval over datasets and seeds. Weights are written before the first run and changed only by a dated amendment. That composite, plus the three tiers, is **TinyTS-Bench v1**; it can be re-run on any machine with `ants bench` (planned) and the report is a single table that carries the protocol, the ants version, the epoch and the package hash.
+
+### 13.4 What this needs
+
+A protocol option in the gym (`profile = "ltsf"`: lookback, split, drop-last, per-dataset MSE/MAE emitted, not only the ratio), an in-house reference harness for the five references, a `bench` command that freezes candidates, runs the tiers and writes the report, and the pre-registration of weights. Estimated 2 to 3 core-days of compute and about a week of work; it starts after the equal-budget comparison (roadmap step 2) so that it measures frozen candidates of the new epoch.
