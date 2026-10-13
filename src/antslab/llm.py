@@ -154,9 +154,10 @@ DEFAULT_DAILY_CALLS = 1500          # model calls (every endpoint attempt counts
 
 def daily_cap() -> int:
     try:
-        return max(0, int(os.environ.get("ANTS_LLM_MAX_CALLS_PER_DAY", DEFAULT_DAILY_CALLS)))
+        n = int(float(os.environ.get("ANTS_LLM_MAX_CALLS_PER_DAY", DEFAULT_DAILY_CALLS)))
     except ValueError:
         return DEFAULT_DAILY_CALLS
+    return n if n >= 0 else DEFAULT_DAILY_CALLS            # 0 = no cap, on purpose; a negative number is a typo, not a request for no cap
 
 
 class LLMClient:
@@ -166,6 +167,7 @@ class LLMClient:
         self.daily_calls = daily_cap() if daily_calls is None else daily_calls
         self.rng = rng or random.Random(0)
         self._lock = threading.Lock()
+        self._inflight = 0                                   # calls started but not yet in the ledger: counted, so concurrent callers cannot all pass the check
 
     # overridable for tests
     def _post(self, ep: Endpoint, body: dict) -> dict:
@@ -191,7 +193,7 @@ class LLMClient:
         server (or the ledger) does, the caller gets (None, meta) at worst."""
         meta = {"attempts": []}
         for ep in self._pick_order():
-            if self._capped():                           # spend is bounded no matter what the proposers ask: callers fall back to search
+            if self._capped(reserve=True):                   # spend is bounded no matter what the proposers ask: callers fall back to search
                 meta["capped"] = True
                 return None, meta
             t = time.time()
@@ -218,17 +220,24 @@ class LLMClient:
                     self.ledger.log_llm(clean_text(f"{ep.name}:{ep.model}", 80), ok, toks, note)
                 except Exception:                        # the audit row is best-effort; a full disk must not kill the proposer thread
                     pass
+            with self._lock:
+                self._inflight = max(0, self._inflight - 1)
             meta["attempts"].append({"ep": ep.name, "ok": ok, "s": round(dt, 1), "note": note})
             if ok:
                 meta["ep"] = ep.name
                 return obj, meta
         return None, meta
 
-    def _capped(self) -> bool:
+    def _capped(self, reserve: bool = False) -> bool:
         if not (self.ledger and self.daily_calls):
             return False
         try:
-            return self.ledger.llm_calls_since(time.time() - 86400) >= self.daily_calls
+            with self._lock:
+                if self.ledger.llm_calls_since(time.time() - 86400) + self._inflight >= self.daily_calls:
+                    return True
+                if reserve:
+                    self._inflight += 1
+                return False
         except Exception:                                # a ledger that cannot be read must not take the proposer down (see test_security_llm)
             return False
 

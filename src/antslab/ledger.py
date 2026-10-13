@@ -151,6 +151,13 @@ class Ledger:
         if not Path(self.path).exists():
             raise FileNotFoundError(f"no ledger at {self.path}")
         self.conn = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True, timeout=10, isolation_level=None, check_same_thread=False)
+        try:
+            self.conn.execute("SELECT 1 FROM sqlite_master LIMIT 1")
+        except sqlite3.OperationalError as e:        # a directory we cannot write beside and no write-ahead log to read: the file is at rest
+            self.conn.close()
+            if "locked" in str(e):
+                raise
+            self.conn = sqlite3.connect(f"file:{self.path}?mode=ro&immutable=1", uri=True, timeout=10, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         try:
             self.conn.execute("PRAGMA busy_timeout=10000")

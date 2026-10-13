@@ -37,7 +37,7 @@ def current_version() -> str:
 
 def parse_version(s: str) -> tuple:
     """'v0.2.10-rc1' -> ((0, 2, 10), 0); a release sorts above its own pre-releases; anything unparsable sorts lowest"""
-    m = re.match(r"^v?(\d+(?:\.\d+){0,3})(?:[-+.]?([0-9A-Za-z.-]+))?$", str(s).strip())
+    m = re.fullmatch(r"v?(\d{1,6}(?:\.\d{1,6}){0,3})(?:[-+.]?([0-9A-Za-z.-]{1,40}))?", str(s)[:80]) if isinstance(s, str) else None
     if not m:
         return ((0,), -1)
     return (tuple(int(x) for x in m.group(1).split(".")), 0 if m.group(2) else 1)
@@ -55,6 +55,7 @@ def cache_path() -> Path:
 
 def settings() -> dict:
     u = load_config().get("update", {})
+    u = u if isinstance(u, dict) else {}
     return {"check": u.get("check", True) is not False, "source": u.get("source", "npm") if u.get("source") in SOURCES else "npm"}
 
 
@@ -83,7 +84,11 @@ def check(force: bool = False, timeout: float = 3.0, opener=urllib.request.urlop
     cur, st = current_version(), settings()
     c = read_cache()
     res = {"current": cur, "latest": c.get("latest"), "checked": c.get("checked"), "source": st["source"], "error": None}
-    if force or not c.get("latest") or c.get("source") != st["source"] or t - float(c.get("checked") or 0) > MAX_AGE_S:
+    try:
+        age = t - float(c.get("checked") or 0)
+    except (TypeError, ValueError):
+        age = MAX_AGE_S + 1
+    if force or not isinstance(c.get("latest"), str) or c.get("source") != st["source"] or age > MAX_AGE_S:
         try:
             res["latest"], res["checked"] = fetch_latest(st["source"], timeout, opener), t
             try:
@@ -129,10 +134,14 @@ def notice(stream=None) -> str | None:
     if os.environ.get("ANTS_NO_UPDATE_CHECK") or not settings()["check"] or not (stream.isatty() and sys.stdout.isatty()):
         return None
     c = read_cache()
-    if time.time() - float(c.get("checked") or 0) > MAX_AGE_S:
+    try:
+        stale = time.time() - float(c.get("checked") or 0) > MAX_AGE_S
+    except (TypeError, ValueError):
+        stale = True
+    if stale:
         threading.Thread(target=check, kwargs={"force": True}, daemon=True).start()
     cur = current_version()
-    if c.get("latest") and is_newer(c["latest"], cur):
+    if isinstance(c.get("latest"), str) and is_newer(c["latest"], cur):
         return f"ants {c['latest']} is available (you have {cur}): run `ants update`"
     return None
 

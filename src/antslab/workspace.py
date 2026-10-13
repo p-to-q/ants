@@ -53,8 +53,10 @@ def _row(t: dict) -> dict:
 
 
 def _write(path: Path, text: str):
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text)
+    import tempfile
+    fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)      # an unpredictable name: a planted symlink is never followed
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
     os.replace(tmp, path)
 
 

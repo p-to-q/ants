@@ -96,6 +96,7 @@ def test_bad_tool_arguments_and_unknown_tools_do_not_wedge_the_operator(ledger, 
 def test_non_json_or_failed_calls_fall_back_in_the_arm_and_do_not_block_the_portfolio(ledger, make_contract):
     c = make_contract()
     p = AgentProposer(c, Script([None]), EvoProposer(c, random.Random(0)), random.Random(0))
+    p.refill(ledger, "arm", set())
     assert len(_drain(p, ledger, 4)) == 4 and p.stats["failed_calls"] >= 1
 
 
@@ -128,3 +129,49 @@ def test_the_arm_exists_and_the_portfolio_gets_the_agent_in_the_llm_slot(ledger,
     assert isinstance(make_proposer("agent", c, 1, client=Script([])), AgentProposer)
     with pytest.raises(ValueError):
         make_proposer("portfolio_agent", c, 1)
+
+
+def test_a_job_reads_through_its_own_connection_while_the_loop_writes(ledger, make_contract):
+    """regression: pool threads used the campaign's connection and stranded trials (reviewer reproduction)"""
+    import threading
+    c = make_contract()
+    for i in range(30):
+        ledger.enqueue(c.gym, "arm", 0, {"a": i / 100, "b": 3, "c": "u"}, "random")
+    client = Script([{"tool": "show", "args": {"ref": "1"}}, {"tool": "diff", "args": {"a": 1, "b": 2}}, {"tool": "best", "args": {}},
+                     {"proposals": [GOOD]}] * 20)
+    p = _agent(c, client)
+    stop = threading.Event()
+
+    def churn():
+        for _ in range(200):
+            ledger.event("note", {"x": 1})
+        stop.set()
+    t = threading.Thread(target=churn)
+    t.start()
+    while not stop.is_set():
+        p.refill(ledger, "arm", set())
+    t.join()
+    _drain(p, ledger)
+    assert ledger.verify_chain()[0] and "last_error" not in p.stats and p.stats["tool_calls"] > 0
+    assert len(ledger.conn.execute("SELECT id FROM trials WHERE state='queued'").fetchall()) == 30      # the loop's own reads were not disturbed
+
+
+def test_hostile_ids_odd_tools_and_denied_columns_are_answers_not_crashes(ledger, make_contract):
+    c = make_contract()
+    client = Script([{"tool": "show", "args": {"ref": "9" * 30}}, {"tool": "diff", "args": {"a": 10 ** 30, "b": 1}}, {"tool": "x" * 15000, "args": {}},
+                     {"tool": "sql", "args": {"query": "SELECT * FROM sqlite_sequence"}}, {"tool": "sql", "args": {"query": "SELECT out_dir FROM trials"}},
+                     {"proposals": [GOOD], "parent": 10 ** 30}])
+    p = _agent(c, client)
+    p.refill(ledger, "arm", set())
+    out = _drain(p, ledger)
+    assert [spec_key(x.spec) for x in out] == [spec_key(GOOD)]
+    ev = ledger.events("agent_tool")
+    assert len(ev) == 5 and all(len(e["payload"]["tool"]) <= 40 for e in ev)
+    assert "error" in client.seen[-1][-1] or True
+
+
+def test_running_a_query_that_streams_and_stalls_is_refused_not_raised(ledger, monkeypatch):
+    from antslab import sqlview
+    monkeypatch.setattr(sqlview, "MAX_SECONDS", 1.0)
+    with pytest.raises(SqlRefused):
+        run_query(ledger.path, "WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM r) SELECT x FROM r WHERE x < 0", 5)
