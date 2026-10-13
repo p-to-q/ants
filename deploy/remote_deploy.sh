@@ -33,7 +33,7 @@ case "${1:-preflight}" in
                  sudo -n install -m 640 -o ants -g ants /opt/ants/contracts/tinyts_real.toml '"$CT"' && echo "contract installed"; rm -rf "$D"' ;;
   data)
     T="${2:-dev}"; [[ "$T" =~ ^(dev|standard|extended|all)$ ]] || { echo "tier: dev|standard|extended|all"; exit 1; }
-    run_as_service ".venv/bin/ants data fetch --tier $T --catalog /opt/ants/data/catalog.toml && .venv/bin/ants data build --catalog /opt/ants/data/catalog.toml --names \$(.venv/bin/python -m antslab.data_present /opt/ants/data) && .venv/bin/ants data verify --partial --catalog /opt/ants/data/catalog.toml" ;;
+    run_as_service ".venv/bin/ants data fetch --tier $T --catalog /opt/ants/data/catalog.toml && .venv/bin/ants data build --catalog /opt/ants/data/catalog.toml --present && .venv/bin/ants data verify --partial --catalog /opt/ants/data/catalog.toml" ;;
   smoke)
     N="${2:-60}"; [[ "$N" =~ ^[0-9]{1,6}$ ]] || { echo "N must be a number"; exit 1; }
     run_as_service ".venv/bin/ants run --contract $CT --workdir /var/lib/ants/smoke --arm portfolio --seed 1 --max-evals $N && .venv/bin/ants top --contract $CT --workdir /var/lib/ants/smoke --arm portfolio --once && .venv/bin/ants doctor --contract $CT --workdir /var/lib/ants/smoke --arm portfolio" ;;

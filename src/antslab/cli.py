@@ -253,6 +253,8 @@ def cmd_data(a):
         return 0 if not bad else 2
     if a.action == "build":
         names = a.names.split(",") if a.names else None
+        if a.present:                                   # only what has been downloaded (dev tier installs, partial tiers)
+            names = [n for n in cat.names() if cat.meta[n]["format"] != "synth" and (cat.base / cat.meta[n]["raw"]).exists()]
         rep = cat.build_processed(names)
         print(f"built {len(rep)} datasets -> {cat.base}/processed")
         return 0
@@ -515,7 +517,7 @@ def main(argv=None):
             s.add_argument("--archive-dir"); s.add_argument("--dry-run", action="store_true")
             s.add_argument("--force-bytes", type=int, default=0)
     d = sub.add_parser("data"); d.add_argument("action", choices=["list", "verify", "build", "fetch"])
-    d.add_argument("--catalog", default=None); d.add_argument("--tier", default="dev", help="fetch: dev | standard | extended | all"); d.add_argument("--names"); d.add_argument("--all", action="store_true"); d.add_argument("--partial", action="store_true", help="verify only the files that exist (dev-tier installs)")
+    d.add_argument("--catalog", default=None); d.add_argument("--tier", default="dev", help="fetch: dev | standard | extended | all"); d.add_argument("--names"); d.add_argument("--present", action="store_true", help="build: every real dataset whose raw files exist"); d.add_argument("--all", action="store_true"); d.add_argument("--partial", action="store_true", help="verify only the files that exist (dev-tier installs)")
     d.set_defaults(fn=cmd_data)
     _system_parsers(sub)
     a = ap.parse_args(argv)
