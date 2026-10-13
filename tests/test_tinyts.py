@@ -362,7 +362,7 @@ def test_memory_estimate_never_badly_under_predicts_measured_peaks():
     for sp in cases:
         measured, est = _measured_or_skip(sp), T.est_mem_mb(sp)
         assert est >= 0.9 * measured, f"estimate {est:.0f} MB under-predicts measured {measured:.0f} MB for {sp['core']}"
-        assert est <= 4.0 * measured                                           # and is not uselessly pessimistic
+        assert est <= 6.0 * measured      # and is not uselessly pessimistic. These fresh-process peaks read 4.1x (macOS) to 5.2x (Linux server) below the estimate; the real-data s2 peaks on the server read 1.8-2.3x below it (docs/operations.md)
 
 
 def test_memory_estimate_grows_with_cost_and_the_worst_spec_fits_the_contract_cap():

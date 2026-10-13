@@ -50,7 +50,7 @@ A NaN in a **secondary** key rejects the whole file too (verified), so `gyms/tin
 | wall time per stage | `[budget] stage_timeouts`, else `trial_timeout_s` | 120 s | process group is killed; the trial is `timeout` |
 | CPU time | runner `RLIMIT_CPU` | `2 x timeout + 5` s | second line of defence |
 | file size | runner `RLIMIT_FSIZE` | 256 MiB | per file written by the gym |
-| memory | not limited by the runner; the systemd cgroup does it (`MemoryMax=900M` per instance) | | declare a `static_mem` estimate so a spec the box cannot afford is dropped before it runs |
+| memory | not limited by the runner; the systemd cgroup does it (`MemoryMax=650M` per instance) | | declare a `static_mem` estimate so a spec the box cannot afford is dropped before it runs |
 | cost cap | `[objective] caps` + `cap_metric` | | a constraint, never an objective term |
 
 `tinyts.py` treats evaluation memory as part of the cost model: `est_mem_mb(spec)` is an additive estimate, and

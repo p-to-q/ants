@@ -408,7 +408,7 @@ class PortfolioProposer:
                 o.close()
 
 
-def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tpe=True) -> PortfolioProposer:
+def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tpe=True, agent=False) -> PortfolioProposer:
     rng = lambda i: random.Random(seed * 101 + i)
     ops = {"random": RandomProposer(c, rng(1)), "sweep": SweepProposer(c, rng(2)),
            "evo": EvoProposer(c, rng(3)), "de": DEProposer(c, rng(4)), "cem": CEMProposer(c, rng(5)),
@@ -420,6 +420,9 @@ def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tp
             ops["tpe"] = TPEHistProposer(c, rng(8), seed)
         except ImportError:
             pass
-    if client is not None:
+    if client is not None and agent:
+        from .agent import AgentProposer                  # the agent operator takes the place of `llm`: same budget, same slot, more to read
+        ops["agent"] = AgentProposer(c, client, None, rng(9), memory_fn=memory_fn)
+    elif client is not None:
         ops["llm"] = LLMStrict(c, client, None, rng(9), memory_fn=memory_fn)
     return PortfolioProposer(c, ops, rng(0))

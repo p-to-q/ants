@@ -290,12 +290,17 @@ def make_proposer(arm: str, c: Contract, seed: int, client=None, memory_fn=None,
         return QDProposer(c, rng)
     if arm == "tpe":
         return TPEProposer(c, rng, seed)
-    if arm in ("portfolio", "portfolio_llm", "portfolio_dream"):
+    if arm in ("portfolio", "portfolio_llm", "portfolio_dream", "portfolio_agent"):
         from .portfolio import build_portfolio
         if arm != "portfolio" and client is None:
             raise ValueError("llm arms need a client")
         return build_portfolio(c, seed, client if arm != "portfolio" else None,
-                               memory_fn if arm == "portfolio_dream" else None)
+                               memory_fn if arm == "portfolio_dream" else None, agent=(arm == "portfolio_agent"))
+    if arm == "agent":
+        if client is None:
+            raise ValueError("llm arms need a client")
+        from .agent import AgentProposer
+        return AgentProposer(c, client, EvoProposer(c, random.Random(seed + 1)), rng, llm_share=llm_share)
     if arm in ("llm", "llm_dream"):
         if client is None:
             raise ValueError("llm arms need a client")

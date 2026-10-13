@@ -353,7 +353,7 @@ def test_the_campaign_unit_is_notify_with_a_watchdog_and_the_backup_unit_runs_a_
     assert h["Environment"] == "ANTS_BACKUP_DIR=/var/lib/ants/backups/%i"          # doctor looks where the backup unit writes
 
 
-def test_two_instances_fit_the_two_gigabyte_host():
+def test_three_instances_fit_the_two_gigabyte_two_core_host():
     m = parse("ants@.service")["Service"]
     mem = lambda v: int(v.rstrip("M"))
-    assert 2 * mem(m["MemoryMax"]) <= 1900 and m["CPUQuota"] == "100%"
+    assert 3 * mem(m["MemoryMax"]) <= 1990 and 3 * int(m["CPUQuota"].rstrip("%")) <= 200

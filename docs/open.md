@@ -27,6 +27,9 @@ correlation of early path statistics with final outcome, among the top-k only (p
 Candidates: short history, distribution shift, zero-shot transfer of one frozen ~1k-parameter model pre-trained only on the
 synthetic suite. A second arena with parameters shared across datasets is the most visible claim available. Not started.
 
+## 7. Does reading the ledger beat a summary of it?  *(from the Meta-Harness study)*
+The `llm` operator is shown the eight best specs and a few verified lessons; the `agent` operator reads failures, diffs and queries before it proposes. The paper's own ablation (scores only 34.6 median, plus an LLM summary 34.9, full traces 50.0) is on one task and has not been replicated; follow-ups qualify how far the gain transfers ([research note](research/meta-harness.md)). **Settles it:** `portfolio_agent` against `portfolio_llm` and `portfolio` at equal evaluations and equal LLM calls, ≥ 3 seeds; an arm given the same tokens of random ledger rows (is it reading failures or just more context?); dev-to-confirm gap at equal dev score. A null result is reportable.
+
 ## 6. Can a hack-friendly proposer break the evaluator?
 A red-team proposer that tries to exploit the gate, the roles and the ledger, with the result published whether or not it succeeds.
 

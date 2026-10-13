@@ -23,28 +23,38 @@ def _authorizer(action, *_):
     return sqlite3.SQLITE_OK if action in _ALLOWED else sqlite3.SQLITE_DENY
 
 
-def connect_readonly(path) -> sqlite3.Connection:
+def _deny_authorizer(deny):
+    names = {d.lower() for d in deny}
+
+    def auth(action, arg1, arg2, dbname, source):
+        if action == sqlite3.SQLITE_READ and isinstance(arg1, str) and arg1.lower() in names:
+            return sqlite3.SQLITE_DENY                 # whole tables a caller may not read at all (an agent never reads sealed-look records)
+        return _authorizer(action)
+    return auth
+
+
+def connect_readonly(path, deny=()) -> sqlite3.Connection:
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"no ledger at {p}")
     conn = sqlite3.connect(f"file:{p}?mode=ro", uri=True, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA query_only=ON")
-    conn.set_authorizer(_authorizer)
+    conn.set_authorizer(_deny_authorizer(deny) if deny else _authorizer)
     for lim, val in ((sqlite3.SQLITE_LIMIT_LENGTH, 1 << 20), (sqlite3.SQLITE_LIMIT_SQL_LENGTH, 20_000), (sqlite3.SQLITE_LIMIT_EXPR_DEPTH, 100),
                      (sqlite3.SQLITE_LIMIT_COMPOUND_SELECT, 20)):
         conn.setlimit(lim, val)                      # a value, a statement or an expression can not grow past a megabyte or so (randomblob(1e9) fails)
     return conn
 
 
-def run_query(path, sql: str, limit: int = MAX_ROWS) -> tuple[list[str], list[list]]:
+def run_query(path, sql: str, limit: int = MAX_ROWS, deny=()) -> tuple[list[str], list[list]]:
     """(column names, rows) for one SELECT statement. Raises SqlRefused for anything else."""
     text = sql.strip().rstrip(";").strip()
     if not text or ";" in text:
         raise SqlRefused("exactly one statement, please")
     if text.split(None, 1)[0].lower() not in ("select", "with"):
         raise SqlRefused("only SELECT (or WITH ... SELECT) is allowed")
-    conn = connect_readonly(path)
+    conn = connect_readonly(path, deny)
     deadline = time.monotonic() + MAX_SECONDS
     conn.set_progress_handler(lambda: 1 if time.monotonic() > deadline else 0, 10_000)
     try:

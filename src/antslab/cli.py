@@ -121,7 +121,7 @@ def cmd_run(a):
         return 3
     wd, led, c = _open(a)
     client = None
-    if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream"):
+    if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
         from .llm import LLMClient, load_endpoints
         client = LLMClient(load_endpoints(a.llm_env or _default_llm_env()), led)
     mem = (lambda arm: latest_memory(led, arm)) if a.arm in ("llm_dream", "portfolio_dream") else None
@@ -138,7 +138,7 @@ def cmd_run(a):
     for s in (signal.SIGTERM, signal.SIGINT):
         signal.signal(s, on_signal)
     print(camp.run(stop=lambda: stop["v"]), flush=True)
-    if threading.active_count() > 1:
+    if client is not None and threading.active_count() > 1:       # the LLM client's worker threads; a run without one has nothing to wait for
         # LLM worker threads (ThreadPoolExecutor, non-daemon) may still sit in a socket read for up to their 100 s timeout, and
         # the interpreter would join them at exit, after a stop signal AND after a normal finish (budget reached): systemd would
         # SIGKILL us after 60 s. Everything we own is already committed; the instance lock is released by the OS.
@@ -315,6 +315,24 @@ def cmd_log(a):
     return 0
 
 
+def cmd_diff(a):
+    from .workspace import diff_trials
+    wd, led, c = _open(a)
+    d = diff_trials(led, c, a.a, a.b)
+    _emit(a, d, lambda x: x["not_found"] if "not_found" in x else
+          f"trial {x['a']} vs {x['b']}\n" + "\n".join(f"  {k}: {v[0]} -> {v[1]}" for k, v in x["levers"].items()) + "\n"
+          + "\n".join(f"  {s} {c.primary}: {v[0]} vs {v[1]}" for s, v in x["stages"].items()))
+    return 1 if "not_found" in d else 0
+
+
+def cmd_workspace(a):
+    from .workspace import export_workspace
+    wd, led, c = _open(a)
+    r = export_workspace(led, c, a.arm, a.out, a.limit)
+    print(f"wrote {r['trials']} trials ({r['detailed']} with detail) to {r['out']}; start with {r['out']}/SKILL.md")
+    return 0
+
+
 def cmd_hint(a):
     from . import ui
     wd, led, c = _open(a)
@@ -348,7 +366,7 @@ def cmd_doctor(a):
     return 2 if any(l == "FAIL" for l, _ in res) else 0
 
 
-SHELL_COMMANDS = ("top", "best", "show", "log", "hint", "pause", "resume", "doctor", "status", "export", "board")
+SHELL_COMMANDS = ("top", "best", "show", "diff", "log", "hint", "pause", "resume", "doctor", "status", "export", "board")
 
 
 def cmd_shell(a):
@@ -484,7 +502,7 @@ def main(argv=None):
     ap.add_argument("--version", action="version", version="ants " + _version())
     sub = ap.add_subparsers(dest="cmd", required=False)
     for name, fn in (("run", cmd_run), ("status", cmd_status), ("export", cmd_export), ("janitor", cmd_janitor), ("board", cmd_board), ("serve", cmd_serve),
-                     ("top", cmd_top), ("best", cmd_best), ("show", cmd_show), ("log", cmd_log), ("hint", cmd_hint),
+                     ("top", cmd_top), ("best", cmd_best), ("show", cmd_show), ("diff", cmd_diff), ("workspace", cmd_workspace), ("log", cmd_log), ("hint", cmd_hint),
                      ("pause", cmd_pause), ("resume", cmd_pause), ("doctor", cmd_doctor), ("shell", cmd_shell)):
         s = sub.add_parser(name)
         s.add_argument("--contract"); s.add_argument("--workdir")
@@ -503,6 +521,10 @@ def main(argv=None):
             s.add_argument("--top", type=int, default=5); s.add_argument("--cap", type=int)
         if name == "show":
             s.add_argument("ref", help="trial id or spec-key prefix")
+        if name == "diff":
+            s.add_argument("a"); s.add_argument("b")
+        if name == "workspace":
+            s.add_argument("--out", required=True); s.add_argument("--limit", type=int, default=3000)
         if name == "log":
             s.add_argument("-n", type=int, default=20); s.add_argument("--kind")
         if name == "hint":

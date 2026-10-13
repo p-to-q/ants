@@ -51,6 +51,8 @@ Verified: `cd empty-dir && ants top` prints the `no contract found` message and 
 | `best` | leaderboard per parameter cap | no |
 | `show REF` | one trial: spec, stage metrics, lineage | no |
 | `log` | recent ledger events | no |
+| `diff A B` | the levers and per-stage metrics that differ between two trials | no |
+| `workspace --out DIR` | the ledger as plain files (`trials.jsonl`, `frontier.json`, `failures.jsonl`, `trials/<id>/`, `SKILL.md`) for an agent or `grep` | `--out` dir |
 | `doctor` | health check | no |
 | `hint TEXT` | note for proposers | one `user_hint` event |
 | `pause` / `resume` | create / delete `<workdir>/PAUSE` | flag file |
@@ -79,7 +81,7 @@ ants run --contract contracts/tinyts_real.toml --workdir $PWD/runs/real --arm po
 | `--dream-every N` | 100 | summarise every N evaluations; only `llm_dream`, `portfolio_dream` |
 
 Arms (`proposers.make_proposer`): `random`, `evo`, `evo_percap`, `qd`, `tpe` (needs `optuna`), `portfolio`, and the LLM arms
-`llm`, `llm_dream`, `portfolio_llm`, `portfolio_dream` (need a client; not run here, no keys). Unknown arm: `ValueError`.
+`llm`, `llm_dream`, `portfolio_llm`, `portfolio_dream`, `agent`, `portfolio_agent` (need a client). Unknown arm: `ValueError`. `agent` and `portfolio_agent` replace the one-shot LLM operator with one that reads the ledger through read-only tools before it proposes ([research note](research/meta-harness.md)); every tool call is a chained `agent_tool` event; LLM calls are capped per rolling day (`ANTS_LLM_MAX_CALLS_PER_DAY`, default 1500).
 
 Behaviour: one `ants run` per workdir (`flock` on `<workdir>/ants.lock`, released by the kernel even after kill -9; a second one exits 3, verified).
 SIGTERM / SIGINT set a stop flag: a running evaluation is abandoned within about 0.25 s (its process group is killed, the half-result is not recorded as evidence and the row is reclaimed on the next start), sleeps wake every 0.5 s. Stdout is the last step result.

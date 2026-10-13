@@ -25,11 +25,11 @@ RestartPreventExitStatus=3
 RestartSec=30
 TimeoutStopSec=60
 KillMode=control-group
-# keep the 2 vCPU / 2 GB host (and sshd) alive: only this slice can be starved or killed. Two instances (one per core) fit: measured on this
+# keep the 2 vCPU / 2 GB host (and sshd) alive: only this slice can be starved or killed. Three instances (a third of the host's two cores less each, so 66% apiece) fit: measured on this
 # Linux host the largest evaluation peaks at 266 MB against an estimate of 622 MB (est_mem_mb never under-predicts), plus ~100 MB for the supervisor.
-CPUQuota=100%
-MemoryHigh=700M
-MemoryMax=900M
+CPUQuota=66%
+MemoryHigh=550M
+MemoryMax=650M
 OOMPolicy=kill
 OOMScoreAdjust=500
 TasksMax=256
