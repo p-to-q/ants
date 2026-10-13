@@ -51,12 +51,18 @@ def run_cmd(contract, workdir, *extra, arm="evo", seed=3, max_evals=None) -> lis
 
 def wait_for(pred, timeout: float, step: float = 0.05):
     end = time.time() + timeout
+
+    def safe():
+        try:
+            return pred()
+        except (IndexError, OSError, sqlite3.Error):      # the daemon is still creating its files: not there yet, not an error
+            return None
     while time.time() < end:
-        v = pred()
+        v = safe()
         if v:
             return v
         time.sleep(step)
-    return pred()
+    return safe()
 
 
 def query(workdir, sql, args=()):
