@@ -399,7 +399,7 @@ def scatter():
     label(o, X(50) + 14, H - B - 12, "parameter caps", 11.5, MINT_TEXT, "start", 600, halo=False)
     # references
     o.append(f'<line x1="{L}" x2="{L}" y1="{T}" y2="{H-B}" stroke="{FILL}"/>')
-    label(o, L - 14, T - 22, "rel_mse", 11.5, MUTE, "end", 500, halo=False)
+    label(o, L - 14, T + 4, "rel_mse", 11.5, MUTE, "end", 500, halo=False)
     for v in (0.8, 0.9):
         o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="{INK}" stroke-opacity="0.16" stroke-dasharray="2 6"/>')
         label(o, L - 14, Y(v) + 4, f"{v:.2f}", 11.5, MUTE, "end", halo=False)
@@ -410,7 +410,7 @@ def scatter():
         o.append(f'<line x1="{X(p):.1f}" x2="{X(p):.1f}" y1="{H-B}" y2="{H-B+6}" stroke="{FILL}"/>')
         label(o, X(p), H - B + 26, lab, 11.5, MUTE, "middle", halo=False)
     o.append(f'<line x1="{L}" x2="{W-R}" y1="{H-B}" y2="{H-B}" stroke="{FILL}"/>')
-    label(o, W - R, H - 22, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
+    label(o, W - R, H - B + 52, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
     # every deepest-stage evaluation of the ants run: the cloud the best models are picked from
     cloud = d["ants_demo"].get("cloud", [])
     for p, v in cloud:
@@ -451,13 +451,17 @@ def scatter():
     big = max(d["measured"].values(), key=lambda m: m["params"])
     fp = big["params"]
     o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="{DASH}"/>')
-    # a small legend under the reference line: one row per mark that needs explaining, glyph then text, rows left-aligned
-    lx = W - R - 204
+    # a small legend under the reference line, right-aligned with it: glyphs in a column at the right edge, both texts end at one x
+    gx = W - R                                    # right edge of the glyph column
+    tx = gx - 42                                  # where both texts end
     ly = Y(1.0) + 22
-    o.append(f'<circle cx="{lx + 5:.1f}" cy="{ly - 4:.1f}" r="2.8" fill="{MINT_3}" fill-opacity="0.55"/>')
-    label(o, lx + 20, ly, f"{len(cloud):,} evaluations of the ants run", 10.5, MUTE, "start", 500, halo=False)
-    o.append(f'<line x1="{lx:.1f}" x2="{lx + 11:.1f}" y1="{ly + 14:.1f}" y2="{ly + 14:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-dasharray="{DASH}"/>')
-    label(o, lx + 20, ly + 18, f"{fp / pa:.0f}× fewer parameters than ridge 720", 10.5, INK, "start", 600, halo=False)
+    o.append(f'<circle cx="{gx - 4:.1f}" cy="{ly - 4:.1f}" r="2.8" fill="{MINT_3}" fill-opacity="0.55"/>')
+    label(o, tx, ly, f"{len(cloud):,} evaluations of the ants run", 11.5, MUTE, "end", 500, halo=False)
+    y2 = ly + 20
+    o.append(f'<rect x="{gx - 34:.1f}" y="{y2 - 9:.1f}" width="8" height="8" rx="2" fill="{MINT_3}" stroke="{INK}" stroke-width="0.8"/>')
+    o.append(f'<line x1="{gx - 24:.1f}" x2="{gx - 11:.1f}" y1="{y2 - 5:.1f}" y2="{y2 - 5:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-dasharray="{DASH}"/>')
+    o.append(f'<circle cx="{gx - 5:.1f}" cy="{y2 - 5:.1f}" r="3.2" fill="{INK}"/>')
+    label(o, tx, y2, f"{fp / pa:.0f}× fewer parameters than ridge 720", 11.5, INK, "end", 600, halo=False)
     lab = [("start", 12, -14), ("start", 12, -14), ("end", -13, 22)]
     for i, (p, v, cap) in enumerate(pts):
         o.append(f'<rect x="{X(p)-6:.1f}" y="{Y(v)-6:.1f}" width="12" height="12" rx="2.5" fill="{MINT_3}" stroke="{INK}"/>')
