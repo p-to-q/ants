@@ -22,11 +22,11 @@ def _q1(led, sql, *a):
 
 
 def snapshot(led, c, arm: str, workdir, hist: History | None = None) -> dict:
-    h = hist or History(led, c, arm)
+    h = hist or History.for_arm(led, c, arm)
     h.update()
     now = time.time()
     by = {}
-    for stage, state, n in led.conn.execute("SELECT stage, state, COUNT(*) FROM trials WHERE gym=? AND arm=? GROUP BY stage, state", (c.gym, arm)):
+    for stage, state, n in led.conn.execute("SELECT stage, state, COUNT(*) FROM trials WHERE gym=? AND arm=? AND epoch IS COALESCE(?, epoch) GROUP BY stage, state", (c.gym, arm, h.epoch)):
         by.setdefault(stage, {})[state] = n
     fin = lambda dt: _q1(led, "SELECT COUNT(*) FROM trials WHERE gym=? AND arm=? AND finished_at>?", c.gym, arm, now - dt)
     last = _q1(led, "SELECT MAX(finished_at) FROM trials WHERE gym=? AND arm=?", c.gym, arm)
@@ -43,16 +43,24 @@ def snapshot(led, c, arm: str, workdir, hist: History | None = None) -> dict:
             "llm_calls_1h": {"calls": calls[0], "ok": calls[1]}, "user_hints": [_c(e["payload"].get("text", ""), 500) for e in led.recent_events("user_hint", 3)]}
 
 
-def leaderboard(h: History, c, top: int = 5) -> dict:
-    """Best specs per cap bin. Ranked by the deepest stage each spec reached, then by value at that stage: a cheap first-stage
-    number must never outrank a deeper measurement (stages are different protocols and not comparable)."""
+def leaderboard(h: History, c, top: int = 5, cumulative: bool = True) -> dict:
+    """Best specs per size cap. Ranked by the deepest stage each spec reached, then by value at that stage: a cheap first-stage
+    number must never outrank a deeper measurement (stages are different protocols and not comparable).
+    cumulative=True (default): the entry for cap N ranks every spec of at most N parameters, so "<= 300" really means that and a
+    small model that beats a bigger one shows under both caps. cumulative=False: each spec only in the smallest cap that holds it
+    (the registry's cap bins: one champion per bin)."""
     h.update()                                   # always current: callers must not have to remember this
     out, bins = {}, {}
-    for r in sorted((r for r in h.best.values() if r.get("feasible", True)), key=lambda r: (-r["stage_idx"], h.sign * r["value"])):
+    key = lambda r: (-r["stage_idx"], h.sign * r["value"])
+    for r in sorted((r for r in h.best.values() if r.get("feasible", True)), key=key):
         bins.setdefault(h.cap_bin(r["metrics"]), []).append(r)
+    acc: list = []
     for b, rs in sorted(bins.items(), key=lambda kv: kv[0]):
         if b == float("inf"):
             continue
+        if cumulative:
+            acc = sorted(acc + rs, key=key)
+            rs = acc
         out[str(b)] = [{"rank": i, "value": round(r["value"], 5), "stage": c.stages[r["stage_idx"]], "n_params": r["metrics"].get(c.cap_metric),
                         "trial": r["id"], "key": r["key"], "operator": _c(((h.first.get(r["key"]) or r)["source"]).split(":")[0], 40), "spec": _diff(c, r["spec"])}
                        for i, r in enumerate(rs[:top], 1)]

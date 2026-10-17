@@ -203,7 +203,7 @@ def test_arms_are_compared_at_equal_budget(run_dir, tmp_path, monkeypatch):
     one = model.equal_budget([a])
     assert one["n"] == n_all and one["rows"][0]["n"] == n_all
     first = model.best_at(a, 1)
-    assert len(first) == 1                                      # one evaluation lands in exactly one cap bin
+    assert len(first) >= 1 and len(set(first.values())) == 1     # one evaluation counts under every cap that holds it, with the same value
     assert all(first[k] >= model.best_at(a, n_all)[k] for k in first)       # more evaluations never make the best worse (primary is minimised)
     text = app.once(str(contract), str(wd), None, 100, "fleet", color=False)
     assert "At equal budget" in text and "one seed per search" in text
@@ -409,3 +409,84 @@ def test_keys_pause_hint_freeze_and_step_through_searches(run_dir, tmp_path):
     assert a.wd_i == i
     a.run_command("hint keep it cheerful")
     assert "recorded" in a.pager_text
+
+
+# ----------------------------------------------------------------------------------------------------------- findings of the third review
+
+def _copy_with_old_epoch(run_dir, tmp_path, n_old):
+    """a copy of the run in which the first n_old trials belong to an earlier epoch"""
+    import shutil
+    import sqlite3
+    contract, wd = run_dir
+    wd2 = tmp_path / "wd2"
+    shutil.copytree(wd, wd2)
+    con = sqlite3.connect(wd2 / "ledger.sqlite")
+    ids = [r[0] for r in con.execute("SELECT id FROM trials ORDER BY id")]
+    con.execute("UPDATE trials SET epoch='oldoldoldold' WHERE id<=?", (ids[n_old - 1],))
+    con.commit(); con.close()
+    return contract, wd2, len(ids)
+
+
+def test_the_interface_reads_only_the_arms_current_epoch(run_dir, tmp_path, monkeypatch):
+    """results of an earlier epoch were measured by other code or data: they must not appear in the totals, the best list or the curves"""
+    contract, wd2, n = _copy_with_old_epoch(run_dir, tmp_path, 6)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
+    src = model.Source(wd2, str(contract))
+    try:
+        assert src.hist.epoch and src.hist.epoch != "oldoldoldold"
+        snap = src.overview()
+        assert sum(snap["totals"].values()) == n - 6
+        assert "oldoldoldold" not in {r["epoch"] for r in src.hist.best.values()} if src.hist.best and "epoch" in next(iter(src.hist.best.values())) else True
+        ids_current = {r[0] for r in src.led.conn.execute("SELECT id FROM trials WHERE epoch=?", (src.hist.epoch,))}
+        assert all(r["id"] in ids_current for r in src.hist.best.values())
+        assert len(model.deep_series(src)) <= len(ids_current)
+    finally:
+        src.close()
+
+
+def test_cap_n_lists_every_model_of_at_most_n_parameters(run_dir, tmp_path, monkeypatch):
+    from antslab import ui
+    contract, wd = run_dir
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
+    src = model.Source(wd, str(contract))
+    try:
+        cum = ui.leaderboard(src.hist, src.c, top=50)
+        band = ui.leaderboard(src.hist, src.c, top=50, cumulative=False)
+        caps = list(cum)
+        assert caps == sorted(caps, key=float)
+        seen: set = set()
+        for k in caps:
+            rows = cum[k]
+            assert all(r["n_params"] <= float(k) for r in rows)
+            members = {r["key"] for r in rows}
+            assert members >= seen                                   # a larger cap never loses a model a smaller one had
+            seen = members
+            if k in band:
+                assert {r["key"] for r in band[k]} <= members
+        best = [cum[k][0]["value"] for k in caps if cum[k]]
+        assert best == sorted(best, reverse=True) or all(a >= b for a, b in zip(best, best[1:]))   # primary is minimised: more room never ranks worse
+    finally:
+        src.close()
+
+
+def test_the_system_page_counts_model_calls_in_every_ledger_and_says_where_the_cap_comes_from(run_dir, tmp_path, monkeypatch):
+    import shutil
+    contract, wd = run_dir
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "h"))
+    monkeypatch.delenv("ANTS_LLM_MAX_CALLS_PER_DAY", raising=False)
+    wd2 = tmp_path / "other"
+    shutil.copytree(wd, wd2)
+    a, b = model.Source(wd, str(contract)), model.Source(wd2, str(contract))
+    try:
+        info = model.system_info(a, [a, b])
+        assert [x["name"] for x in info["llm_by_ledger"]] == [f"{wd.name}/{a.arm}", f"other/{b.arm}"]
+        assert "built-in default" in info["llm_cap_source"]
+        text = render.plain(views.system_screen({"info": info}, views.Ctx(width=100)).lines)
+        assert "all 2 ledgers together" in text and "on its own" in text and "cap from:" in text
+        monkeypatch.setenv("ANTS_LLM_MAX_CALLS_PER_DAY", "7")
+        assert "ANTS_LLM_MAX_CALLS_PER_DAY=7" in model.system_info(a, [a])["llm_cap_source"]
+    finally:
+        a.close(); b.close()

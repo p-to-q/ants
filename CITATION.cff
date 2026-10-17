@@ -4,7 +4,7 @@ title: "ants: Autonomous Navigation of Tiny-model Space"
 type: software
 abstract: "A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it."
 license: Apache-2.0
-version: 0.6.0
+version: 0.6.1
 date-released: 2026-10-13
 authors:
   - name: "[p → q]"

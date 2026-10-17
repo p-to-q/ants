@@ -474,6 +474,14 @@ def system_screen(d, ctx: Ctx) -> View:
         frac = (L["calls"] / L["cap"]) if L["cap"] else 0
         lines.append([S(" "), S(pixel.bar(L["calls"], L["cap"] or max(L["calls"], 1), 24), "ok" if frac < 0.7 else "warn" if frac < 1 else "bad"),
                       S(f" {L['calls']} calls of {L['cap'] or 'no'} cap · {L['ok']} ok · {i.get('agent_tools_24h', 0)} agent tool reads", "dim")])
+        per = i.get("llm_by_ledger") or []
+        if len(per) > 1:
+            tot = sum(x["calls"] or 0 for x in per)
+            lines.append([S(f" this search above · all {len(per)} ledgers together: {tot} calls (the cap of {L['cap'] or 'none'} applies to each ledger on its own)", "dim")])
+            for x in per:
+                lines.append([S(f"   {clip(x['name'], 30):<30} ", "none"), S("unreadable" if x["calls"] is None else f"{x['calls']} calls · {x['ok']} ok", "dim")])
+        if i.get("llm_cap_source"):
+            lines.append([S(" cap from: " + clip(i["llm_cap_source"], w - 12), "dim")])
         ch = i.get("calls_hour") or []
         if any(a or b for a, b in ch):
             lines.append([S(" "), S(pixel.spark([a for a, _ in ch], 24), "accent"), S("  "), S(pixel.spark([b for _, b in ch], 24), "bad"), S("   per hour; second line = failed", "dim")])
@@ -489,6 +497,11 @@ def system_screen(d, ctx: Ctx) -> View:
             if 0 <= pos < 56:
                 axis[pos] = "●"
         lines.append([S(" "), S("".join(axis), "accent"), S("  oldest ← → now", "dim")])
+    if bk and i.get("trials_now") is not None and bk[0].get("trials") is not None:
+        gap = i["trials_now"] - bk[0]["trials"]
+        age = (i.get("now") or time.time()) - bk[0]["created"]
+        lines.append([S(clip(f" restoring the newest backup would lose {max(gap, 0)} trials ({age / 3600:.0f} h of work)", w - 2), "warn" if gap > 100 or age > 86400 else "dim")])
+        lines.append([S(clip(" copies on this machine guard against mistakes, not against losing the machine: `deploy/remote_deploy.sh pull-backups`", w - 2), "dim")])
     for m in bk[:6]:
         lines.append([S(f" {time.strftime('%m-%d %H:%M', time.localtime(m['created']))} ", "dim"), S(f"{m['file']:<40} ", "none"), S(f"{m['trials']} trials · {m['stored_bytes'] / 1e6:.1f} MB", "dim")])
     return View(lines)

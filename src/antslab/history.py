@@ -14,6 +14,12 @@ import math
 from .contract import Contract
 
 
+def latest_epoch(ledger, gym: str, arm: str) -> str | None:
+    """the measuring epoch the arm is currently running in (that of its newest trial); None if it has no trials yet"""
+    r = ledger.conn.execute("SELECT epoch FROM trials WHERE gym=? AND arm=? ORDER BY id DESC LIMIT 1", (gym, arm)).fetchone()
+    return r[0] if r else None
+
+
 class History:
     def __init__(self, ledger, c: Contract, arm: str, epoch: str | None = None, max_records: int = 60_000,
                  discount: float = 0.995):
@@ -47,6 +53,12 @@ class History:
 
     # ---- ingestion ----------------------------------------------------
     BATCH = 20_000
+
+    @classmethod
+    def for_arm(cls, ledger, c: Contract, arm: str, **kw) -> "History":
+        """History restricted to the arm's current epoch: results measured by other evaluator code or data are not comparable,
+        so every reader that shows or ranks results (interface, CLI, agent tools) must use this and not the bare constructor"""
+        return cls(ledger, c, arm, epoch=latest_epoch(ledger, c.gym, arm), **kw)
 
     def update(self) -> int:
         """Ingest everything finished since the last call (in batches, so memory stays bounded).

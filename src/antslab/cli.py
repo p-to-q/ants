@@ -222,7 +222,8 @@ def cmd_serve(a):
 
 
 def cmd_data(a):
-    from .data import Catalog, locate_catalog
+    from .data import Catalog
+    from .home import find_catalog as locate_catalog      # the same search as data.locate_catalog, but a directory this user cannot enter is skipped
     if a.action == "fetch":
         from .fetch import fetch
         from .home import data_dir
@@ -274,7 +275,7 @@ def cmd_top(a):
     from . import ui
     wd, led, c = _open(a)
     from .history import History
-    h = History(led, c, a.arm)
+    h = History.for_arm(led, c, a.arm)
     try:
         while True:
             snap = ui.snapshot(led, c, a.arm, wd, h)
@@ -292,7 +293,7 @@ def cmd_best(a):
     from . import ui
     from .history import History
     wd, led, c = _open(a)
-    h = History(led, c, a.arm); h.update()
+    h = History.for_arm(led, c, a.arm); h.update()
     lb = ui.leaderboard(h, c, a.top)
     if a.cap:
         lb = {k: v for k, v in lb.items() if k == str(a.cap)}

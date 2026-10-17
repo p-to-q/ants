@@ -29,7 +29,7 @@ def _hist(ledger, c, arm, hist):
     if hist is not None:
         return hist
     from .history import History
-    h = History(ledger, c, arm); h.update()
+    h = History.for_arm(ledger, c, arm); h.update()
     return h
 
 
@@ -256,7 +256,7 @@ class LLMProposer:
         h = getattr(self, "_h", None)
         if h is None:
             from .history import History
-            h = self._h = History(ledger, self.c, arm)
+            h = self._h = History.for_arm(ledger, self.c, arm)
         h.update()
         return h.ranked(200)
 

@@ -41,13 +41,13 @@ The phrase always sits next to the numbers it came from and always says why. It 
 |---|---|---|
 | 0 | Home | the ant, the one line and intro, each search with its phrase and a 6-hour activity strip, the directory |
 | 1 | Overview | the phrase and reason; what is being worked on now (a spinner per running trial); a braille chart of the best value so far; finished per 10 minutes as a heat strip and a sparkline; each stage as a stacked bar (done, running, failed); best per size cap as gain bars; each searcher's promotion rate; model calls per hour |
-| 2 | Leaderboard | tabs per size cap (← →); rows ranked by the deepest stage reached, with gain bars, a log-scale lollipop of the parameter count, ▲ ▼ for rank changes since the last refresh; Enter opens a trial |
+| 2 | Leaderboard | tabs per size cap (← →; the tab ≤N lists every model of at most N parameters, so a small model also appears under the larger caps); rows ranked by the deepest stage reached, with gain bars, a log-scale lollipop of the parameter count, ▲ ▼ for rank changes since the last refresh; Enter opens a trial |
 | 3 | Trials | a ribbon of the newest trials coloured by state, then one row each with a state glyph and a duration bar; filter by state (`s`) and stage (`t`); Enter opens a trial |
 | 4 | Arms | the searches side by side with their phrases; evaluation counts with the equal-budget cut marked `│`; best-so-far curves on one scale; a matrix of who proposed what; the table at equal budget |
 | 5 | Events | the hash-chained record with a coloured gutter per kind and events per minute over the last hour; filter by kind (`k`) |
 | 6 | Health | one tile per check (■ ok, ▲ warning, ✗ failing), the check lines, gauges for backup age, disk use and ledger size |
 | 7 | Data | datasets by role as tiles (■ present, □ missing), size on disk |
-| 8 | System | version and update, service state, model spend against its cap with calls per hour, backups on a 7-day axis |
+| 8 | System | version and update, service state, model calls of this search and of every ledger with the cap (the cap applies to each ledger on its own) and where it comes from, calls per hour, backups on a 7-day axis and how many trials a restore of the newest one would lose |
 
 A trial opens to its levers, its metrics per stage with a bar, its error if any, and its lineage.
 

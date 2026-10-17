@@ -51,7 +51,7 @@ class _Job:
         from .ledger import Ledger
         self.arm = arm
         self.led = Ledger.open_readonly(path)
-        self.hist = History(self.led, contract, arm)
+        self.hist = History.for_arm(self.led, contract, arm)
 
     def close(self):
         try:
@@ -118,7 +118,7 @@ class AgentProposer(LLMStrict):
         from .history import History
         h = getattr(self, "_h", None)
         if h is None:
-            h = self._h = History(self._ledger, self.c, self._arm)
+            h = self._h = History.for_arm(self._ledger, self.c, self._arm)
         h.update()
         return h
 

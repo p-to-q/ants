@@ -216,15 +216,30 @@ Verdicts: H1 pending, H2 pending, H3 pending. Amendments and deviations: none ye
 
 Two questions the primary metric cannot answer. Published work reports **MSE and MAE per dataset and horizon on standardised data**; ours is `rel_mse` against seasonal naive, family-weighted, with a parameter cap. A reader cannot put one next to the other. And a number measured only on our own protocol says nothing about how the models do on the protocols the field uses.
 
+**Why there is no ranking yet, and why `rel_mse` and a paper's MSE are never put in one column.** A paper's "MSE 0.78" is the mean squared error on z-scored values of one dataset at one horizon; `rel_mse` is a ratio to seasonal naive, geometric-meaned over horizons and folds and weighted by data family. The two have different units and different aggregation, so `rel_mse = 0.7839` and a published 0.78 say nothing about each other. A comparable ranking needs all of:
+
+| requirement | state today |
+|---|---|
+| the field's datasets, the field's splits | four development datasets steer the search; the catalog holds more (ETTm2 and others as confirm, Traffic as sealed) but no frozen candidate has been scored on them |
+| horizons 96, 192, 336, 720, each reported | the catalog lists all four; the search objective is one aggregate |
+| standardised MSE and MAE per dataset and horizon | the gym z-scores with training statistics and computes MSE and MAE for every (dataset, horizon) pair, but only the ratios, a plain mean over all pairs (`val_mse`, `val_mae`) and a mean over datasets per horizon (`mse_h<H>`) leave it; the per-dataset, per-horizon values do not, and the windows it scores are not yet the full standard ones |
+| equal tuning effort for every method compared | references not yet run (step 14) |
+| confirm and sealed data, counted looks | gate exists, unwired (step 27) |
+| several seeds, intervals | one seed per arm (step 2) |
+
 ### 13.1 Tier A: the field's table, produced by our machinery
 
 For every frozen candidate (and for each reference below), on the **same windows** as the standard LTSF protocol: chronological splits (ETT 12/4/4 months, which the catalog already uses for ETTh1/ETTh2/ETTm1/ETTm2; 7/1/2 for the others), z-score with training statistics only, lookback 96 (and one longer setting, 336, reported separately), horizons 96/192/336/720, **no dropped last batch**, MSE and MAE on the standardised values, per dataset and horizon, plus the average over horizons. Datasets: the four development sets for the report of the search, confirm and sealed sets for the claim.
+
+Metrics in every Tier A row, so that one table serves a reader from the literature and a reader from this project: **MSE and MAE on the standardised values** (the field's headline; per dataset and horizon, then the mean over horizons; no mean across datasets is presented as a result, because standardised errors of different datasets are not on one scale); **`rel_mse` and `rel_mae` against seasonal naive** on the same windows (our primary, which also tells a reader how far the number is from a trivial forecast); **MASE** (error scaled by the in-sample seasonal-naive error, Hyndman and Koehler 2006), which is scale-free across datasets and is the one to average; the **parameter count**, the **multiply-accumulates per forecast** and, once step 26 exists, latency and peak memory on a stated device; and an **interval** from a block bootstrap over test windows (and over seeds where the method is stochastic). sMAPE is left out: z-scored values cross zero and the percentage is undefined there. For a pair of methods, the number of datasets and horizons won, with the average rank, is printed beside the means.
 
 Rules: the numbers are *produced here* and never copied from papers (their splits, batch handling and seeds differ); the report states the protocol in its first lines; Tier A is a report of frozen candidates and never feeds the search (the search sees `rel_mse` only), so it cannot be gamed by it.
 
 ### 13.2 References: what we run beside it, in-house
 
 DLinear, SparseTSF, FITS (all linear or near-linear and small), PatchTST as a deep reference, ridge with the best lookback, seasonal naive and the mean as floors, optionally one zero-shot foundation model (Chronos or TimesFM) as a ceiling for what pre-training buys; each under the identical Tier A harness, tuned with the same budget as one ants arm (a fixed number of trials on the development data), three seeds where the method is stochastic. Parameter counts are reported next to every row, because "better at 3 000 parameters" and "better at 10 000" are different claims.
+
+The closest published work is **SearchCast** (Huang, Xu and Darlow, arXiv 2606.27282, 2026): closed-form Ridge forecasters whose preprocessing is searched (context length, local normalisation over a trailing fraction of the context, regularisation, augmentation, how parameters are shared across horizons and series), reported to match or exceed Transformer, MLP and CNN baselines on six of eight standard benchmarks, with code released. It is the reference this project has to meet under the identical Tier A harness, run with its published search code and the same trial budget as one ants arm, and it is where our premise stops being ours (see the roadmap, prior work). Beside it, Toner and Darlow, *An Analysis of Linear Time Series Forecasting Models* (ICML 2024, arXiv 2403.14587), show that several popular linear forecasters are functionally equivalent to unconstrained linear regression over an augmented feature set, that their closed-form solutions exist, and that the closed form was the better forecaster in 72% of the test settings they studied.
 
 ### 13.3 Tier B and C, and the composite
 
@@ -238,4 +253,4 @@ A composite is allowed only as a **pre-registered, family-weighted geometric mea
 
 ### 13.4 What this needs
 
-A protocol option in the gym (`profile = "ltsf"`: lookback, split, drop-last, per-dataset MSE/MAE emitted, not only the ratio), an in-house reference harness for the five references, a `bench` command that freezes candidates, runs the tiers and writes the report, and the pre-registration of weights. Estimated 2 to 3 core-days of compute and about a week of work; it starts after the equal-budget comparison (roadmap step 2) so that it measures frozen candidates of the new epoch.
+A protocol option in the gym (`profile = "ltsf"`: lookback, split, drop-last, per-dataset standardised MSE, MAE and MASE emitted per horizon, not only the ratio; the evaluator's files are inside the epoch hash, so this change starts a new epoch and is made together with the other evaluator changes of that epoch, not alone), an in-house reference harness for the five references, a `bench` command that freezes candidates, runs the tiers and writes the report, and the pre-registration of weights. Estimated 2 to 3 core-days of compute and about a week of work; it starts after the equal-budget comparison (roadmap step 2) so that it measures frozen candidates of the new epoch.

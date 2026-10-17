@@ -77,3 +77,33 @@ def package_root() -> Path | None:
         return Path(r)
     here = Path(__file__).resolve().parents[2]
     return here if (here / "contracts").is_dir() and (here / "data" / "catalog.toml").exists() else None
+
+
+def find_catalog() -> Path:
+    """Where data/catalog.toml is, for everything that is not the evaluator: the Data screen, `ants data`, Health and the doctor.
+
+    The same search order as `data.locate_catalog` (which stays as it is: it is inside the epoch hash of the real contract, and a changed byte there
+    would silently start a new epoch), except that a directory this user may not enter is skipped instead of raising PermissionError. That is what
+    happened when the interface ran as the service user from another user's home. Nothing is made readable by this; a catalog that really cannot be
+    reached raises FileNotFoundError naming where it looked."""
+    cands = []
+    if os.environ.get("ANTS_CATALOG"):
+        cands.append(Path(os.environ["ANTS_CATALOG"]))
+    if os.environ.get("ANTS_HOME"):
+        cands.append(Path(os.environ["ANTS_HOME"]) / "data" / "catalog.toml")
+    cands.append(Path(os.environ.get("ANTS_HOME") or Path.home() / ".ants").expanduser() / "data" / "catalog.toml")
+    if os.environ.get("ANTS_ROOT"):
+        cands.append(Path(os.environ["ANTS_ROOT"]) / "data" / "catalog.toml")
+    try:
+        here = Path.cwd().resolve()
+        cands += [d / "data" / "catalog.toml" for d in (here, *here.parents)]
+    except OSError:                              # the working directory itself cannot be read
+        pass
+    cands += [Path(__file__).resolve().parents[2] / "data" / "catalog.toml", Path.home() / ".ants" / "data" / "catalog.toml"]
+    for c in cands:
+        try:
+            if c.exists():
+                return c
+        except OSError:
+            continue
+    raise FileNotFoundError("data/catalog.toml not found or not readable by this user; set ANTS_CATALOG or ANTS_HOME (searched: " + ", ".join(str(c) for c in cands[:4]) + " ...)")

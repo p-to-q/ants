@@ -68,7 +68,7 @@ class Source:
         self.led = Ledger.open_readonly(self.workdir / "ledger.sqlite")
         from ..textsafe import clean_text
         self.arm = clean_text(arm or self._latest_arm(), 60)
-        self.hist = History(self.led, self.c, self.arm)
+        self.hist = History.for_arm(self.led, self.c, self.arm)
 
     def _latest_arm(self) -> str:
         r = self.led.conn.execute("SELECT arm FROM trials ORDER BY id DESC LIMIT 1").fetchone()
@@ -86,7 +86,7 @@ class Source:
                                      (now, step, self.c.gym, self.arm, now - 6 * 3600)).fetchall()
         by = {r[0]: r[1] for r in rows}
         snap["rate_6h"] = [by.get(i, 0) for i in range(35, -1, -1)]                 # finished per 10 minutes, oldest first
-        snap["totals"] = {r[0]: r[1] for r in self.led.conn.execute("SELECT state, COUNT(*) FROM trials WHERE gym=? AND arm=? GROUP BY state", (self.c.gym, self.arm))}
+        snap["totals"] = {r[0]: r[1] for r in self.led.conn.execute("SELECT state, COUNT(*) FROM trials WHERE gym=? AND arm=? AND epoch IS COALESCE(?, epoch) GROUP BY state", (self.c.gym, self.arm, self.hist.epoch))}
         timeline = self.best_timeline()
         snap["curve"] = self.thin([v for _, v in timeline])
         snap["running"] = self.running(now)
@@ -108,8 +108,8 @@ class Source:
         sign = self.hist.sign
         best, out = None, []
         for t, v in self.led.conn.execute(
-                "SELECT finished_at, json_extract(metrics, ?) FROM trials WHERE gym=? AND arm=? AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at, id",
-                (f"$.{self.c.primary}", self.c.gym, self.arm, last)):
+                "SELECT finished_at, json_extract(metrics, ?) FROM trials WHERE gym=? AND arm=? AND epoch IS COALESCE(?, epoch) AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at, id",
+                (f"$.{self.c.primary}", self.c.gym, self.arm, self.hist.epoch, last)):
             if v is None:
                 continue
             best = v if best is None or sign * v < sign * best else best
@@ -163,8 +163,8 @@ class Source:
         last = self.c.stages[-1]
         sign = self.hist.sign
         vals = [(r[0], r[1]) for r in self.led.conn.execute(
-            "SELECT finished_at, json_extract(metrics, ?) FROM trials WHERE gym=? AND arm=? AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at",
-            (f"$.{self.c.primary}", self.c.gym, self.arm, last)) if r[1] is not None]
+            "SELECT finished_at, json_extract(metrics, ?) FROM trials WHERE gym=? AND arm=? AND epoch IS COALESCE(?, epoch) AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at",
+            (f"$.{self.c.primary}", self.c.gym, self.arm, self.hist.epoch, last)) if r[1] is not None]
         best, out = None, []
         for _, v in vals:
             best = v if best is None or sign * v < sign * best else best
@@ -234,17 +234,17 @@ def deep_series(src: "Source") -> list[tuple]:
     """(finish time, value, size) of every finished evaluation at the deepest stage, in finish order: the unit arms are compared in"""
     c = src.c
     q = ("SELECT finished_at, json_extract(metrics, ?), " + (f"json_extract(metrics, '$.{c.cap_metric}')" if c.cap_metric else "NULL") +
-         " FROM trials WHERE gym=? AND arm=? AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at, id")
-    return [(r[0], r[1], r[2]) for r in src.led.conn.execute(q, (f"$.{c.primary}", c.gym, src.arm, c.stages[-1])) if r[1] is not None]
+         " FROM trials WHERE gym=? AND arm=? AND epoch IS COALESCE(?, epoch) AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at, id")
+    return [(r[0], r[1], r[2]) for r in src.led.conn.execute(q, (f"$.{c.primary}", c.gym, src.arm, src.hist.epoch, c.stages[-1])) if r[1] is not None]
 
 
 def best_at(src: "Source", n: int) -> dict:
-    """best value per size cap among the first `n` deepest-stage evaluations (a cap bin holds models up to that size)"""
+    """best value per size cap among the first `n` deepest-stage evaluations (cap N holds every model of at most N parameters)"""
     c = src.c
     best: dict = {}
     for _, v, size in deep_series(src)[:n]:
         bins = [str(cap) for cap in c.caps if size is not None and size <= cap] if c.caps else ["all"]
-        for b in bins[:1]:
+        for b in bins:                                   # cumulative: a model of 90 parameters also counts under <=300
             if b not in best or src.hist.sign * v < src.hist.sign * best[b]:
                 best[b] = v
     return best
@@ -279,8 +279,9 @@ def fleet(sources: list["Source"]) -> list[dict]:
 
 
 def data_overview(catalog_path: str | None = None) -> dict:
-    from ..data import Catalog, locate_catalog
-    cat = Catalog(catalog_path or locate_catalog())
+    from ..data import Catalog
+    from ..home import find_catalog
+    cat = Catalog(catalog_path or find_catalog())
     roles: dict = {}
     for n in cat.names():
         m = cat.meta[n]
@@ -293,7 +294,7 @@ def data_overview(catalog_path: str | None = None) -> dict:
     return {"base": str(cat.base), "roles": roles, "raw_bytes": size, "processed": len(list((cat.base / "processed").glob("*.npz"))) if (cat.base / "processed").is_dir() else 0}
 
 
-def system_info(source: "Source | None") -> dict:
+def system_info(source: "Source | None", all_sources: "list[Source] | None" = None) -> dict:
     import subprocess
     from ..home import config_path, home
     from ..update import current_version, is_newer, read_cache
@@ -310,9 +311,23 @@ def system_info(source: "Source | None") -> dict:
             info["backups"] = list_backups(info["backup_dir"]) if Path(info["backup_dir"]).exists() else []
         except Exception:
             info["backups"] = []
+        try:
+            info["trials_now"] = source.led.conn.execute("SELECT COUNT(*) FROM trials").fetchone()[0]       # for "how much would a restore lose"
+        except Exception:
+            info["trials_now"] = None
         calls = source.led.conn.execute("SELECT COUNT(*), COALESCE(SUM(ok),0) FROM llm_calls WHERE ts>?", (time.time() - 86400,)).fetchone()
         from ..llm import daily_cap
         info["llm_24h"] = {"calls": calls[0], "ok": calls[1], "cap": daily_cap()}
+        env = os.environ.get("ANTS_LLM_MAX_CALLS_PER_DAY")
+        info["llm_cap_source"] = f"ANTS_LLM_MAX_CALLS_PER_DAY={env} in this shell" if env is not None else "built-in default (ANTS_LLM_MAX_CALLS_PER_DAY is not set in this shell; the running service reads its own environment)"
+        per = []
+        for o in (all_sources or [source]):                       # the counter lives in each ledger: the cap applies to each search separately
+            try:
+                r = o.led.conn.execute("SELECT COUNT(*), COALESCE(SUM(ok),0) FROM llm_calls WHERE ts>?", (time.time() - 86400,)).fetchone()
+                per.append({"name": f"{o.workdir.name}/{o.arm}", "calls": r[0], "ok": r[1]})
+            except Exception:
+                per.append({"name": f"{o.workdir.name}/{o.arm}", "calls": None, "ok": None})
+        info["llm_by_ledger"] = per
         info["agent_tools_24h"] = source.led.conn.execute("SELECT COUNT(*) FROM events WHERE kind='agent_tool' AND ts>?", (time.time() - 86400,)).fetchone()[0]
         info["calls_hour"] = source.calls_per_hour(time.time())
         info["now"] = time.time()

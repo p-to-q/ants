@@ -36,9 +36,27 @@ def backup_dir(workdir) -> Path:
 
 
 # ------------------------------------------------------------------------------------------------------------ doctor
+def data_check() -> tuple[str, str]:
+    """can this process read what the Data screen and a run need: the catalog and its datasets? A fix for 'Health says all clear while Data
+    cannot open its catalog'. Reports the path and the reason; never suggests opening permissions (confirm and sealed data stay closed)."""
+    from .data import Catalog
+    from .home import find_catalog
+    try:
+        path = find_catalog()
+        cat = Catalog(path)
+        real = [n for n in cat.names() if cat.meta[n]["format"] != "synth"]
+        have = sum(1 for n in real if (cat.base / cat.meta[n]["raw"]).exists())
+        dev = [n for n in cat.names("dev")]
+        dev_have = sum(1 for n in dev if (cat.base / cat.meta[n]["raw"]).exists())
+        level = "OK" if dev_have == len(dev) else "WARN"
+        return level, f"datasets: catalog {path}, {have} of {len(real)} raw datasets present, development sets {dev_have}/{len(dev)}"
+    except (OSError, FileNotFoundError, ValueError, KeyError) as e:
+        return "WARN", f"datasets: the catalog cannot be read by this user ({type(e).__name__}: {str(e)[:100]}); check which user runs ants and where its data lives"
+
+
 def durability_checks(led, workdir) -> list[tuple[str, str]]:
     """(level, message) lines about the ledger file itself, appended to `ants doctor`"""
-    out = []
+    out = [data_check()]
     info = led.check(full=False)
     out.append(("OK" if info["integrity_ok"] else "FAIL", f"sqlite integrity: {info['integrity']}"))
     out.append(("OK", f"schema version {info['schema_version']}, ledger {info['bytes'] / 1e6:.1f} MB, {info['trials']} trials, {info['events']} events"))

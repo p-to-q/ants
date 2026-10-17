@@ -65,7 +65,7 @@ def export_workspace(led, c, arm: str, out, limit: int = 3000, per_trial: int = 
     (out / "trials").mkdir(parents=True, exist_ok=True)
     rows = [_row(t) for t in led.trials(c.gym, arm)][-limit:]
     _write(out / "trials.jsonl", "".join(json.dumps(r, default=str) + "\n" for r in rows))
-    h = History(led, c, arm)
+    h = History.for_arm(led, c, arm)
     lb = ui.leaderboard(h, c, top=10)
     _write(out / "frontier.json", json.dumps(lb, indent=1, default=str))
     fails = led.conn.execute("SELECT substr(error,1,160) AS e, COUNT(*) AS n FROM trials WHERE gym=? AND arm=? AND error IS NOT NULL AND error<>'' GROUP BY 1 ORDER BY n DESC LIMIT 50", (c.gym, arm)).fetchall()

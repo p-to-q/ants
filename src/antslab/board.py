@@ -41,7 +41,7 @@ def build(ledger, c, arms: list[str], out_dir, top: int = 5) -> dict:
     data = {"generated": time.strftime("%Y-%m-%d %H:%M:%S"), "task": c.name, "primary": c.primary, "direction": c.direction,
             "chain_ok": ledger.verify_chain()[0], "chain_head": ledger.head()[:16], "arms": {}}
     for arm in arms:
-        h = History(ledger, c, arm); h.update()
+        h = History.for_arm(ledger, c, arm); h.update()
         diag = diagnostics(h)
         feas = [r for r in h.first.values() if r.get("feasible", True)]
         bins: dict = {}

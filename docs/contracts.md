@@ -66,7 +66,7 @@ How the cap behaves (`campaign._refill`, `_should_promote`, `history.feasible`):
 | proposal | `static_mem` over `mem_cap_mb`: dropped. `static_cost > max(caps)`: dropped with probability `1 - stone_quota`, else enqueued as a **stepping stone** |
 | evaluation | runs normally; `metrics.json` must contain finite numbers for `primary` and `cap_metric` (`runner.validate_metrics`, else the trial is `failed`) |
 | promotion | never, if `metrics[cap_metric] > max(caps)` |
-| leaderboard / frontier | over-cap rows are excluded; each feasible row goes to the smallest cap bin that holds it |
+| leaderboard / frontier | over-cap rows are excluded; the interface lists, for each cap N, the best specs of at most N parameters (cumulative); the registry keeps one champion per bin, each spec in the smallest bin that holds it |
 
 ### [cascade]
 

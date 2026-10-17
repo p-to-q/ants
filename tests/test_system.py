@@ -593,3 +593,59 @@ def test_the_upgrade_guide_exists_and_matches_the_code_it_describes():
     assert "daemon_started" in text and "pre-migration" in text and "ants epochs" in text and "LedgerTooNew" in text
     assert "SCHEMA_VERSION" in text and SCHEMA_VERSION >= 1
     assert "upgrading.md" in (root / "README.md").read_text()
+
+
+def test_a_catalog_directory_the_user_cannot_enter_is_skipped_not_fatal(tmp_path, monkeypatch):
+    from antslab import home
+    locked = tmp_path / "locked"
+    (locked / "data").mkdir(parents=True)
+    (locked / "data" / "catalog.toml").write_text("x")
+    good = tmp_path / "good"
+    good.mkdir()
+    (good / "catalog.toml").write_text("[defaults]\n")
+    locked.chmod(0o000)
+    try:
+        if os.access(locked, os.R_OK):
+            pytest.skip("directory permissions are not enforced here (root)")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("ANTS_CATALOG", str(good / "catalog.toml"))
+        assert home.find_catalog() == good / "catalog.toml"
+        monkeypatch.delenv("ANTS_CATALOG")
+        monkeypatch.setenv("ANTS_HOME", str(tmp_path / "nohome"))
+        monkeypatch.setattr("pathlib.Path.cwd", classmethod(lambda cls: locked))        # as if started in a directory the user cannot enter
+        home.find_catalog()                                                               # must not raise PermissionError
+    except FileNotFoundError:
+        pass
+    finally:
+        locked.chmod(0o700)
+
+
+def test_health_reports_a_catalog_that_cannot_be_read(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTS_CATALOG", str(tmp_path / "missing" / "catalog.toml"))
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "nohome"))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("antslab.data.Path.home", classmethod(lambda cls: tmp_path / "nohome"), raising=False)
+    level, msg = system.data_check()
+    assert level in ("WARN", "OK") and msg.startswith("datasets:")
+    root = Path(__file__).resolve().parents[1]
+    monkeypatch.setenv("ANTS_CATALOG", str(root / "data" / "catalog.toml"))
+    level, msg = system.data_check()
+    assert msg.startswith("datasets: catalog") and "development sets" in msg and "open" not in msg.lower()
+
+
+def test_the_catalog_search_for_the_interface_agrees_with_the_evaluators(monkeypatch):
+    from antslab import data, home
+    root = Path(__file__).resolve().parents[1]
+    monkeypatch.delenv("ANTS_CATALOG", raising=False)
+    monkeypatch.chdir(root)
+    assert home.find_catalog() == data.locate_catalog()
+
+
+def test_the_epoch_of_the_real_contract_does_not_move_with_a_release():
+    """A release must not start a new epoch by accident: the evaluator's code paths are hashed into it, so editing one of those files
+    (or the catalog) starts a new epoch and splits the results of a running search. If this fails on purpose, change the pin and write the
+    new epoch in docs/changes.md (and in docs/roadmap.md if it is planned)."""
+    from antslab.contract import code_fingerprint
+    root = Path(__file__).resolve().parents[1]
+    paths = [root / "src/antslab/gyms/tinyts.py", root / "src/antslab/metrics.py", root / "src/antslab/data.py", root / "data/catalog.toml", root / "data/catalog_synth.toml"]
+    assert code_fingerprint(paths) == "e6a26c82e05dad1ece3c99e8817a47ce4e29373d34af6f425d8b310e74e93a0f"   # the value on the server since epoch 2 (2026-10-13)

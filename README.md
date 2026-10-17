@@ -215,7 +215,7 @@ Small, reviewable changes that keep the evaluator out of reach of what it evalua
 
 ## Acknowledgements
 
-DLinear, FITS and SparseTSF for the ultra-light forecasting line; SearchCast for the ridge baseline we must beat; AlphaEvolve, OpenEvolve and ShinkaEvolve for LLM-guided evolutionary search; MAP-Elites; Thresholdout and the Ladder; fev-bench. Baselines are re-run here; published numbers are never imported.
+DLinear, FITS and SparseTSF for the ultra-light forecasting line; SearchCast (Huang, Xu and Darlow, 2026) for the ridge baseline we must beat, with Toner and Darlow (ICML 2024) on the equivalence of linear forecasters; AlphaEvolve, OpenEvolve and ShinkaEvolve for LLM-guided evolutionary search; MAP-Elites; Thresholdout and the Ladder; fev-bench. Baselines are re-run here; published numbers are never imported.
 
 ## License
 

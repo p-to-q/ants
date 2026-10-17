@@ -130,7 +130,7 @@ class App:
             except Exception as e:
                 return {"error": f"{type(e).__name__}: {e}"}
         if screen == "system":
-            return {"info": model.system_info(src)}
+            return {"info": model.system_info(src, self.fleet_sources()[0])}
         return {}
 
     def loader(self):
