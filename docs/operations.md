@@ -199,18 +199,53 @@ Scheduling templates: `deploy/launchd/io.ants.pull-backups.plist` (macOS, daily 
 
 `ants doctor`: if `ANTS_OFFSITE_DIR` is set, reports the age of the newest verified copy found there (WARN > 36 h, FAIL if the directory is empty).
 
+## Before and after a deploy: `ants preflight`
+
+`ants preflight` is a read-only command that catches the classes of mistake found by hand during the 0.6.2 preparation: a release that silently changes the epoch, arms whose definition drifted, a catalog the service user cannot read while Health says all clear, and ledgers that a new ants would migrate one-way.
+
+| check | what it protects | what it does not |
+|---|---|---|
+| runtime | Python version, numpy/scipy for the gym | does not test the gym itself |
+| epoch identity | the evaluator, contract and data manifest hash match what the registry expects | does not detect a semantically equivalent change that produces the same hash |
+| arm definitions | pinned arms have the same hash as the server recorded; ledger starts match | does not detect changes inside a non-pinned arm |
+| data | the catalog is readable by this user; dev datasets exist; manifest verifies | never opens confirm or sealed datasets |
+| disk | free space under the workdir | does not predict growth |
+| ledgers | schema version, integrity, chain, backup age, PAUSE, lock | does not verify individual trial files |
+| secrets | llm.env mode is not group/world readable | never reads or prints key values |
+| clock | wall clock not earlier than the newest event | does not detect a small forward skew |
+| systemd | the series unit is installed/enabled/active | only when systemctl is present |
+
+Example:
+```
+$ ants preflight --series stage_a
+[  OK] ants 0.6.2, Python 3.12.3, /opt/ants/.venv/bin/python
+[  OK] current epoch 5da6eeee6527
+[  OK] epoch matches series registry (5da6eeee6527)
+[  OK] portfolio: arm_def_hash 67618a671563
+[  OK] portfolio: matches pin (2026-10-17)
+[  OK] datasets: catalog .../data/catalog.toml, 38 of 54 raw datasets present, ...
+[  OK] disk: 24.3 GB free under /var/lib/ants/series/stage_a
+[  OK] portfolio_s1: schema v2
+[  OK] portfolio_s1: chain intact, head 3a8f...
+[  OK] clock ok
+```
+
+From a laptop: `deploy/remote_deploy.sh verify --series stage_a [--expect-version 0.6.2]`.
+
 ## 12. Replacing the harness while experiments run
 
 The procedure below seals the pilot workdirs, installs the updated harness, and starts a pre-registered series.  Each step says what it protects and what it does not.
 
 | # | step | command (as user `ants` unless noted) | protects | does not protect |
 |---|---|---|---|---|
+| pre | preflight before anything else | `deploy/remote_deploy.sh verify --series stage_a` (or `ants preflight` on the server) | catches epoch drift, arm definition changes, unreadable data, old-schema ledgers, disk, secrets mode | does not prevent every mistake; a read-only snapshot of what the code sees now |
 | a | pre-deploy verified backups | `ants backup --workdir W --dest /var/lib/ants/backups/<arm> --keep 14 --gzip` for every pilot workdir (the installer does this automatically) | the ledger file against a bad install or a corruption during the transition | the per-trial files (they are on the same disk, not backed up) |
 | b | stop the arms cleanly | `sudo systemctl disable --now ants@portfolio ants@portfolio_llm ants@portfolio_agent ants-janitor@portfolio.timer ants-health@portfolio.timer ants-backup@portfolio.timer` (and the same three timers for `portfolio_llm` and `portfolio_agent`; `disable` so that a reboot does not start them again) | the trial in flight: SIGTERM requeues it; the ledger is clean after the process exits | nothing lost: `recover()` reclaims anything left |
 | c | seal the pilot | `ants bundle make --name pilot_epoch5da6 --out /var/lib/ants/bundles /var/lib/ants/portfolio /var/lib/ants/portfolio_llm /var/lib/ants/portfolio_agent` then `ants bundle verify /var/lib/ants/bundles/pilot_epoch5da6/`.  Pull the bundle off the server (`scp` or `pull-backups`-style) and `ants bundle verify` again locally.  Record the tar.gz sha256 in docs | the ledger data: the bundle is a self-contained, checksummed, chain-verified snapshot that can be re-verified by anyone | the bundle is on the same disk until pulled; pull it before proceeding |
 | d | archive the pilot workdirs | `sudo mv /var/lib/ants/portfolio /var/lib/ants/archive/pilot_portfolio` (same for the other two); `sudo chmod -R a-w /var/lib/ants/archive/pilot_*` | the original files: read-only, never deleted, never reused | if the disk fails, only the off-machine bundle survives |
 | e | install the new package | `deploy/remote_deploy.sh install` (uploads, hashes, runs `install.sh`, installs units and series registries) | the code tree is replaced; `/var/lib/ants` is never touched | nothing under `/var/lib/ants` changes |
 | f | start the series | `deploy/remote_deploy.sh series-start stage_a` | epoch check: the series runner refuses (exit 5, no restart loop) if the evaluator's epoch differs from the one written in the registry file | the series does not validate arm definitions against the pilot's; it starts fresh workdirs |
+| post | preflight after the start | `deploy/remote_deploy.sh verify --series stage_a --expect-version 0.6.2` | confirms the new code is running, epoch still matches, ledgers are intact, DEPLOY.log contains the expected version | same as the pre step |
 | g | check after a day | `deploy/remote_deploy.sh series-status stage_a`; `deploy/remote_deploy.sh soak`; `ants series check stage_a` | all three: the epoch matches, the chain is intact, the arm definition has not changed inside any ledger | these checks run on the server; the off-machine copy is a separate concern |
 | h | roll back | stop the series (`series-stop`); install the old package; make the archive writable again (`sudo chmod -R u+w /var/lib/ants/archive/pilot_*`) and move it back; re-enable the old units | the old workdirs are untouched in the archive; a new workdir created by the series is separate | if the series wrote data to fresh workdirs under `/var/lib/ants/series/`, those stay; they are a separate experiment |
 

@@ -135,5 +135,42 @@ for e in d.get('experiment', []):
     SNAME="${2:?series name required}"
     [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }
     "${SSH[@]}" "systemctl status ants-series@$SNAME --no-pager; echo '---'; sudo -n -u ants /opt/ants/.venv/bin/ants series status $SNAME" ;;
+  verify)
+    # Read-only: run `ants preflight --json` on the server for the given arms/series, print a table, exit non-zero on any FAIL.
+    shift
+    VARGS=(); EXPECT_VER=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --series) shift; SNAME="$1"; [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }; VARGS+=("--series" "$SNAME"); shift ;;
+        --expect-version) shift; EXPECT_VER="$1"; [[ "$EXPECT_VER" =~ ^[a-z0-9_.-]{1,40}$ ]] || { echo "bad version: $EXPECT_VER"; exit 1; }; shift ;;
+        *) [[ "$1" =~ ^[a-z0-9_.-]{1,40}$ ]] || { echo "bad argument: $1"; exit 1; }; VARGS+=("$1"); shift ;;
+      esac
+    done
+    REMOTE_CMD="sudo -n -u ants /opt/ants/.venv/bin/ants preflight --json ${VARGS[*]}"
+    RAW=$("${SSH[@]}" "$REMOTE_CMD") || true
+    if ! echo "$RAW" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+      echo "preflight did not return valid JSON:"; echo "$RAW"; exit 1
+    fi
+    # print table and check for FAIL
+    HAS_FAIL=$(echo "$RAW" | python3 -c "
+import json, sys
+rows = json.load(sys.stdin)
+fail = False
+for r in rows:
+    tag = r['level']
+    if tag == 'FAIL': fail = True
+    print(f'[{tag:>4}] {r[\"message\"]}')
+sys.exit(1 if fail else 0)
+") && RC=0 || RC=1
+    echo "$HAS_FAIL"
+    if [ -n "$EXPECT_VER" ]; then
+      LAST=$("${SSH[@]}" "tail -1 /var/lib/ants/DEPLOY.log 2>/dev/null || true")
+      if ! echo "$LAST" | grep -qF "$EXPECT_VER"; then
+        echo "FAIL: DEPLOY.log last line does not contain $EXPECT_VER: $LAST"; RC=1
+      else
+        echo "[  OK] DEPLOY.log contains $EXPECT_VER"
+      fi
+    fi
+    exit $RC ;;
   *) echo "unknown command"; exit 1 ;;
 esac

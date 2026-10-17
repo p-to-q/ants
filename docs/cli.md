@@ -77,6 +77,7 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 | `series check NAME` | integrity check: epoch, def hash, chain per ledger in a series (exit 1 on any failure) | no |
 | `bundle make` | create a sealed, verifiable snapshot of one or more workdir ledgers | bundle directory and tar.gz |
 | `bundle verify PATH` | verify a bundle (directory or tar.gz): checksums, chains, manifest | no |
+| `preflight` | read-only pre/post-deploy checks: runtime, epoch, arm definitions, data, disk, ledgers, secrets, clock, systemd | no (never writes) |
 
 ### run
 

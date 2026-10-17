@@ -63,6 +63,12 @@ Locally or from npm: `ants update` looks for a newer version (cached for a day),
 
 A new design is a new arm name and a new workdir.  Sealed data from a finished or abandoned epoch is read with `ants bundle verify` and, if the schema moved on, through a migrated COPY (never the original: `ants bundle make` snapshots read-only, and the bundle stays intact).  The bundle's MANIFEST.json records the schema version; if the current ants reports `LedgerTooNew`, the bundle was made by a newer version and the reader must be upgraded.
 
+## Pinned arm definitions (`pins.py`)
+
+`src/antslab/pins.py` records the arm_def_hash that the current code gives for each arm that has running ledgers on the server.  `ants preflight` FAILs when a pinned arm's hash no longer matches.  The fix is never to update the pin: create a new arm name instead (e.g. `portfolio_v2`) for the new definition, and keep the old workdir.
+
+To add a pin: compute the hash (`python -c "from antslab.experiments import arm_definition_hash; print(arm_definition_hash('arm', 'contracts/tinyts_real.toml', 1))"`), add the line to `PINNED_HASHES` in `pins.py`, and run the test (`test_preflight.py::test_pinned_hashes_match_code`).
+
 ## Rules for changing the harness without losing results
 
 1. Never edit an old migration; append one and bump `SCHEMA_VERSION`.
