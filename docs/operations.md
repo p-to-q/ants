@@ -84,8 +84,19 @@ The backup unit has run on the target machine; `pull-backups` has not.
 
 ## 5. What `ants doctor` checks
 
-Eight checks (chain, disk, freshness, failure rate, stale runners, unarchived artifacts, model parse rate, epochs) plus up to five on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup) and a version line, the thresholds are in [cli.md](cli.md#doctor). `ants-health@<arm>.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
+Eight checks (chain, disk, freshness, failure rate, stale runners, unarchived artifacts, model parse rate, epochs) plus per-endpoint success rate, quarantine state, and up to five on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup) and a version line, the thresholds are in [cli.md](cli.md#doctor). `ants-health@<arm>.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
 30 min **while work is queued**, but an `s2` stage may legitimately run up to 1800 s (30 min) in `tinyts_real`, so a slow s2 can produce a transient FAIL.
+
+## Endpoint quarantine
+
+When an endpoint fails N consecutive times (default 5) the client quarantines it: the endpoint is skipped by the Thompson bandit for a growing period (10 min, doubling to 2 h). If ALL endpoints are quarantined, `chat_json` returns immediately without spending a call, and the proposers fall back to search (same as when capped). A single success resets the consecutive count, the quarantine, and the backoff duration.
+
+**What to do when an endpoint is quarantined:** `ants doctor` and the System screen show the quarantine state. The endpoint recovers automatically once the quarantine expires and a call succeeds. If the underlying problem persists (the provider is down), the quarantine grows up to 2 h and the arm burns no budget while waiting. To force a retry sooner, restart the daemon (the quarantine state lives in memory; the bandit priors are seeded from the ledger, so good endpoints recover their reputation).
+
+## Changing the budget
+
+- **Daily cap**: set `ANTS_LLM_MAX_CALLS_PER_DAY=N` in the service environment or shell; 0 = no cap. Applies per rolling 24 h per ledger.
+- **Lifetime budget**: `--llm-budget N` on `ants run` or `ANTS_LLM_BUDGET=N` in the environment. Total HTTP attempts the arm may spend. 0/absent = none. Counted from the ledger, so it survives restarts. Both apply independently: whichever is reached first stops calls.
 
 ## 6. Failure modes
 
