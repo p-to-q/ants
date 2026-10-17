@@ -490,3 +490,89 @@ def test_the_system_page_counts_model_calls_in_every_ledger_and_says_where_the_c
         assert "ANTS_LLM_MAX_CALLS_PER_DAY=7" in model.system_info(a, [a])["llm_cap_source"]
     finally:
         a.close(); b.close()
+
+
+# ---- keys and the Data screen (2026-10-17) ----------------------------------------------------------------------------------------
+
+def test_arrow_keys_always_move_between_screens_and_the_cap_tabs_have_their_own_keys(run_dir):
+    import curses
+    contract, wd = run_dir
+    a = app.App(str(contract), str(wd))
+    a.goto("board")
+    a.ctx.tab = 0
+    a.on_key(curses.KEY_RIGHT, curses)
+    assert a.screen == "trials" and a.ctx.tab == 0                         # the next screen in the list, not the next cap
+    a.on_key(curses.KEY_LEFT, curses); a.on_key(curses.KEY_LEFT, curses)
+    assert a.screen == "overview"
+    a.goto("board")
+    for key, want in ((9, 1), (ord("."), 2), (ord(">"), 3), (ord("c"), 4), (ord(","), 3), (ord("<"), 2), (ord("C"), 1), (curses.KEY_BTAB, 0)):
+        a.on_key(key, curses)
+        assert a.screen == "board" and a.ctx.tab == want, (key, a.screen, a.ctx.tab)
+    a.goto("trials")
+    a.on_key(9, curses)
+    assert a.screen == "trials" and a.ctx.tab == 0                         # the cap keys do nothing on other screens
+    assert "Tab" in views.KEYS["board"] and "←→ screens" in views.KEYS["board"]
+
+
+def test_the_data_screen_explains_a_catalog_it_cannot_read_and_never_shows_a_traceback(tmp_path, monkeypatch):
+    from antslab import home
+    d = tmp_path / "data"
+    d.mkdir()
+    cat = d / "catalog.toml"
+    cat.write_text("[defaults]\nhorizons=[96]\n")
+    cat.chmod(0o000)
+    try:
+        if os.access(cat, os.R_OK):
+            pytest.skip("file permissions are not enforced here (root)")
+        monkeypatch.delenv("ANTS_CATALOG", raising=False)
+        monkeypatch.setenv("ANTS_HOME", str(tmp_path / "nohome"))
+        monkeypatch.setattr("pathlib.Path.cwd", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(home, "__file__", str(tmp_path / "x" / "y" / "home.py"))
+        found = None
+        try:
+            found = home.find_catalog()
+        except FileNotFoundError as e:
+            err = e
+        if found is None:
+            assert isinstance(err, home.CatalogUnreadable) and str(cat) in str(err)
+            text = model.human_error(err, "The Data screen")
+            assert "cannot read" in text and "nothing was made readable" in text and "Traceback" not in text
+            lines = views.data_screen({"error": text}, views.Ctx(width=100, height=30)).lines
+            assert len(lines) >= 3
+    finally:
+        cat.chmod(0o600)
+
+
+def test_find_catalog_skips_an_unreadable_file_for_one_it_can_read(tmp_path, monkeypatch):
+    from antslab import home
+    bad = tmp_path / "a" / "data" / "catalog.toml"
+    good = tmp_path / "b" / "catalog.toml"
+    bad.parent.mkdir(parents=True); good.parent.mkdir(parents=True)
+    bad.write_text("x"); good.write_text("[defaults]\n")
+    bad.chmod(0o000)
+    try:
+        if os.access(bad, os.R_OK):
+            pytest.skip("file permissions are not enforced here (root)")
+        monkeypatch.delenv("ANTS_CATALOG", raising=False)
+        monkeypatch.setenv("ANTS_HOME", str(tmp_path / "nohome"))
+        monkeypatch.setattr("pathlib.Path.cwd", classmethod(lambda cls: tmp_path / "a"))
+        monkeypatch.setenv("ANTS_ROOT", str(tmp_path / "b"))
+        monkeypatch.setattr(home, "__file__", str(tmp_path / "q" / "q" / "home.py"))
+        monkeypatch.setenv("ANTS_CATALOG", str(good))
+        assert home.find_catalog() == good
+    finally:
+        bad.chmod(0o600)
+
+
+def test_data_overview_survives_a_path_it_may_not_stat(monkeypatch):
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    real = Path.exists
+    def flaky(self):
+        if self.name == "processed":
+            raise PermissionError(13, "Permission denied", str(self))
+        return real(self)
+    monkeypatch.setenv("ANTS_CATALOG", str(root / "data" / "catalog.toml"))
+    monkeypatch.setattr(Path, "exists", flaky)
+    o = model.data_overview()
+    assert o["processed"] == 0 and o["roles"]

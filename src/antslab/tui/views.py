@@ -21,9 +21,9 @@ INTRO = ["It proposes tiny forecasting models, tests each one with a fixed evalu
 STATES = [None, "done", "failed", "timeout", "crashed", "queued", "running"]
 STATE_GLYPH = {"done": ("✓", "ok"), "failed": ("✗", "bad"), "timeout": ("⏱", "warn"), "crashed": ("✗", "bad"), "queued": ("·", "dim"), "running": ("▸", "accent")}
 KEYS = {
-    "home": "1-8 screens · [ ] next/prev search · p pause/resume · h hint · / command · ? help · q quit",
-    "overview": "↑↓ none · r refresh · p pause/resume · h hint · [ ] search · space freeze · ? help",
-    "board": "←→ cap · ↑↓ row · Enter open · p pause · h hint · [ ] search · ? help",
+    "home": "0-8 or ←→ screens · [ ] next/prev search · p pause/resume · h hint · / command · ? help · q quit",
+    "overview": "←→ screens · r refresh · p pause/resume · h hint · [ ] search · space freeze · ? help",
+    "board": "Tab/< > cap · ←→ screens · ↑↓ row · Enter open · p pause · h hint · [ ] search · ? help",
     "trials": "↑↓ row · Enter open · s state · t stage · g/G top/bottom · space freeze · ? help",
     "fleet": "↑↓ row · Enter switch to that search · p pause/resume it · h hint · ? help",
     "events": "↑↓ scroll · k kind · space freeze · ? help",
@@ -269,7 +269,7 @@ def board(d, ctx: Ctx) -> View:
     if not caps:
         return View([[S(" no finished evaluations yet", "dim")]])
     tab = ctx.tab % len(caps)
-    lines = [[S(" ")] + [S(f"[≤{c}]", "accent") if i == tab else S(f" ≤{c} ", "dim") for i, c in enumerate(caps)] + [S("   ←/→ cap · ↑/↓ row · Enter opens", "dim")], []]
+    lines = [[S(" ")] + [S(f"[≤{c}]", "accent") if i == tab else S(f" ≤{c} ", "dim") for i, c in enumerate(caps)] + [S("   Tab or < > cap · ←/→ screen · ↑/↓ row · Enter opens", "dim")], []]
     rows = lb[caps[tab]]
     sizes = [r["n_params"] for r in rows if r["n_params"]]
     lo, hi = (min(sizes), max(sizes)) if sizes else (1, 2)
@@ -440,7 +440,7 @@ def health(d, ctx: Ctx) -> View:
 def data_screen(d, ctx: Ctx) -> View:
     w = ctx.width
     if "error" in d:
-        return View([[S(" " + d["error"], "warn")]])
+        return View([[S(" " + clip(t, w - 2), "warn" if i == 0 else "dim")] for i, t in enumerate(d["error"].split("\n"))])
     o = d["data"]
     lines = [[S(f" {o['base']}", "dim"), S(f"   raw {o['raw_bytes'] / 1e6:.0f} MB · processed {o['processed']} files", "dim")], []]
     meaning = {"dev": "steers the search", "confirm": "re-checks a frozen candidate", "sealed": "looked at once, at the end", "stress": "synthetic stress tests", "synthetic": "generated on demand"}

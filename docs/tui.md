@@ -41,7 +41,7 @@ The phrase always sits next to the numbers it came from and always says why. It 
 |---|---|---|
 | 0 | Home | the ant, the one line and intro, each search with its phrase and a 6-hour activity strip, the directory |
 | 1 | Overview | the phrase and reason; what is being worked on now (a spinner per running trial); a braille chart of the best value so far; finished per 10 minutes as a heat strip and a sparkline; each stage as a stacked bar (done, running, failed); best per size cap as gain bars; each searcher's promotion rate; model calls per hour |
-| 2 | Leaderboard | tabs per size cap (← →; the tab ≤N lists every model of at most N parameters, so a small model also appears under the larger caps); rows ranked by the deepest stage reached, with gain bars, a log-scale lollipop of the parameter count, ▲ ▼ for rank changes since the last refresh; Enter opens a trial |
+| 2 | Leaderboard | tabs per size cap (`Tab` / `Shift-Tab`, `<` `>`, `c`; the tab ≤N lists every model of at most N parameters, so a small model also appears under the larger caps); rows ranked by the deepest stage reached, with gain bars, a log-scale lollipop of the parameter count, ▲ ▼ for rank changes since the last refresh; Enter opens a trial |
 | 3 | Trials | a ribbon of the newest trials coloured by state, then one row each with a state glyph and a duration bar; filter by state (`s`) and stage (`t`); Enter opens a trial |
 | 4 | Arms | the searches side by side with their phrases; evaluation counts with the equal-budget cut marked `│`; best-so-far curves on one scale; a matrix of who proposed what; the table at equal budget |
 | 5 | Events | the hash-chained record with a coloured gutter per kind and events per minute over the last hour; filter by kind (`k`) |
@@ -55,7 +55,7 @@ A trial opens to its levers, its metrics per stage with a bar, its error if any,
 
 | key | does |
 |---|---|
-| `1`–`8`, `0` | go to a screen (0 = home); `←` `→` also step through screens |
+| `1`–`8`, `0` | go to a screen (0 = home); `←` `→` always step through screens, on every screen (on the Leaderboard the cap tabs have their own keys: `Tab` / `Shift-Tab`, `<` `>`, `c`) |
 | `↑` `↓` `PgUp` `PgDn` `g` `G` | move, scroll, top, bottom |
 | `Enter` | open the selected trial, or switch to the selected search |
 | `Esc` `b` | back |
