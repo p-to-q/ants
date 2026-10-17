@@ -408,9 +408,9 @@ def scatter():
     label(o, W - R, Y(1.0) - 10, "seasonal naive", 12.5, MUTE, "end", 500, halo=False)
     for p, lab in ((100, "100"), (1e3, "1k"), (1e4, "10k"), (1e5, "100k"), (1e6, "1M")):
         o.append(f'<line x1="{X(p):.1f}" x2="{X(p):.1f}" y1="{H-B}" y2="{H-B+6}" stroke="{FILL}"/>')
-        label(o, X(p), H - B + 26, lab, 11.5, MUTE, "end" if p == 1e6 else "middle", halo=False)     # the last tick ends on the right edge, like the title under it and the reference label
+        label(o, X(p), H - B + 26, lab, 11.5, MUTE, "middle", halo=False)
     o.append(f'<line x1="{L}" x2="{W-R}" y1="{H-B}" y2="{H-B}" stroke="{FILL}"/>')
-    label(o, W - R, H - 32, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
+    label(o, W - R + 8.5, H - 32, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
     # every deepest-stage evaluation of the ants run: the cloud the best models are picked from
     cloud = d["ants_demo"].get("cloud", [])
     for p, v in cloud:
