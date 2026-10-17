@@ -399,7 +399,7 @@ def scatter():
     label(o, X(50) + 14, H - B - 12, "parameter caps", 11.5, MINT_TEXT, "start", 600, halo=False)
     # references
     o.append(f'<line x1="{L}" x2="{L}" y1="{T}" y2="{H-B}" stroke="{FILL}"/>')
-    label(o, L - 14, T - 22, "rel_mse", 11.5, MUTE, "end", 500, halo=False)
+    label(o, L - 14, T + 4, "rel_mse", 11.5, MUTE, "end", 500, halo=False)
     for v in (0.8, 0.9):
         o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="{INK}" stroke-opacity="0.16" stroke-dasharray="2 6"/>')
         label(o, L - 14, Y(v) + 4, f"{v:.2f}", 11.5, MUTE, "end", halo=False)
