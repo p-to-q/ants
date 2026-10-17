@@ -569,8 +569,7 @@ def test_system_screen_no_model_calls_yet():
 def test_key_not_in_notes_or_meta(ledger):
     """Verify that the retry machinery does not leak keys in notes or meta."""
     s = _server(["500", "ok"])
-    cl = _client(s, ledger)
-    cl._sleep = lambda _: None
+    cl = _fast_client(s, ledger)
     obj, meta = cl.chat_json([{"role": "user", "content": "hi"}])
     dump = json.dumps(meta) + json.dumps([dict(r) for r in ledger.conn.execute("SELECT * FROM llm_calls")])
     assert KEY not in dump
@@ -591,3 +590,79 @@ def test_response_size_cap_still_enforced(ledger):
     from antslab.llm import http_post_json, MAX_RESPONSE_BYTES
     # the cap is still enforced (tested more thoroughly in test_security_llm)
     assert MAX_RESPONSE_BYTES == 4 << 20
+
+
+# ---- regression: _inflight balanced (blocker 1) -----------------------------
+def test_inflight_is_zero_after_10_ok_calls(ledger):
+    """Each HTTP attempt must reserve and release _inflight exactly once."""
+    s = _server(["ok"] * 20)
+    cl = _fast_client(s, ledger)
+    for _ in range(10):
+        obj, meta = cl.chat_json([{"role": "user", "content": "hi"}])
+        assert obj == {"proposals": []}
+    assert cl._inflight == 0
+
+
+def test_inflight_is_zero_after_retries(ledger):
+    """Retries (two attempts per logical call) must also balance _inflight."""
+    s = _server(["500", "ok"] * 10)
+    cl = _fast_client(s, ledger)
+    for _ in range(5):
+        obj, meta = cl.chat_json([{"role": "user", "content": "hi"}])
+        assert obj == {"proposals": []}
+    assert cl._inflight == 0
+
+
+def test_daily_cap_admits_exactly_daily_calls_attempts(ledger):
+    """The cap must count HTTP attempts, not double-count via _inflight."""
+    s = _server(["ok"] * 200)
+    cl = _fast_client(s, ledger, daily_calls=10)
+    count = 0
+    for _ in range(20):
+        obj, meta = cl.chat_json([{"role": "user", "content": "hi"}])
+        if meta.get("capped"):
+            break
+        count += 1
+    # should have made exactly 10 calls before being capped
+    assert count == 10
+    assert cl._inflight == 0
+
+
+def test_inflight_balanced_with_concurrent_callers(ledger):
+    """8 concurrent callers must not leak _inflight."""
+    s = _server(["ok"] * 200)
+    cl = _fast_client(s, ledger, daily_calls=100)
+    import concurrent.futures
+    def call_n(n):
+        for _ in range(n):
+            cl.chat_json([{"role": "user", "content": "hi"}])
+    with concurrent.futures.ThreadPoolExecutor(8) as ex:
+        futs = [ex.submit(call_n, 5) for _ in range(8)]
+        for f in futs:
+            f.result()
+    assert cl._inflight == 0
+
+
+# ---- regression: no-json does NOT trip circuit breaker (fix 2) ---------------
+def test_five_consecutive_no_json_do_not_quarantine(ledger):
+    """no-json is a model failure, not a transport failure: the breaker must not trip."""
+    s = _server(["prose"] * 10)
+    clock = FakeClock()
+    cl = _client(s, ledger, clock=clock, cb_consecutive=3, cb_base_s=60)
+    for _ in range(5):
+        cl.chat_json([{"role": "user", "content": "hi"}])
+    assert cl.eps[0]._consec_fail == 0
+    assert cl.eps[0]._quarantine_until == 0
+
+
+def test_five_consecutive_timeouts_do_quarantine(ledger):
+    """Timeouts are transport failures and must trip the breaker."""
+    s = _server(["hang"] * 20)
+    clock = FakeClock()
+    cl = _client(s, ledger, timeout_s=0.3, clock=clock, cb_consecutive=3, cb_base_s=60)
+    def advance_sleep(t): clock.advance(t)
+    cl._sleep = advance_sleep
+    cl.chat_json([{"role": "user", "content": "hi"}])
+    # 3 attempts (1 + 2 retries) all timeout -> consec_fail >= 3 -> quarantined
+    assert cl.eps[0]._consec_fail >= 3
+    assert cl.eps[0]._quarantine_until > 0
