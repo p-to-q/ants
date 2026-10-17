@@ -79,6 +79,13 @@ def package_root() -> Path | None:
     return here if (here / "contracts").is_dir() and (here / "data" / "catalog.toml").exists() else None
 
 
+class CatalogUnreadable(FileNotFoundError):
+    """The catalog exists but the user running ants may not read it (data kept apart from the service user on purpose)."""
+    def __init__(self, msg, paths):
+        super().__init__(msg)
+        self.paths = paths
+
+
 def find_catalog() -> Path:
     """Where data/catalog.toml is, for everything that is not the evaluator: the Data screen, `ants data`, Health and the doctor.
 
@@ -100,10 +107,18 @@ def find_catalog() -> Path:
     except OSError:                              # the working directory itself cannot be read
         pass
     cands += [Path(__file__).resolve().parents[2] / "data" / "catalog.toml", Path.home() / ".ants" / "data" / "catalog.toml"]
+    unreadable = []
     for c in cands:
         try:
             if c.exists():
+                with open(c, "rb"):                      # a file this user can see but not read is not a catalog for this user either
+                    pass
                 return c
-        except OSError:
+        except OSError as e:
+            if getattr(e, "errno", None) == 13:           # permission denied: remember it, so the message can say what exists but is closed
+                unreadable.append(c)
             continue
+    if unreadable:
+        raise CatalogUnreadable(f"data/catalog.toml exists at {unreadable[0]} but this user cannot read it (permission denied); "
+                                f"nothing else was found (searched: " + ", ".join(str(c) for c in cands[:4]) + " ...)", unreadable)
     raise FileNotFoundError("data/catalog.toml not found or not readable by this user; set ANTS_CATALOG or ANTS_HOME (searched: " + ", ".join(str(c) for c in cands[:4]) + " ...)")

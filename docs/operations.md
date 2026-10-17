@@ -26,7 +26,7 @@ rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw da
 
 | unit | key limits | note |
 |---|---|---|
-| `ants@<arm>.service` | `Type=notify`, `WatchdogSec=300`, `CPUQuota=66%`, `MemoryHigh=550M`, `MemoryMax=650M` (three instances fit the host), `OOMPolicy=kill`, `OOMScoreAdjust=500`, `TasksMax=256`, `Restart=always`, `RestartPreventExitStatus=3`, `RestartSec=30`, `StartLimitIntervalSec=0`, `TimeoutStopSec=60`, `KillMode=control-group` | one instance per arm; workdir `/var/lib/ants/<arm>`; runs `ants run --seed 1 --llm-env /etc/ants/llm.env` with **no** `--max-evals` (forever). Sandboxed: `ProtectSystem=strict`, writes only `/var/lib/ants`, no capabilities, `UMask=0077` |
+| `ants@<arm>.service` | `Type=notify`, `WatchdogSec=300`, `CPUQuota=66%`, `MemoryHigh=550M`, `MemoryMax=650M` (three instances fit the host), `OOMPolicy=kill`, `OOMScoreAdjust=500`, `TasksMax=256`, `Restart=always`, `RestartPreventExitStatus=3 4`, `RestartSec=30`, `StartLimitIntervalSec=0`, `TimeoutStopSec=60`, `KillMode=control-group` | one instance per arm; workdir `/var/lib/ants/<arm>`; runs `ants run --seed 1 --llm-env /etc/ants/llm.env` with **no** `--max-evals` (forever). Sandboxed: `ProtectSystem=strict`, writes only `/var/lib/ants`, no capabilities, `UMask=0077` |
 | `ants-janitor@<arm>.timer` -> `.service` | first run 10 min after boot, then every 30 min; `CPUQuota=50%`, `MemoryMax=300M`; `InaccessiblePaths=/etc/ants` | `ants janitor --archive-dir /var/lib/ants/archive/<arm>` |
 | `ants-health@<arm>.timer` -> `.service` | first run 20 min after boot, then every 15 min; `MemoryMax=200M`; no network | `ants doctor`; exit 2 puts the unit in `systemctl --failed` |
 | `ants-backup@<arm>.timer` -> `.service` | daily 03:15 (random delay up to 15 min, catches up after downtime); `MemoryMax=400M`, no network | `ants backup --dest /var/lib/ants/backups/<arm> --keep 14 --gzip` |
@@ -35,7 +35,7 @@ rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw da
 Deliberately absent (comment in the unit): `LimitFSIZE` (would kill the supervisor when `ledger.sqlite` grows past it; the runner gives each **child**
 256 MiB), `MemoryDenyWriteExecute`, `SystemCallFilter`, `ProcSubset`. Child processes get BLAS threads = 1, so the 150% quota is about one busy core plus headroom.
 
-Only one `ants run` may use a workdir: `flock` on `<workdir>/ants.lock` (`campaign.InstanceLock`). A second start prints `another ants run (pid N) already holds ...` and exits 3 (verified). `ants@.service` sets `RestartPreventExitStatus=3`, so the duplicate unit stays stopped instead of retrying.
+Only one `ants run` may use a workdir: `flock` on `<workdir>/ants.lock` (`campaign.InstanceLock`). A second start prints `another ants run (pid N) already holds ...` and exits 3 (verified). `ants@.service` sets `RestartPreventExitStatus=3 4` (3 = lock conflict, 4 = arm definition mismatch), so neither loops.
 
 ## 3. Disk levels, PAUSE, breaker
 
@@ -84,8 +84,19 @@ The backup unit has run on the target machine; `pull-backups` has not.
 
 ## 5. What `ants doctor` checks
 
-Eight checks (chain, disk, freshness, failure rate, stale runners, unarchived artifacts, model parse rate, epochs) plus up to five on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup) and a version line, the thresholds are in [cli.md](cli.md#doctor). `ants-health@<arm>.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
+Eight checks (chain, disk, freshness, failure rate, stale runners, unarchived artifacts, model parse rate, epochs) plus per-endpoint success rate, quarantine state, and up to five on the ledger file (SQLite integrity, schema version and size, write-ahead log over 256 MB, network filesystem, age of the newest backup) and a version line, the thresholds are in [cli.md](cli.md#doctor). `ants-health@<arm>.timer` runs it every 15 min. One caveat from the code: the freshness check fails when no trial finished for
 30 min **while work is queued**, but an `s2` stage may legitimately run up to 1800 s (30 min) in `tinyts_real`, so a slow s2 can produce a transient FAIL.
+
+## Endpoint quarantine
+
+When an endpoint fails N consecutive times (default 5) the client quarantines it: the endpoint is skipped by the Thompson bandit for a growing period (10 min, doubling to 2 h). If ALL endpoints are quarantined, `chat_json` returns immediately without spending a call, and the proposers fall back to search (same as when capped). A single success resets the consecutive count, the quarantine, and the backoff duration.
+
+**What to do when an endpoint is quarantined:** `ants doctor` and the System screen show the quarantine state. The endpoint recovers automatically once the quarantine expires and a call succeeds. If the underlying problem persists (the provider is down), the quarantine grows up to 2 h and the arm burns no budget while waiting. To force a retry sooner, restart the daemon (the quarantine state lives in memory; the bandit priors are seeded from the ledger, so good endpoints recover their reputation).
+
+## Changing the budget
+
+- **Daily cap**: set `ANTS_LLM_MAX_CALLS_PER_DAY=N` in the service environment or shell; 0 = no cap. Applies per rolling 24 h per ledger.
+- **Lifetime budget**: `--llm-budget N` on `ants run` or `ANTS_LLM_BUDGET=N` in the environment. Total HTTP attempts the arm may spend. 0/absent = none. Counted from the ledger, so it survives restarts. Both apply independently: whichever is reached first stops calls.
 
 ## 6. Failure modes
 
@@ -102,7 +113,7 @@ Eight checks (chain, disk, freshness, failure rate, stale runners, unarchived ar
 | doctor WARN `2 epoch(s) recorded` | code, contract or data manifest changed during the ledger's life (a redeploy rewrites the code hash) | expected after an upgrade; `History` ignores older epochs, so proposers restart from empty memory. Never compare numbers across epochs |
 | `PermissionError: ... must be chmod 600` | `llm.env` has group/other bits | `chmod 600`, owner `ants`. The installer warns about this |
 | LLM arm WARN parse rate <= 60% | model output not valid JSON for the grammar | rejected specs are counted, nothing breaks; consider `portfolio` without LLM |
-| second service on the same workdir | `ants.lock` held; the second `ants run` exits 3 and systemd does not restart it (`RestartPreventExitStatus=3`) | disable the duplicate unit |
+| second service on the same workdir | `ants.lock` held; the second `ants run` exits 3 and systemd does not restart it (`RestartPreventExitStatus=3 4`) | disable the duplicate unit |
 | `idle` forever | proposer returned nothing (space exhausted or all keys seen) | `ants top`; widen the space in a new contract (new epoch) |
 
 ## 7. Budget estimate
@@ -157,3 +168,70 @@ On the server, as any user with ssh: `ants` opens the interface ([tui](tui.md));
 | disk | screen 6 | free space above 15 GB | warn and clean levels ([section 3](#3-disk-levels-pause-breaker)) |
 
 Decisions to take at a check-in: whether to add seeds (a second and third seed per arm, one after another, since two cores serve three arms), whether the stage timeouts and the promotion quantile still fit what the stages cost, and whether any arm has earned the cores of another.
+
+## 10. Experiment registry
+
+`deploy/experiments.toml`: one `[[experiment]]` per run.  `ants experiments` lists them and checks each against its ledger.
+
+| key | type | required | meaning |
+|---|---|---|---|
+| `name` | string (`[a-z0-9_]{1,40}`) | yes | workdir name under the base directory |
+| `arm` | string | yes | proposer arm key as in `proposers.make_proposer` |
+| `seed` | int | yes | `--seed` value |
+| `contract` | string | no | contract name or path (default `tinyts_real`) |
+| `question` | string | yes | free text: the question this run answers |
+| `status` | string | yes | `planned`, `running`, `finished`, `archived` |
+| `cpu_hours` | float | no | optional budget in CPU-hours |
+
+Loader: `src/antslab/experiments.py` (stdlib `tomllib`; rejects unknown keys, duplicate names, bad names, bad status).
+
+`deploy/remote_deploy.sh start --registry` reads `deploy/experiments.toml` and starts every experiment whose status is `running`.  The existing explicit `start ARM..` behaviour is unchanged.
+
+`ants experiments [--file F] [--base DIR] [--json]` lists the experiments and, for each, whether a ledger exists under `DIR/<name>/ledger.sqlite` and its last `daemon_started` arm_def_hash versus what the current code computes.
+
+## 11. Off-machine copies
+
+What is protected: the ledger (via verified backups and anchors), per-trial files and the backup directory.  What is NOT protected: a copy on the same disk as the original, which survives a corrupted file but not a lost disk.
+
+`deploy/pull_backups.sh DIR` copies `/var/lib/ants/*/backups` (and `anchors.jsonl`) off the server, verifies every pulled backup with the existing backup verification routine (`antslab.backup.verify_backup`), appends one line per run to `DIR/PULL.log` (UTC time, files pulled, verified ok/bad, newest backup age per arm), and exits non-zero if anything failed verification or the newest pulled backup of any arm is older than 36 h.  It also checks the chain head of the newest backup against the anchor file's last head and reports a mismatch as a FAIL line in PULL.log.
+
+Scheduling templates: `deploy/launchd/io.ants.pull-backups.plist` (macOS, daily at 04:00) and `deploy/ants-pull-backups.service` + `deploy/ants-pull-backups.timer` (Linux systemd, daily at 04:00 with 15 min jitter).  Edit the paths and environment variables before installing.
+
+`ants doctor`: if `ANTS_OFFSITE_DIR` is set, reports the age of the newest verified copy found there (WARN > 36 h, FAIL if the directory is empty).
+
+## 12. Replacing the harness while experiments run
+
+The procedure below seals the pilot workdirs, installs the updated harness, and starts a pre-registered series.  Each step says what it protects and what it does not.
+
+| # | step | command (as user `ants` unless noted) | protects | does not protect |
+|---|---|---|---|---|
+| a | pre-deploy verified backups | `ants backup --workdir W --dest /var/lib/ants/backups/<arm> --keep 14 --gzip` for every pilot workdir (the installer does this automatically) | the ledger file against a bad install or a corruption during the transition | the per-trial files (they are on the same disk, not backed up) |
+| b | stop the arms cleanly | `sudo systemctl disable --now ants@portfolio ants@portfolio_llm ants@portfolio_agent ants-janitor@portfolio.timer ants-health@portfolio.timer ants-backup@portfolio.timer` (and the same three timers for `portfolio_llm` and `portfolio_agent`; `disable` so that a reboot does not start them again) | the trial in flight: SIGTERM requeues it; the ledger is clean after the process exits | nothing lost: `recover()` reclaims anything left |
+| c | seal the pilot | `ants bundle make --name pilot_epoch5da6 --out /var/lib/ants/bundles /var/lib/ants/portfolio /var/lib/ants/portfolio_llm /var/lib/ants/portfolio_agent` then `ants bundle verify /var/lib/ants/bundles/pilot_epoch5da6/`.  Pull the bundle off the server (`scp` or `pull-backups`-style) and `ants bundle verify` again locally.  Record the tar.gz sha256 in docs | the ledger data: the bundle is a self-contained, checksummed, chain-verified snapshot that can be re-verified by anyone | the bundle is on the same disk until pulled; pull it before proceeding |
+| d | archive the pilot workdirs | `sudo mv /var/lib/ants/portfolio /var/lib/ants/archive/pilot_portfolio` (same for the other two); `sudo chmod -R a-w /var/lib/ants/archive/pilot_*` | the original files: read-only, never deleted, never reused | if the disk fails, only the off-machine bundle survives |
+| e | install the new package | `deploy/remote_deploy.sh install` (uploads, hashes, runs `install.sh`, installs units and series registries) | the code tree is replaced; `/var/lib/ants` is never touched | nothing under `/var/lib/ants` changes |
+| f | start the series | `deploy/remote_deploy.sh series-start stage_a` | epoch check: the series runner refuses (exit 5, no restart loop) if the evaluator's epoch differs from the one written in the registry file | the series does not validate arm definitions against the pilot's; it starts fresh workdirs |
+| g | check after a day | `deploy/remote_deploy.sh series-status stage_a`; `deploy/remote_deploy.sh soak`; `ants series check stage_a` | all three: the epoch matches, the chain is intact, the arm definition has not changed inside any ledger | these checks run on the server; the off-machine copy is a separate concern |
+| h | roll back | stop the series (`series-stop`); install the old package; make the archive writable again (`sudo chmod -R u+w /var/lib/ants/archive/pilot_*`) and move it back; re-enable the old units | the old workdirs are untouched in the archive; a new workdir created by the series is separate | if the series wrote data to fresh workdirs under `/var/lib/ants/series/`, those stay; they are a separate experiment |
+
+## 13. Soak and drills (roadmap step 28)
+
+`deploy/remote_deploy.sh soak` prints a dated table per arm: active since, NRestarts, watchdog events (journal), last backup age, chain ok, disk free.
+
+`deploy/remote_deploy.sh drill kill9 ARM` kills the main process of `ants@ARM` with SIGKILL, waits (max 120 s) for the service to be active again, runs the chain verification, and appends one line to `/var/lib/ants/DRILLS.log` (UTC, drill, arm, seconds to recover, chain ok).
+
+Manual drills (documented, not scripted):
+- **full disk**: fill `/var/lib/ants` to the `pause` level (< 8 GB free) with `fallocate`; observe that the loop pauses; free the space; observe that it resumes within 60 s.
+- **network outage**: block the LLM endpoint with `iptables -A OUTPUT -d <ip> -j DROP`; observe that the arm stops producing model proposals and the parse rate in doctor degrades; unblock; observe recovery.
+- **model endpoint outage**: stop the LLM endpoint (or point to a non-existent one); same observations as network outage.
+
+## Series safety rules (the host has 2 CPUs and 2 GB)
+
+- `ants seeds` / `ants series run` refuse to start while any `ants@<arm>` service is active (exit 6; `--allow-with-arms` overrides). Stop the arms
+  first, as the deploy sequence says.
+- `ants-series@.service` has `OOMScoreAdjust=800` (arms: 500), so under memory pressure the series is killed before an arm, and it does not restart
+  after exit 3 (workdir in use), 4 (definition changed), 5 (epoch mismatch) or 6 (arms running): each would only refuse again.
+- Model arms are refused in a series unless `--allow-model-arms`: the daily model-call cap is per ledger, so N seeds would spend N times the cap.
+- `pull_backups.sh` fails when it finds and verifies no backup at all (the layout after a pull is `DIR/backups/<arm>/`).
+- A bundle is never rewritten (`ants bundle make` refuses an existing name), names are plain file names, two workdirs with one basename are
+  kept apart, files are mode 600, and a ledger with an unmerged write-ahead log is refused rather than read without it.

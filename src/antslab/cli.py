@@ -110,6 +110,38 @@ def _open(a):
     return wd, Ledger(wd / "ledger.sqlite"), load_contract(a.contract)
 
 
+def _definition_guard(led, arm: str, cur: dict, new_definition: bool) -> int | None:
+    """Check the ledger's last daemon_started arm_def_hash FOR THIS ARM against the current code.
+    Returns exit code 4 on mismatch (unless new_definition is set), None to proceed normally."""
+    import hashlib as _h, json as _j
+    # filter daemon_started events to those belonging to this arm
+    all_starts = led.recent_events("daemon_started", 50)
+    starts = [e for e in all_starts if e["payload"].get("arm") == arm]
+    if not starts:
+        return None  # fresh ledger or no prior start for this arm
+    last = starts[-1]["payload"]
+    prev_hash = last.get("arm_def_hash")
+    if not prev_hash:
+        return None  # very old daemon_started without a hash
+    cur_hash = _h.sha256(_j.dumps(cur, sort_keys=True).encode()).hexdigest()[:12]
+    # the version field is excluded from the comparison: a patch release must not block a restart
+    prev_def = last.get("arm_def", {})
+    if prev_hash == cur_hash:
+        return None  # same definition, proceed
+    if new_definition:
+        print(f"ants: arm definition changed for arm {arm!r} (previous {prev_hash}, current {cur_hash}); "
+              f"proceeding with --new-definition", file=sys.stderr)
+        return None  # caller will record definition_changed in the daemon_started event below
+    # find differing keys
+    diff_keys = sorted(k for k in set(list(prev_def) + list(cur)) if prev_def.get(k) != cur.get(k))
+    print(f"ants: the arm definition for {arm!r} has changed since the last start in {led.path}.\n"
+          f"  previous hash: {prev_hash}\n  current hash:  {cur_hash}\n"
+          f"  differing keys: {', '.join(diff_keys) or '(hash method changed)'}\n"
+          f"  Pass --new-definition to start anyway (the change is recorded).\n"
+          f"  See docs/upgrading.md for when to use a fresh workdir instead.", file=sys.stderr)
+    return 4
+
+
 def cmd_run(a):
     _resolve(a)
     a.workdir = str(Path(a.workdir).resolve())
@@ -124,13 +156,28 @@ def cmd_run(a):
     client = None
     if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
         from .llm import LLMClient, load_endpoints
-        client = LLMClient(load_endpoints(a.llm_env or _default_llm_env()), led)
+        llm_budget = getattr(a, "llm_budget", None) or 0
+        try:
+            llm_budget = llm_budget or int(float(os.environ.get("ANTS_LLM_BUDGET", 0)))
+        except (ValueError, TypeError):
+            llm_budget = 0
+        client = LLMClient(load_endpoints(a.llm_env or _default_llm_env()), led,
+                           budget=llm_budget, arm=a.arm)
     mem = (lambda arm: latest_memory(led, arm)) if a.arm in ("llm_dream", "portfolio_dream") else None
     p = make_proposer(a.arm, c, a.seed, client, mem)
+    # --- definition guard: refuse when the arm definition changed unless --new-definition. Before the Campaign exists: a refused start must not
+    #     register an epoch row in the ledger it refuses to touch. ---
+    cur_def = Campaign.definition_of(a.arm, p, c)
+    rc = _definition_guard(led, a.arm, cur_def, getattr(a, "new_definition", False))
+    if rc is not None:
+        lock.release()
+        return rc
     camp = Campaign(led, c, wd, a.arm, p, a.seed, a.max_evals, a.max_cpu_s,
                     dream_every=a.dream_every if a.arm in ("llm_dream", "portfolio_dream") else 0,
                     dream_fn=(lambda: dream(led, c, a.arm, client)) if a.arm in ("llm_dream", "portfolio_dream") else None)
     stop = {"v": False}
+    if client is not None:
+        client.set_stop(lambda: stop["v"])        # backoff and further attempts of a blocked model call end with the daemon
 
     def on_signal(*_):
         stop["v"] = True                  # a running trial notices within ~0.25 s (run_command polls the flag) ...
@@ -138,7 +185,17 @@ def cmd_run(a):
             raise Shutdown()
     for s in (signal.SIGTERM, signal.SIGINT):
         signal.signal(s, on_signal)
-    print(camp.run(stop=lambda: stop["v"]), flush=True)
+    # detect whether --new-definition was actually needed (hash mismatch that the guard allowed)
+    _def_changed = False
+    _prev_hash = None
+    if getattr(a, "new_definition", False):
+        starts = led.recent_events("daemon_started", 1)
+        if starts:
+            _prev_hash = starts[-1]["payload"].get("arm_def_hash")
+            import hashlib as _h
+            cur_hash = _h.sha256(json.dumps(camp.arm_definition(), sort_keys=True).encode()).hexdigest()[:12]
+            _def_changed = _prev_hash is not None and _prev_hash != cur_hash
+    print(camp.run(stop=lambda: stop["v"], definition_changed=_def_changed, prev_hash=_prev_hash), flush=True)
     if client is not None and threading.active_count() > 1:       # the LLM client's worker threads; a run without one has nothing to wait for
         # LLM worker threads (ThreadPoolExecutor, non-daemon) may still sit in a socket read for up to their 100 s timeout, and
         # the interpreter would join them at exit, after a stop signal AND after a normal finish (budget reached): systemd would
@@ -538,6 +595,75 @@ def _cmd_service(a):
     return system.cmd_service(a)
 
 
+def cmd_experiments(a):
+    from .experiments import load_experiments, check_experiment, RegistryError
+    try:
+        exps = load_experiments(a.file)
+    except RegistryError as e:
+        print(f"ants experiments: {e}", file=sys.stderr)
+        return 2
+    results = []
+    for exp in exps:
+        r = check_experiment(exp, a.base)
+        results.append(r)
+    if a.json:
+        print(json.dumps(results, indent=1))
+    else:
+        for r in results:
+            ledger = "ledger found" if r["ledger_exists"] else "no ledger"
+            match_str = ""
+            if r["match"] is True:
+                match_str = "hash ok"
+            elif r["match"] is False:
+                match_str = f"MISMATCH (ledger {r['last_hash']}, code {r['current_hash']})"
+            elif r["last_hash"] is None and r["ledger_exists"]:
+                match_str = "no daemon_started yet"
+            elif not r["ledger_exists"]:
+                match_str = "-"
+            print(f"  {r['name']:<24} arm={r['arm']:<20} seed={r['seed']}  status={r['status']:<10}  {ledger}  {match_str}")
+    return 0
+
+
+def cmd_seeds(a):
+    from .seeds import run_seeds
+    return run_seeds(a)
+
+
+def cmd_series(a):
+    from .series import run_series, series_status, series_check
+    action = a.action
+    if action == "run":
+        return run_series(a)
+    elif action == "status":
+        return series_status(a)
+    elif action == "check":
+        return series_check(a)
+    print(f"ants series: unknown action {action!r}", file=sys.stderr)
+    return 1
+
+
+def cmd_bundle(a):
+    from .bundle import make_bundle, verify_bundle, BundleError
+    action = a.action
+    if action == "make":
+        if not a.workdirs:
+            print("ants bundle make: at least one WORKDIR required", file=sys.stderr)
+            return 1
+        try:
+            make_bundle(a.name, a.out, a.workdirs, note_file=a.note)
+        except BundleError as e:
+            print(f"ants bundle make: {e}", file=sys.stderr)
+            return 1
+        return 0
+    elif action == "verify":
+        if not a.path:
+            print("ants bundle verify: PATH required", file=sys.stderr)
+            return 1
+        return verify_bundle(a.path)
+    print(f"ants bundle: unknown action {action!r}", file=sys.stderr)
+    return 1
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="ants")
     ap.add_argument("--version", action="version", version="ants " + _version())
@@ -552,7 +678,9 @@ def main(argv=None):
         if name == "run":
             s.add_argument("--max-evals", type=int); s.add_argument("--max-cpu-s", type=float)
             s.add_argument("--llm-env", default=None, help="env file with LLM_<TAG>_BASE/KEY/MODEL (default ~/.config/ants/llm.env)")
+            s.add_argument("--llm-budget", type=int, default=0, help="total HTTP attempts the arm may spend over its whole life (0 = none; env ANTS_LLM_BUDGET)")
             s.add_argument("--dream-every", type=int, default=100)
+            s.add_argument("--new-definition", action="store_true", help="proceed even when the arm definition hash differs from the ledger's last start")
         if name == "export":
             s.add_argument("--out", required=True)
         s.add_argument("--json", action="store_true", help="machine-readable output for other agents")
@@ -583,6 +711,48 @@ def main(argv=None):
     d.add_argument("--catalog", default=None); d.add_argument("--tier", default="dev", help="fetch: dev | standard | extended | all"); d.add_argument("--names"); d.add_argument("--present", action="store_true", help="build: every real dataset whose raw files exist"); d.add_argument("--all", action="store_true"); d.add_argument("--partial", action="store_true", help="verify only the files that exist (dev-tier installs)")
     d.set_defaults(fn=cmd_data)
     _system_parsers(sub)
+    # --- experiments registry ---
+    s = sub.add_parser("experiments", help="list experiments from deploy/experiments.toml and check their ledgers")
+    s.add_argument("--file", default="deploy/experiments.toml", help="path to experiments.toml")
+    s.add_argument("--base", default="/var/lib/ants", help="base directory where workdirs live")
+    s.add_argument("--json", action="store_true"); s.set_defaults(fn=cmd_experiments)
+    # --- seed runner ---
+    s = sub.add_parser("seeds", help="run multiple seeds of an arm")
+    s.add_argument("--arm", required=True, help="arm name(s), comma-separated")
+    s.add_argument("--seeds", required=True, help="seed range (1-8) or list (1,2,5)")
+    s.add_argument("--base", required=True, help="base directory for workdirs")
+    s.add_argument("--contract", default=None); s.add_argument("--max-cpu-s", type=float, default=None)
+    s.add_argument("--max-evals", type=int, default=None); s.add_argument("--workers", type=int, default=1)
+    s.add_argument("--dry-run", action="store_true"); s.add_argument("--llm-env", default=None)
+    s.add_argument("--allow-with-arms", action="store_true", help="start although ants@<arm> services are running on this host")
+    s.add_argument("--allow-model-arms", action="store_true", help="allow arms that call a model (the daily cap is per ledger, so per seed)")
+    s.add_argument("--json", action="store_true"); s.set_defaults(fn=cmd_seeds)
+    # --- series ---
+    sp = sub.add_parser("series", help="manage a pre-registered series of seed runs")
+    sp_sub = sp.add_subparsers(dest="action", required=True)
+    for act in ("run", "status", "check"):
+        ss = sp_sub.add_parser(act)
+        ss.add_argument("name", help="series name (matches deploy/series/<name>.toml)")
+        ss.add_argument("--file", default=None, help="explicit path to the series TOML file")
+        ss.add_argument("--base", default=None, help="override base directory")
+        if act == "run":
+            ss.add_argument("--allow-with-arms", action="store_true", help="start although ants@<arm> services are running on this host")
+            ss.add_argument("--dry-run", action="store_true")
+            ss.add_argument("--llm-env", default=None)
+        if act == "status":
+            ss.add_argument("--json", action="store_true")
+    sp.set_defaults(fn=cmd_series)
+    # --- bundle ---
+    bp = sub.add_parser("bundle", help="create or verify a sealed results bundle")
+    bp_sub = bp.add_subparsers(dest="action", required=True)
+    bm = bp_sub.add_parser("make")
+    bm.add_argument("--name", required=True, help="bundle name")
+    bm.add_argument("--out", required=True, help="output directory")
+    bm.add_argument("--note", default=None, help="path to a note file to include in SEAL.md")
+    bm.add_argument("workdirs", nargs="*", help="workdir paths to include")
+    bv = bp_sub.add_parser("verify")
+    bv.add_argument("path", help="path to the bundle directory or .tar.gz")
+    bp.set_defaults(fn=cmd_bundle)
     s = sub.add_parser("ui", help="the terminal interface (what plain `ants` opens on a terminal)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")

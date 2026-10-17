@@ -1,0 +1,11 @@
+# Template: daily trigger for ants-pull-backups.service.
+[Unit]
+Description=daily ants backup pull
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target

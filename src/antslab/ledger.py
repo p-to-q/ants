@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS llm_calls(
 # Schema version, kept in the file itself (PRAGMA user_version). A ledger is a long-lived record: opening one written by a newer
 # ants is refused instead of half-understood; opening an older one runs the missing steps in order, after a safety copy when a
 # step changes existing data. Add a step by bumping SCHEMA_VERSION and appending to MIGRATIONS (never edit an old step).
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 FINAL_STATES = ("done", "failed", "timeout", "crashed")
 # Event kinds that PROVE a state change (freeze, sealed look/result, model gates, promotion tests). They can only be written by the
@@ -182,11 +182,11 @@ class Ledger:
         self.conn.executescript(SCHEMA)                                   # creates anything missing; never alters existing data
         if v >= SCHEMA_VERSION:
             return
-        if self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]:
-            self._safety_copy(v)
         self.conn.execute("BEGIN IMMEDIATE")                               # several processes may open an old file at once: one migrates, the rest re-check
         try:
             v = self.schema_version()
+            if v < SCHEMA_VERSION and self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]:
+                self._safety_copy(v)                                       # under the migration's own lock: only the opener that migrates writes or sets aside a copy
             for ver in range(v + 1, SCHEMA_VERSION + 1):
                 MIGRATIONS[ver](self)
                 self.conn.execute(f"PRAGMA user_version={ver}")
@@ -199,8 +199,25 @@ class Ledger:
         """a full copy next to the ledger before the first migration of its data (kept; delete it by hand once the new version has run)"""
         dest = Path(self.path + f".pre-migration-v{v}")
         if dest.exists():
-            return
-        part = Path(f"{dest}.partial.{os.getpid()}.{threading.get_ident()}")          # several openers may get here at once
+            # Keep a copy that really is a ledger at schema version v (an earlier attempt that did not finish migrating, or the copy of an opener
+            # that has since migrated: that one is the rollback copy). Only a copy at ANOTHER version (a backup was restored and is being migrated
+            # again) is not this ledger's rollback copy: set it aside under another name. The file times say nothing: a live WAL ledger's main file
+            # moves at every checkpoint.
+            try:
+                chk = sqlite3.connect(f"file:{dest}?mode=ro", uri=True)
+                try:
+                    keep = chk.execute("PRAGMA user_version").fetchone()[0] == v
+                finally:
+                    chk.close()
+            except sqlite3.Error:
+                keep = False
+            if keep:
+                return
+            try:
+                os.replace(dest, Path(f"{dest}.stale-{int(time.time())}"))
+            except OSError:
+                return
+        part = Path(f"{dest}.partial.{os.getpid()}.{threading.get_ident()}")
         out = sqlite3.connect(part)
         try:
             self.conn.backup(out)
@@ -703,14 +720,85 @@ class Ledger:
         return [dict(r) for r in self.conn.execute(q, (judge, kind))]
 
     # ---- LLM budget ---------------------------------------------------
-    def log_llm(self, model, ok, tokens=None, note=None):
+    def log_llm(self, model, ok, tokens=None, note=None, call_id: int | None = None,
+                attempt: int | None = None, arm: str | None = None):
         with self.tx() as c:
-            c.execute("INSERT INTO llm_calls(ts,model,ok,tokens,note) VALUES(?,?,?,?,?)",
-                      (time.time(), model, int(ok), tokens, note))
+            c.execute("INSERT INTO llm_calls(ts,model,ok,tokens,note,call_id,attempt,arm) VALUES(?,?,?,?,?,?,?,?)",
+                      (time.time(), model, int(ok), tokens, note, call_id, attempt, arm))
 
-    def llm_calls_since(self, since: float, ok_only=False) -> int:
-        q = "SELECT COUNT(*) FROM llm_calls WHERE ts>=?" + (" AND ok=1" if ok_only else "")
-        return self.conn.execute(q, (since,)).fetchone()[0]
+    def llm_calls_since(self, since: float, ok_only=False, arm: str | None = None, unlabelled_only: bool = False) -> int:
+        q = "SELECT COUNT(*) FROM llm_calls WHERE ts>=?"
+        args: list = [since]
+        if ok_only:
+            q += " AND ok=1"
+        if arm is not None:
+            q += " AND arm=?"
+            args.append(arm)
+        if unlabelled_only:                                   # rows from before the `arm` column (schema v1)
+            q += " AND arm IS NULL"
+        return self.conn.execute(q, args).fetchone()[0]
+
+    def llm_summary(self, since: float) -> dict:
+        """Summary of model calls since `since`: per-endpoint and per-arm counts and failure causes.
+        Returns {'endpoints': {name: {...}}, 'arms': {name: {...}}, 'totals': {...}}."""
+        rows = self.conn.execute(
+            "SELECT model, arm, ok, note, call_id, attempt FROM llm_calls WHERE ts>=?", (since,)).fetchall()
+        endpoints: dict = {}
+        arms: dict = {}
+        total_attempts = 0
+        logical_ids: set = set()
+        ok_logical: set = set()
+        for r in rows:
+            model_str = r[0] or ""
+            arm_val = r[1] or ""
+            ok_val = r[2]
+            note = r[3] or ""
+            cid = r[4]
+            total_attempts += 1
+
+            ep_name = model_str.split(":")[0] if ":" in model_str else model_str
+            if cid is not None:
+                logical_ids.add((ep_name, cid))
+                if ok_val:
+                    ok_logical.add((ep_name, cid))
+
+            cause = ""
+            if not ok_val and note:
+                cause = self._classify_note(note)
+
+            for bucket, key in ((endpoints, ep_name), (arms, arm_val)):
+                if key not in bucket:
+                    bucket[key] = {"attempts": 0, "ok": 0, "causes": {}}
+                bucket[key]["attempts"] += 1
+                bucket[key]["ok"] += ok_val
+                if cause:
+                    bucket[key]["causes"][cause] = bucket[key]["causes"].get(cause, 0) + 1
+
+        return {"endpoints": endpoints, "arms": arms,
+                "totals": {"attempts": total_attempts, "logical_calls": len(logical_ids),
+                           "ok_logical": len(ok_logical)}}
+
+    @staticmethod
+    def _classify_note(note: str) -> str:
+        if note == "no-json":
+            return "no_json"
+        if "429" in note:
+            return "http_429"
+        if any(f"{c}" in note for c in range(500, 600)):
+            return "http_5xx"
+        low = note.lower()
+        if "timeout" in low or "timed out" in low:
+            return "timeout"
+        if "reset" in low or "disconnect" in low or "connection" in low:
+            return "connection"
+        return "other"
+
+    # ---- migration v2: llm_calls gets call_id, attempt, arm ----------------
+    def _m2_llm_call_tracking(self):
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(llm_calls)")}
+        for col, typ in (("call_id", "INTEGER"), ("attempt", "INTEGER"), ("arm", "TEXT")):
+            if col not in cols:
+                self.conn.execute(f"ALTER TABLE llm_calls ADD COLUMN {col} {typ}")
 
 
-MIGRATIONS = {1: Ledger._m1_baseline}
+MIGRATIONS = {1: Ledger._m1_baseline, 2: Ledger._m2_llm_call_tracking}

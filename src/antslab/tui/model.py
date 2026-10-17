@@ -278,6 +278,14 @@ def fleet(sources: list["Source"]) -> list[dict]:
     return out
 
 
+def _ok(path) -> bool:
+    """exists() that answers False instead of raising when a parent directory cannot be entered"""
+    try:
+        return path.exists()
+    except OSError:
+        return False
+
+
 def data_overview(catalog_path: str | None = None) -> dict:
     from ..data import Catalog
     from ..home import find_catalog
@@ -288,10 +296,35 @@ def data_overview(catalog_path: str | None = None) -> dict:
         if m["format"] == "synth":
             roles.setdefault("synthetic", []).append(n)
             continue
-        raw = cat.base / m["raw"]
-        roles.setdefault(m["role"], []).append((n, raw.exists()))
-    size = sum(f.stat().st_size for f in (cat.base / "raw").rglob("*") if f.is_file()) if (cat.base / "raw").is_dir() else 0
-    return {"base": str(cat.base), "roles": roles, "raw_bytes": size, "processed": len(list((cat.base / "processed").glob("*.npz"))) if (cat.base / "processed").is_dir() else 0}
+        roles.setdefault(m["role"], []).append((n, _ok(cat.base / m["raw"])))
+    try:
+        size = sum(f.stat().st_size for f in (cat.base / "raw").rglob("*") if f.is_file()) if _ok(cat.base / "raw") else 0
+    except OSError:
+        size = 0
+    try:
+        processed = len(list((cat.base / "processed").glob("*.npz"))) if _ok(cat.base / "processed") else 0
+    except OSError:
+        processed = 0
+    return {"base": str(cat.base), "roles": roles, "raw_bytes": size, "processed": processed}
+
+
+def human_error(e: BaseException, what: str = "this screen") -> str:
+    """An exception as a short explanation a person can act on (lines separated by newlines). Never suggests making data readable."""
+    import getpass
+    from ..home import CatalogUnreadable
+    try:
+        user = getpass.getuser()
+    except Exception:
+        user = "this user"
+    if isinstance(e, (CatalogUnreadable, PermissionError)):
+        path = getattr(e, "filename", None) or (e.paths[0] if getattr(e, "paths", None) else "")
+        return (f"{what} cannot read {path or 'a file it needs'} as user '{user}' (permission denied).\n"
+                "This is expected when the data belongs to another user: confirm and sealed data are kept apart on purpose, and nothing was made readable.\n"
+                "Run `ants` as the user that owns the data, or set ANTS_CATALOG to a catalog this user can read (the installed one is /opt/ants/data/catalog.toml on the server).\n"
+                "`ants doctor` says which user and which path.")
+    if isinstance(e, FileNotFoundError):
+        return f"{what} cannot find a file it needs: {e}\nRun `ants onboard`, or set ANTS_CATALOG / ANTS_HOME."
+    return f"{what} could not be shown: {type(e).__name__}: {e}"
 
 
 def system_info(source: "Source | None", all_sources: "list[Source] | None" = None) -> dict:
@@ -331,6 +364,25 @@ def system_info(source: "Source | None", all_sources: "list[Source] | None" = No
         info["agent_tools_24h"] = source.led.conn.execute("SELECT COUNT(*) FROM events WHERE kind='agent_tool' AND ts>?", (time.time() - 86400,)).fetchone()[0]
         info["calls_hour"] = source.calls_per_hour(time.time())
         info["now"] = time.time()
+        # llm_summary for per-endpoint and per-arm detail
+        try:
+            info["llm_summary"] = source.led.llm_summary(time.time() - 86400)
+        except Exception:
+            info["llm_summary"] = None
+        # endpoint quarantine state from recent events
+        try:
+            qevents = source.led.conn.execute(
+                "SELECT payload FROM events WHERE kind='llm_endpoint_state' ORDER BY seq DESC LIMIT 20").fetchall()
+            import json as _json
+            ep_states: dict = {}
+            for row in qevents:
+                p = _json.loads(row[0])
+                ep = p.get("endpoint", "")
+                if ep and ep not in ep_states:
+                    ep_states[ep] = p
+            info["llm_ep_states"] = ep_states
+        except Exception:
+            info["llm_ep_states"] = {}
     try:
         unit = f"ants@{source.arm}" if source and Path("/etc/systemd/system/ants@.service").exists() else None
         if unit:

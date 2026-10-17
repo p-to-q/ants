@@ -1,0 +1,14 @@
+# Template: pull backups from the server.  Triggered by ants-pull-backups.timer.
+# Install:  edit ExecStart and Environment, then:
+#   cp deploy/ants-pull-backups.{service,timer} /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now ants-pull-backups.timer
+[Unit]
+Description=ants off-machine backup pull
+
+[Service]
+Type=oneshot
+# EDIT: absolute path to deploy/pull_backups.sh and the local backup directory
+ExecStart=/path/to/ants/deploy/pull_backups.sh /path/to/local/backups
+# EDIT: server connection details
+Environment=ANTS_HOST=your-server ANTS_USER=your-user ANTS_KEY=/path/to/ssh/key
+TimeoutStartSec=600

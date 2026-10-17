@@ -28,6 +28,7 @@ from .notify import heartbeat, keepalive, sd_notify
 from .proposers import rank_specs
 from .runner import run_command
 
+DEFAULT_BATCH = 4              # proposals per refill; used by arm_definition hash and the Campaign default
 BAD = ("failed", "timeout", "crashed")
 _TRANSIENT_SQL = ("locked", "busy", "disk is full", "disk i/o", "unable to open database", "readonly database", "out of memory")
 _TRANSIENT_ERRNO = {errno.ENOSPC, errno.EDQUOT, errno.EIO, errno.EMFILE, errno.ENFILE, errno.ENOMEM, errno.EAGAIN}
@@ -86,7 +87,7 @@ class Campaign:
 
     def __init__(self, ledger: Ledger, c: Contract, workdir, arm: str, proposer, seed: int = 0,
                  budget_evals: int | None = None, budget_cpu_s: float | None = None,
-                 python: str | None = None, batch: int = 4, breaker_n: int = 3, breaker_cooldown_s: float = 3600,
+                 python: str | None = None, batch: int = DEFAULT_BATCH, breaker_n: int = 3, breaker_cooldown_s: float = 3600,
                  free_fn=None, dream_every: int = 0, dream_fn=None):
         self.l, self.c, self.arm, self.p, self.seed = ledger, c, arm, proposer, seed
         self.workdir = Path(workdir).resolve()       # gyms run with cwd=<out dir>: every path handed to them must be absolute
@@ -142,26 +143,42 @@ class Campaign:
                 return hashlib.sha256(cand.read_bytes()).hexdigest()[:16]
         return ""
 
-    def arm_definition(self) -> dict:
-        """what makes this arm this arm, apart from the measuring machinery (that is the epoch): its operators, their guaranteed shares,
-        the stage budgets. If it changes inside one ledger, results before and after are not one experiment."""
-        ops = sorted(getattr(self.p, "ops", {}) or [getattr(self.p, "name", "?")])
-        d = {"arm": self.arm, "operators": ops, "floors": dict(sorted((getattr(self.p, "floors", {}) or {}).items())),
-             "promote_quantile": self.c.promote_quantile, "promote_by_cap": bool(self.c.raw.get("cascade", {}).get("promote_by_cap")),
-             "min_history": self.c.min_history, "batch": self.batch}
-        if getattr(self.p, "reserve", None):                      # likewise: a key appears only when the arm uses the feature, so older hashes stand
-            d["reserve"] = sorted([sorted(k), v] for k, v in self.p.reserve.items())
-        if getattr(self.p, "use_discount", False):
+    @staticmethod
+    def definition_of(arm: str, proposer, c: Contract, batch: int = DEFAULT_BATCH) -> dict:
+        """what makes an arm this arm, apart from the measuring machinery (that is the epoch): its operators, their guaranteed shares,
+        the stage budgets, its promotion rule. A pure function of the arm's proposer and contract, so a check (`ants experiments`) computes it
+        without opening a ledger and cannot drift from what a running campaign records. If it changes inside one ledger, results before and
+        after are not one experiment. The operators are the REQUESTED ones: an optional operator whose package is missing on this host
+        (`unavailable`) stays in the definition, so a restart on a host without it is a degraded run (recorded in daemon_started), not a new
+        definition that the guard would answer with exit 4 and a downed service."""
+        ops = sorted(set(getattr(proposer, "ops", {}) or [getattr(proposer, "name", "?")]) | set(getattr(proposer, "unavailable", []) or []))
+        d = {"arm": arm, "operators": ops, "floors": dict(sorted((getattr(proposer, "floors", {}) or {}).items())),
+             "promote_quantile": c.promote_quantile, "promote_by_cap": bool(c.raw.get("cascade", {}).get("promote_by_cap")),
+             "min_history": c.min_history, "batch": batch}
+        if getattr(proposer, "reserve", None):                    # a key appears only when the arm uses the feature, so older hashes stand
+            d["reserve"] = sorted([sorted(k), v] for k, v in proposer.reserve.items())
+        if getattr(proposer, "use_discount", False):
             d["use_discount"] = True
-        if self.promoter is not None:                             # only when present: the definition (and its hash) of every older arm is unchanged
-            d["promotion"] = self.promoter.definition()
+        promoter = getattr(proposer, "promoter", None)
+        if promoter is not None:                                  # only when present: the definition (and its hash) of every older arm is unchanged
+            d["promotion"] = promoter.definition()
         return d
 
-    def start_record(self) -> dict:
+    def arm_definition(self) -> dict:
+        return Campaign.definition_of(self.arm, self.p, self.c, self.batch)
+
+    def start_record(self, definition_changed: bool = False, prev_hash: str | None = None) -> dict:
         from .update import current_version
         d = self.arm_definition()
-        return {"version": current_version(), "epoch": self.epoch, "arm": self.arm, "python": platform.python_version(), "arm_def": d,
-                "arm_def_hash": hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:12]}
+        rec = {"version": current_version(), "epoch": self.epoch, "arm": self.arm, "python": platform.python_version(), "arm_def": d,
+               "arm_def_hash": hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:12]}
+        if getattr(self.p, "unavailable", None):                   # outside the hash on purpose: see definition_of
+            rec["unavailable"] = sorted(self.p.unavailable)
+        if definition_changed:
+            rec["definition_changed"] = True
+            if prev_hash:
+                rec["previous_hash"] = prev_hash
+        return rec
 
     def _epoch(self) -> str:
         i = self._epoch_info()
@@ -424,7 +441,8 @@ class Campaign:
             except Exception:
                 pass
 
-    def run(self, max_steps: int | None = None, stop=lambda: False, sleep=None) -> str:
+    def run(self, max_steps: int | None = None, stop=lambda: False, sleep=None,
+            definition_changed: bool = False, prev_hash: str | None = None) -> str:
         if sleep is None:
             def sleep(seconds):                    # wakes every 0.5 s: a 60 s breaker nap must not outlive SIGTERM
                 end = time.monotonic() + seconds
@@ -438,7 +456,7 @@ class Campaign:
         self._stop, self._sleep = stop, sleep
         n, last, streak, unexpected = 0, "idle", 0, 0
         try:
-            self.l.event("daemon_started", self.start_record())             # which code, which epoch, which arm definition ran from here on
+            self.l.event("daemon_started", self.start_record(definition_changed=definition_changed, prev_hash=prev_hash))
         except Exception:
             pass
         sd_notify("READY=1")

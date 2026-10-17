@@ -47,8 +47,32 @@ case "${1:-preflight}" in
     scp -q -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes "$F" "$USER_@$HOST:.ants_llm.env"
     "${SSH[@]}" 'sudo -n install -m 600 -o ants -g ants "$HOME/.ants_llm.env" /etc/ants/llm.env && shred -u "$HOME/.ants_llm.env" 2>/dev/null || rm -f "$HOME/.ants_llm.env"; stat -c "%a %U %s bytes" /etc/ants/llm.env' ;;
   start)
-    shift; ARMS=("${@:-portfolio}")
-    for a in "${ARMS[@]}"; do [[ "$a" =~ ^[a-z_]{1,32}$ ]] || { echo "bad arm name"; exit 1; }; done
+    shift
+    if [ "${1:-}" = "--registry" ]; then
+      shift
+      REG="${1:-deploy/experiments.toml}"
+      # read running experiments from the TOML registry (stdlib python on the dev machine)
+      ARMS=()
+      while IFS= read -r name; do
+        ARMS+=("$name")
+      done < <(python3 -c "
+import sys
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+with open(sys.argv[1], 'rb') as f:
+    d = tomllib.load(f)
+for e in d.get('experiment', []):
+    if e.get('status') == 'running':
+        print(e['name'])
+" "$REG")
+      [ ${#ARMS[@]} -gt 0 ] || { echo "no running experiments in $REG"; exit 1; }
+      echo "registry: starting ${ARMS[*]}"
+    else
+      ARMS=("${@:-portfolio}")
+    fi
+    for a in "${ARMS[@]}"; do [[ "$a" =~ ^[a-z_]{1,32}$ ]] || { echo "bad arm name: $a"; exit 1; }; done
     UNITS=(); for a in "${ARMS[@]}"; do UNITS+=("ants@$a.service" "ants-janitor@$a.timer" "ants-health@$a.timer" "ants-backup@$a.timer"); done
     "${SSH[@]}" "sudo -n systemctl enable --now ${UNITS[*]} && for a in ${ARMS[*]}; do systemctl is-active ants@\$a; done" ;;
   status)  "${SSH[@]}" 'for u in $(systemctl list-units "ants@*" --no-legend | cut -d" " -f1); do echo "$u $(systemctl is-active $u) $(systemctl show $u -p MemoryCurrent -p WatchdogUSec -p NRestarts | tr "\n" " ")"; done; systemctl list-timers "ants-*" --no-legend | head' ;;
@@ -58,5 +82,58 @@ case "${1:-preflight}" in
   pull-backups)
     D="${2:?local directory}"; mkdir -p "$D"
     rsync -a -e "ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes" --rsync-path="sudo -n rsync" "$USER_@$HOST:/var/lib/ants/" "$D/" --include='*/' --include='backups/***' --exclude='*' && ls -R "$D" | head -20 ;;
+  soak)
+    echo "=== soak report $(date -Is) ==="
+    "${SSH[@]}" 'for u in $(systemctl list-units "ants@*" --no-legend --plain | awk "{print \$1}"); do
+      arm=${u#ants@}; arm=${arm%.service}
+      started=$(systemctl show "$u" -p ActiveEnterTimestamp --value)
+      restarts=$(systemctl show "$u" -p NRestarts --value)
+      watchdog=$(journalctl -u "$u" --since "7 days ago" --no-pager -p warning --output=short-iso 2>/dev/null | grep -c watchdog || true)
+      bk_age=$(sudo -n -u ants /opt/ants/.venv/bin/ants backups --workdir "/var/lib/ants/$arm" --json 2>/dev/null | python3 -c "import json,sys,time; d=json.load(sys.stdin); print(round((time.time()-d[0][\"created\"])/3600,1) if d else \"none\")" 2>/dev/null || echo "?")
+      chain=$(sudo -n -u ants /opt/ants/.venv/bin/ants status --contract '"$CT"' --workdir "/var/lib/ants/$arm" --arm "$arm" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(\"ok\" if d.get(\"chain_ok\") else \"BROKEN\")" 2>/dev/null || echo "?")
+      disk=$(df -h /var/lib/ants 2>/dev/null | awk "NR==2{print \$4}" || echo "?")
+      printf "%-24s active_since=%-24s NRestarts=%-4s watchdog_events=%-4s backup_age_h=%-6s chain=%-6s disk_free=%s\n" "$arm" "$started" "$restarts" "$watchdog" "$bk_age" "$chain" "$disk"
+    done' ;;
+  drill)
+    DTYPE="${2:?drill type (kill9)}"; DARM="${3:?arm name}"
+    [[ "$DARM" != "all" ]] || { echo "drill refuses 'all'; name one arm"; exit 1; }
+    [[ "$DARM" =~ ^[a-z_]{1,32}$ ]] || { echo "bad arm name"; exit 1; }
+    case "$DTYPE" in
+      kill9)
+        echo "drill: kill -9 ants@$DARM, then wait for recovery"
+        "${SSH[@]}" "set -e
+          PID=\$(systemctl show ants@$DARM -p MainPID --value)
+          [ \"\$PID\" -gt 0 ] 2>/dev/null || { echo 'service not running'; exit 1; }
+          sudo -n kill -9 \"\$PID\"
+          echo 'killed pid '\$PID
+          T0=\$(date +%s)
+          for i in \$(seq 1 120); do
+            sleep 1
+            if systemctl is-active ants@$DARM >/dev/null 2>&1; then
+              T1=\$(date +%s)
+              DT=\$((T1 - T0))
+              CHAIN=\$(sudo -n -u ants /opt/ants/.venv/bin/ants status --contract $CT --workdir /var/lib/ants/$DARM --arm $DARM 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(\"ok\" if d.get(\"chain_ok\") else \"BROKEN\")' 2>/dev/null || echo '?')
+              LINE=\"\$(date -uIs) drill=kill9 arm=$DARM seconds=\$DT chain=\$CHAIN\"
+              echo \"\$LINE\" | sudo -n tee -a /var/lib/ants/DRILLS.log >/dev/null
+              echo \"\$LINE\"
+              exit 0
+            fi
+          done
+          echo 'TIMEOUT: service did not restart within 120 s'
+          exit 1" ;;
+      *) echo "unknown drill type: $DTYPE (available: kill9; see docs/operations.md for manual drills)"; exit 1 ;;
+    esac ;;
+  series-start)
+    SNAME="${2:?series name required}"
+    [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }
+    "${SSH[@]}" "sudo -n systemctl enable --now ants-series@$SNAME.service ants-series-backup@$SNAME.timer && systemctl is-active ants-series@$SNAME" ;;
+  series-stop)
+    SNAME="${2:?series name required}"
+    [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }
+    "${SSH[@]}" "sudo -n systemctl disable --now ants-series@$SNAME.service ants-series-backup@$SNAME.timer" ;;
+  series-status)
+    SNAME="${2:?series name required}"
+    [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }
+    "${SSH[@]}" "systemctl status ants-series@$SNAME --no-pager; echo '---'; sudo -n -u ants /opt/ants/.venv/bin/ants series status $SNAME" ;;
   *) echo "unknown command"; exit 1 ;;
 esac

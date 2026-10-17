@@ -142,6 +142,34 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
     calls = led.conn.execute("SELECT COUNT(*), COALESCE(SUM(ok),0) FROM llm_calls WHERE ts>?", (now - 86400,)).fetchone()
     if calls[0]:
         out.append(("OK" if calls[1] / calls[0] > .6 else "WARN", f"LLM calls in 24 h: {calls[0]}, parseable {calls[1] / calls[0]:.0%}"))
+    # per-endpoint summary from llm_summary
+    try:
+        summ = led.llm_summary(now - 86400)
+        for ep_name, ep_d in sorted(summ.get("endpoints", {}).items()):
+            att, eok = ep_d["attempts"], ep_d["ok"]
+            rate = eok / att if att else 1.0
+            causes = ep_d.get("causes", {})
+            top3 = sorted(causes.items(), key=lambda kv: -kv[1])[:3]
+            cause_str = ", ".join(f"{k}:{v}" for k, v in top3) if top3 else ""
+            out.append(("OK" if rate > 0.6 else "WARN", f"  endpoint {ep_name}: {att} calls, {rate:.0%} ok" + (f" ({cause_str})" if cause_str else "")))
+    except Exception:
+        pass
+    # quarantine state from recent events
+    try:
+        qevents = led.conn.execute("SELECT payload FROM events WHERE kind='llm_endpoint_state' ORDER BY seq DESC LIMIT 20").fetchall()
+        ep_last: dict = {}
+        for row in qevents:
+            p = json.loads(row[0])
+            ep_name = p.get("endpoint", "")
+            if ep_name and ep_name not in ep_last:
+                ep_last[ep_name] = p
+        for ep_name, p in sorted(ep_last.items()):
+            if p.get("state") == "quarantined":
+                until = p.get("until")
+                if until and until > now:
+                    out.append(("WARN", f"  endpoint {ep_name} quarantined until {time.strftime('%H:%M', time.localtime(until))}"))
+    except Exception:
+        pass
     starts = [json.loads(r[0]) for r in led.conn.execute("SELECT payload FROM events WHERE kind='daemon_started' ORDER BY seq")]
     hashes = []
     for s in starts:
@@ -151,6 +179,37 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
     if len(hashes) > 1:
         out.append(("WARN", f"the arm's definition changed {len(hashes) - 1} time(s) inside this ledger: results before and after are not one experiment; "
                             "start a fresh workdir to compare (docs/upgrading.md)"))
+    # check whether the CURRENT code's arm_def_hash matches the last recorded start (the definition guard)
+    if hashes:
+        last_recorded = hashes[-1]
+        try:
+            from .experiments import arm_definition_hash
+            from .cli import _contract_path
+            # try to compute the current hash; this may fail if contract is not available
+            # but doctor already has c, so we can build it from there
+            import hashlib as _hlib
+            from .proposers import make_proposer
+            from .experiments import _StubClient
+            client = None
+            if arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
+                client = _StubClient()
+            try:
+                from .campaign import DEFAULT_BATCH
+                p = make_proposer(arm, c, 0, client)
+                ops = sorted(getattr(p, "ops", {}) or [getattr(p, "name", "?")])
+                arm_def = {"arm": arm, "operators": ops,
+                           "floors": dict(sorted((getattr(p, "floors", {}) or {}).items())),
+                           "promote_quantile": c.promote_quantile,
+                           "promote_by_cap": bool(c.raw.get("cascade", {}).get("promote_by_cap")),
+                           "min_history": c.min_history, "batch": DEFAULT_BATCH}
+                cur_hash = _hlib.sha256(json.dumps(arm_def, sort_keys=True).encode()).hexdigest()[:12]
+                if cur_hash != last_recorded:
+                    out.append(("WARN", f"arm definition hash mismatch: ledger {last_recorded}, current code {cur_hash}; "
+                                        "`ants run` will refuse unless --new-definition is passed (docs/upgrading.md)"))
+            except Exception:
+                pass
+        except Exception:
+            pass
     ep = _q1(led, "SELECT epoch FROM trials WHERE gym=? AND arm=? ORDER BY id DESC LIMIT 1", c.gym, arm)
     n_ep = _q1(led, "SELECT COUNT(*) FROM epochs")
     out.append(("OK" if n_ep <= 1 else "WARN", f"{n_ep} epoch(s) recorded; current {ep or '-'}" + ("" if n_ep <= 1 else " (evaluator, contract or data changed during this ledger's life)")))
