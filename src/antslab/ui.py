@@ -194,13 +194,14 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
             if arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
                 client = _StubClient()
             try:
+                from .campaign import DEFAULT_BATCH
                 p = make_proposer(arm, c, 0, client)
                 ops = sorted(getattr(p, "ops", {}) or [getattr(p, "name", "?")])
                 arm_def = {"arm": arm, "operators": ops,
                            "floors": dict(sorted((getattr(p, "floors", {}) or {}).items())),
                            "promote_quantile": c.promote_quantile,
                            "promote_by_cap": bool(c.raw.get("cascade", {}).get("promote_by_cap")),
-                           "min_history": c.min_history, "batch": 4}
+                           "min_history": c.min_history, "batch": DEFAULT_BATCH}
                 cur_hash = _hlib.sha256(json.dumps(arm_def, sort_keys=True).encode()).hexdigest()[:12]
                 if cur_hash != last_recorded:
                     out.append(("WARN", f"arm definition hash mismatch: ledger {last_recorded}, current code {cur_hash}; "

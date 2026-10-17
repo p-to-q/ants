@@ -90,7 +90,8 @@ def arm_definition_hash(arm: str, contract_path: str | Path, seed: int) -> str:
         p = make_proposer(arm, c, seed, client)
     except Exception:
         return ""
-    # replicate Campaign.arm_definition
+    # replicate Campaign.arm_definition using the shared constant
+    from .campaign import DEFAULT_BATCH
     ops = sorted(getattr(p, "ops", {}) or [getattr(p, "name", "?")])
     arm_def = {
         "arm": arm,
@@ -99,7 +100,7 @@ def arm_definition_hash(arm: str, contract_path: str | Path, seed: int) -> str:
         "promote_quantile": c.promote_quantile,
         "promote_by_cap": bool(c.raw.get("cascade", {}).get("promote_by_cap")),
         "min_history": c.min_history,
-        "batch": 4,
+        "batch": DEFAULT_BATCH,
     }
     return hashlib.sha256(json.dumps(arm_def, sort_keys=True).encode()).hexdigest()[:12]
 

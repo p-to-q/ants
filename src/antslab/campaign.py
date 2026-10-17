@@ -28,6 +28,7 @@ from .notify import heartbeat, keepalive, sd_notify
 from .proposers import rank_specs
 from .runner import run_command
 
+DEFAULT_BATCH = 4              # proposals per refill; used by arm_definition hash and the Campaign default
 BAD = ("failed", "timeout", "crashed")
 _TRANSIENT_SQL = ("locked", "busy", "disk is full", "disk i/o", "unable to open database", "readonly database", "out of memory")
 _TRANSIENT_ERRNO = {errno.ENOSPC, errno.EDQUOT, errno.EIO, errno.EMFILE, errno.ENFILE, errno.ENOMEM, errno.EAGAIN}
@@ -86,7 +87,7 @@ class Campaign:
 
     def __init__(self, ledger: Ledger, c: Contract, workdir, arm: str, proposer, seed: int = 0,
                  budget_evals: int | None = None, budget_cpu_s: float | None = None,
-                 python: str | None = None, batch: int = 4, breaker_n: int = 3, breaker_cooldown_s: float = 3600,
+                 python: str | None = None, batch: int = DEFAULT_BATCH, breaker_n: int = 3, breaker_cooldown_s: float = 3600,
                  free_fn=None, dream_every: int = 0, dream_fn=None):
         self.l, self.c, self.arm, self.p, self.seed = ledger, c, arm, proposer, seed
         self.workdir = Path(workdir).resolve()       # gyms run with cwd=<out dir>: every path handed to them must be absolute
