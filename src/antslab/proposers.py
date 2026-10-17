@@ -218,7 +218,8 @@ class LLMProposer:
         if not isinstance(obj, dict):
             with self.lock:
                 self.stats["calls"] += 1; self.stats["failed_calls"] += 1
-            self.record_yield({"operator": self.name, "failed": True, "capped": bool(meta.get("capped")), "attempts": len(meta.get("attempts", []))})
+            self.record_yield({"operator": self.name, "failed": True, "capped": bool(meta.get("capped")),
+                               "paused": bool(meta.get("paused")), "attempts": len(meta.get("attempts", []))})
             return
         props = obj.get("proposals")
         props = props if isinstance(props, list) else []
