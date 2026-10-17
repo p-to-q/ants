@@ -462,7 +462,7 @@ def scatter():
     y2 = ly + 20
     yc = y2 - 4.5
     o.append(f'<rect x="{cx - 12:.1f}" y="{yc - 3:.1f}" width="6" height="6" rx="1.8" fill="{MINT_3}" stroke="{INK}" stroke-width="0.7"/>')
-    o.append(f'<line x1="{cx - 4.5:.1f}" x2="{cx + 4.5:.1f}" y1="{yc:.1f}" y2="{yc:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-dasharray="2 1.5"/>')
+    o.append(f'<line x1="{cx - 4.5:.1f}" x2="{cx + 4.5:.1f}" y1="{yc:.1f}" y2="{yc:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-dasharray="3.2 2.6"/>')
     o.append(f'<circle cx="{cx + 8.8:.1f}" cy="{yc:.1f}" r="2.4" fill="{INK}"/>')
     label(o, tx, y2, f"{fp / pa:.0f}× fewer parameters than ridge 720", 11.5, INK, "start", 600, halo=False)
     lab = [("start", 12, -14), ("start", 12, -14), ("end", -13, 22)]
