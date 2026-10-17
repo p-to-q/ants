@@ -485,6 +485,27 @@ def system_screen(d, ctx: Ctx) -> View:
         ch = i.get("calls_hour") or []
         if any(a or b for a, b in ch):
             lines.append([S(" "), S(pixel.spark([a for a, _ in ch], 24), "accent"), S("  "), S(pixel.spark([b for _, b in ch], 24), "bad"), S("   per hour; second line = failed", "dim")])
+        # per-endpoint detail from llm_summary
+        summ = i.get("llm_summary")
+        ep_states = i.get("llm_ep_states") or {}
+        if summ and summ.get("endpoints"):
+            lines.append([]); lines.append(rule(w, "Per endpoint"))
+            for ep_name, ep_d in sorted(summ["endpoints"].items()):
+                att, eok = ep_d["attempts"], ep_d["ok"]
+                rate = f"{eok / att:.0%}" if att else "-"
+                causes = ep_d.get("causes", {})
+                top3 = sorted(causes.items(), key=lambda kv: -kv[1])[:3]
+                cause_str = ", ".join(f"{k}:{v}" for k, v in top3) if top3 else ""
+                st = ep_states.get(ep_name, {})
+                q_str = ""
+                if st.get("state") == "quarantined":
+                    until = st.get("until")
+                    if until and until > (i.get("now") or time.time()):
+                        q_str = f" QUARANTINED until {time.strftime('%H:%M', time.localtime(until))}"
+                lines.append([S(f" {clip(ep_name, 12):<12}", "bold"),
+                              S(f" {att:>5} calls {rate:>4} ok", "dim"),
+                              S(f"  {clip(cause_str, max(10, w - 42))}" if cause_str else "", "dim"),
+                              S(q_str, "warn") if q_str else S("", "none")])
     bk = i.get("backups") or []
     lines.append([]); lines.append(rule(w, "Backups (7 days)"))
     if not bk:

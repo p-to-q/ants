@@ -331,6 +331,25 @@ def system_info(source: "Source | None", all_sources: "list[Source] | None" = No
         info["agent_tools_24h"] = source.led.conn.execute("SELECT COUNT(*) FROM events WHERE kind='agent_tool' AND ts>?", (time.time() - 86400,)).fetchone()[0]
         info["calls_hour"] = source.calls_per_hour(time.time())
         info["now"] = time.time()
+        # llm_summary for per-endpoint and per-arm detail
+        try:
+            info["llm_summary"] = source.led.llm_summary(time.time() - 86400)
+        except Exception:
+            info["llm_summary"] = None
+        # endpoint quarantine state from recent events
+        try:
+            qevents = source.led.conn.execute(
+                "SELECT payload FROM events WHERE kind='llm_endpoint_state' ORDER BY seq DESC LIMIT 20").fetchall()
+            import json as _json
+            ep_states: dict = {}
+            for row in qevents:
+                p = _json.loads(row[0])
+                ep = p.get("endpoint", "")
+                if ep and ep not in ep_states:
+                    ep_states[ep] = p
+            info["llm_ep_states"] = ep_states
+        except Exception:
+            info["llm_ep_states"] = {}
     try:
         unit = f"ants@{source.arm}" if source and Path("/etc/systemd/system/ants@.service").exists() else None
         if unit:

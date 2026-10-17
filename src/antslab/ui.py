@@ -142,6 +142,34 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
     calls = led.conn.execute("SELECT COUNT(*), COALESCE(SUM(ok),0) FROM llm_calls WHERE ts>?", (now - 86400,)).fetchone()
     if calls[0]:
         out.append(("OK" if calls[1] / calls[0] > .6 else "WARN", f"LLM calls in 24 h: {calls[0]}, parseable {calls[1] / calls[0]:.0%}"))
+    # per-endpoint summary from llm_summary
+    try:
+        summ = led.llm_summary(now - 86400)
+        for ep_name, ep_d in sorted(summ.get("endpoints", {}).items()):
+            att, eok = ep_d["attempts"], ep_d["ok"]
+            rate = eok / att if att else 1.0
+            causes = ep_d.get("causes", {})
+            top3 = sorted(causes.items(), key=lambda kv: -kv[1])[:3]
+            cause_str = ", ".join(f"{k}:{v}" for k, v in top3) if top3 else ""
+            out.append(("OK" if rate > 0.6 else "WARN", f"  endpoint {ep_name}: {att} calls, {rate:.0%} ok" + (f" ({cause_str})" if cause_str else "")))
+    except Exception:
+        pass
+    # quarantine state from recent events
+    try:
+        qevents = led.conn.execute("SELECT payload FROM events WHERE kind='llm_endpoint_state' ORDER BY seq DESC LIMIT 20").fetchall()
+        ep_last: dict = {}
+        for row in qevents:
+            p = json.loads(row[0])
+            ep_name = p.get("endpoint", "")
+            if ep_name and ep_name not in ep_last:
+                ep_last[ep_name] = p
+        for ep_name, p in sorted(ep_last.items()):
+            if p.get("state") == "quarantined":
+                until = p.get("until")
+                if until and until > now:
+                    out.append(("WARN", f"  endpoint {ep_name} quarantined until {time.strftime('%H:%M', time.localtime(until))}"))
+    except Exception:
+        pass
     starts = [json.loads(r[0]) for r in led.conn.execute("SELECT payload FROM events WHERE kind='daemon_started' ORDER BY seq")]
     hashes = []
     for s in starts:
