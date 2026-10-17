@@ -626,6 +626,41 @@ def cmd_seeds(a):
     return run_seeds(a)
 
 
+def cmd_series(a):
+    from .series import run_series, series_status, series_check
+    action = a.action
+    if action == "run":
+        return run_series(a)
+    elif action == "status":
+        return series_status(a)
+    elif action == "check":
+        return series_check(a)
+    print(f"ants series: unknown action {action!r}", file=sys.stderr)
+    return 1
+
+
+def cmd_bundle(a):
+    from .bundle import make_bundle, verify_bundle, BundleError
+    action = a.action
+    if action == "make":
+        if not a.workdirs:
+            print("ants bundle make: at least one WORKDIR required", file=sys.stderr)
+            return 1
+        try:
+            make_bundle(a.name, a.out, a.workdirs, note_file=a.note)
+        except BundleError as e:
+            print(f"ants bundle make: {e}", file=sys.stderr)
+            return 1
+        return 0
+    elif action == "verify":
+        if not a.path:
+            print("ants bundle verify: PATH required", file=sys.stderr)
+            return 1
+        return verify_bundle(a.path)
+    print(f"ants bundle: unknown action {action!r}", file=sys.stderr)
+    return 1
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="ants")
     ap.add_argument("--version", action="version", version="ants " + _version())
@@ -687,6 +722,31 @@ def main(argv=None):
     s.add_argument("--max-evals", type=int, default=None); s.add_argument("--workers", type=int, default=1)
     s.add_argument("--dry-run", action="store_true"); s.add_argument("--llm-env", default=None)
     s.add_argument("--json", action="store_true"); s.set_defaults(fn=cmd_seeds)
+    # --- series ---
+    sp = sub.add_parser("series", help="manage a pre-registered series of seed runs")
+    sp_sub = sp.add_subparsers(dest="action", required=True)
+    for act in ("run", "status", "check"):
+        ss = sp_sub.add_parser(act)
+        ss.add_argument("name", help="series name (matches deploy/series/<name>.toml)")
+        ss.add_argument("--file", default=None, help="explicit path to the series TOML file")
+        ss.add_argument("--base", default=None, help="override base directory")
+        if act == "run":
+            ss.add_argument("--dry-run", action="store_true")
+            ss.add_argument("--llm-env", default=None)
+        if act == "status":
+            ss.add_argument("--json", action="store_true")
+    sp.set_defaults(fn=cmd_series)
+    # --- bundle ---
+    bp = sub.add_parser("bundle", help="create or verify a sealed results bundle")
+    bp_sub = bp.add_subparsers(dest="action", required=True)
+    bm = bp_sub.add_parser("make")
+    bm.add_argument("--name", required=True, help="bundle name")
+    bm.add_argument("--out", required=True, help="output directory")
+    bm.add_argument("--note", default=None, help="path to a note file to include in SEAL.md")
+    bm.add_argument("workdirs", nargs="*", help="workdir paths to include")
+    bv = bp_sub.add_parser("verify")
+    bv.add_argument("path", help="path to the bundle directory or .tar.gz")
+    bp.set_defaults(fn=cmd_bundle)
     s = sub.add_parser("ui", help="the terminal interface (what plain `ants` opens on a terminal)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")
