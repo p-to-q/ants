@@ -124,7 +124,13 @@ def cmd_run(a):
     client = None
     if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
         from .llm import LLMClient, load_endpoints
-        client = LLMClient(load_endpoints(a.llm_env or _default_llm_env()), led)
+        llm_budget = getattr(a, "llm_budget", None) or 0
+        try:
+            llm_budget = llm_budget or int(float(os.environ.get("ANTS_LLM_BUDGET", 0)))
+        except (ValueError, TypeError):
+            llm_budget = 0
+        client = LLMClient(load_endpoints(a.llm_env or _default_llm_env()), led,
+                           budget=llm_budget, arm=a.arm)
     mem = (lambda arm: latest_memory(led, arm)) if a.arm in ("llm_dream", "portfolio_dream") else None
     p = make_proposer(a.arm, c, a.seed, client, mem)
     camp = Campaign(led, c, wd, a.arm, p, a.seed, a.max_evals, a.max_cpu_s,
@@ -552,6 +558,7 @@ def main(argv=None):
         if name == "run":
             s.add_argument("--max-evals", type=int); s.add_argument("--max-cpu-s", type=float)
             s.add_argument("--llm-env", default=None, help="env file with LLM_<TAG>_BASE/KEY/MODEL (default ~/.config/ants/llm.env)")
+            s.add_argument("--llm-budget", type=int, default=0, help="total HTTP attempts the arm may spend over its whole life (0 = none; env ANTS_LLM_BUDGET)")
             s.add_argument("--dream-every", type=int, default=100)
         if name == "export":
             s.add_argument("--out", required=True)
