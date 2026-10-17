@@ -10,7 +10,7 @@ echo "== preflight"; nproc; free -m | sed -n 2p; df -h /var | tail -1
 FREE_GB=$(df -BG --output=avail /var | tail -1 | tr -dc 0-9); [ "$FREE_GB" -ge 15 ] || { echo "less than 15 GB free: refusing"; exit 1; }
 echo "== user and directories"
 id ants >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/ants --shell /usr/sbin/nologin ants
-install -d -o ants -g ants -m 750 /var/lib/ants /var/lib/ants/archive /var/lib/ants/board
+install -d -o ants -g ants -m 750 /var/lib/ants /var/lib/ants/archive /var/lib/ants/board /var/lib/ants/bundles /var/lib/ants/series
 install -d -o root -g ants -m 750 /etc/ants
 echo "== code"
 apt-get install -y --no-install-recommends python3.12-venv rsync libgomp1 >/dev/null

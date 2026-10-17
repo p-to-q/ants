@@ -42,25 +42,36 @@ def _snapshot_readonly(ledger_path: Path, dest: Path) -> Path:
     """
     if not ledger_path.exists():
         raise BundleError(f"ledger not found: {ledger_path}")
-    try:
-        src = sqlite3.connect(f"file:{ledger_path}?mode=ro", uri=True, timeout=30)
-    except sqlite3.OperationalError as e:
-        raise BundleError(f"cannot open {ledger_path} read-only: {e}") from e
-    try:
-        out = sqlite3.connect(dest)
+    def attempt(uri_tail: str):
+        src = sqlite3.connect(f"file:{ledger_path}?mode=ro{uri_tail}", uri=True, timeout=30)
         try:
-            src.backup(out)
+            out = sqlite3.connect(dest)
+            try:
+                src.backup(out)
+            finally:
+                out.close()
         finally:
-            out.close()
-    finally:
-        src.close()
+            src.close()
+    try:
+        attempt("")
+    except sqlite3.OperationalError as e:
+        # a ledger at rest in a read-only directory (an archive) cannot create its -shm file: read it as immutable, which is right only when
+        # nothing is writing it. A busy or locked file is NOT retried that way (a live writer would be read inconsistently).
+        if "locked" in str(e) or "busy" in str(e):
+            raise BundleError(f"{ledger_path} is in use by a writer: stop it first ({e})") from e
+        dest.unlink(missing_ok=True)
+        try:
+            attempt("&immutable=1")
+        except sqlite3.OperationalError as e2:
+            raise BundleError(f"cannot open {ledger_path} read-only: {e2}") from e2
     return dest
 
 
 def _inspect_ledger(path: Path) -> dict:
-    """Open a snapshot (read-write on OUR copy) and gather metadata."""
+    """Open a snapshot READ-ONLY and gather metadata. The snapshot is the sealed record: it is not migrated, checkpointed or written in any way
+    (an older-schema ledger stays at its schema; make_bundle checks that its bytes are unchanged afterwards)."""
     try:
-        led = Ledger(path)
+        led = Ledger.open_readonly(path)
     except LedgerTooNew as e:
         return {"error": f"LedgerTooNew: {e}", "schema_version": -1}
     try:
@@ -100,11 +111,7 @@ def _inspect_ledger(path: Path) -> dict:
                 starts.append({"arm": key[0], "arm_def_hash": key[1],
                                "version": key[2], "epoch": key[3]})
 
-        led.checkpoint()
         led.close()
-        # remove WAL/SHM after checkpoint
-        for ext in ("-wal", "-shm"):
-            Path(str(path) + ext).unlink(missing_ok=True)
 
         return {
             "schema_version": info["schema_version"],
@@ -160,13 +167,15 @@ def make_bundle(name: str, out_dir: str | Path, workdirs: list[str | Path],
             raw_sha = _sha256(snap)
             raw_bytes = snap.stat().st_size
 
-            info = _inspect_ledger(snap)
+            gz_path = ledgers_dir / f"{wd_name}.sqlite.gz"
+            with open(snap, "rb") as fi, open(gz_path, "wb") as raw_out, gzip.GzipFile(filename="", mode="wb", fileobj=raw_out, compresslevel=6, mtime=0) as fo:
+                shutil.copyfileobj(fi, fo)              # the record first, exactly as the snapshot came out of the backup API (no timestamp in the gz header)
+
+            info = _inspect_ledger(snap)                # then look at it (read-only) for the manifest
             if "error" in info:
                 raise BundleError(f"{wd_name}: {info['error']}")
-
-            gz_path = ledgers_dir / f"{wd_name}.sqlite.gz"
-            with open(snap, "rb") as fi, gzip.open(gz_path, "wb", compresslevel=6) as fo:
-                shutil.copyfileobj(fi, fo)
+            if _sha256(snap) != raw_sha:
+                raise BundleError(f"{wd_name}: the snapshot changed while it was inspected (this is a bug; nothing was sealed)")
 
         gz_sha = _sha256(gz_path)
         gz_bytes = gz_path.stat().st_size
@@ -257,7 +266,10 @@ def _generate_seal(name: str, manifest: dict, note_text: str) -> str:
         "## Integrity",
         "",
         "This bundle is a **read-only record** and must **never be edited**.",
-        "Any modification invalidates the checksums and the verification.",
+        "`ants bundle verify` detects accidental damage and any edit that does not also recompute the chain, the counts, the manifest and the checksums.",
+        "It does **not** detect a deliberate, self-consistent rewrite (every event re-hashed, the manifest and checksums regenerated): the chain is unkeyed. "
+        "That is detectable only against a chain head or an anchor that was stored somewhere the writer cannot reach (see docs/evaluation/E0-integrity.md and the roadmap, step 29). "
+        "Store the head of each ledger (listed in MANIFEST.json) and the sha256 of the .tar.gz off this machine when the bundle is made.",
         "",
         "## Privacy",
         "",
@@ -288,6 +300,19 @@ def _make_tar(src_dir: Path, tar_path: Path, prefix: str):
                 tf.addfile(info)
 
 
+def _safe_extract(tf: tarfile.TarFile, dest: str) -> None:
+    """Extract only regular files and directories whose names stay inside `dest` (a bundle to verify may come from anywhere)."""
+    root = Path(dest).resolve()
+    for m in tf.getmembers():
+        target = (root / m.name).resolve()
+        if not (m.isfile() or m.isdir()) or m.name.startswith("/") or ".." in Path(m.name).parts or root not in (target, *target.parents):
+            raise BundleError(f"unsafe entry in the archive: {m.name!r}")
+    try:
+        tf.extractall(dest, members=tf.getmembers(), filter="data")      # Python 3.12+ (and the 3.11.4+ backport): no links, no absolute names
+    except TypeError:
+        tf.extractall(dest, members=tf.getmembers())                      # older: the members were checked above
+
+
 def verify_bundle(path: str | Path) -> int:
     """Verify a bundle (directory or tar.gz).  Returns 0 if everything checks out."""
     path = Path(path)
@@ -298,7 +323,7 @@ def verify_bundle(path: str | Path) -> int:
         tmp_dir = tempfile.mkdtemp()
         try:
             with tarfile.open(path, "r:gz") as tf:
-                tf.extractall(tmp_dir)
+                _safe_extract(tf, tmp_dir)
         except Exception as e:
             print(f"FAIL: cannot extract {path}: {e}")
             shutil.rmtree(tmp_dir, ignore_errors=True)

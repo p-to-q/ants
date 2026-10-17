@@ -92,6 +92,8 @@ def load_series(path: str | Path) -> dict:
         raise SeriesError("contract must be a string path")
 
     base = raw.get("base", f"/var/lib/ants/series/{name}")
+    if not isinstance(base, str) or not Path(base).is_absolute() or ".." in Path(base).parts:
+        raise SeriesError(f"base must be an absolute path without '..', got {base!r}")
 
     return {
         "name": name,
@@ -195,8 +197,23 @@ def run_series(a) -> int:
         "llm_env": getattr(a, "llm_env", None),
     })()
 
+    if ".." in Path(str(base)).parts:
+        print(f"ants series: base must not contain '..': {base}", file=sys.stderr)
+        return 1
+    # one runner per series directory: two runners would start children on the same workdirs (the children refuse, but only after the mess)
+    import fcntl
+    Path(base).mkdir(parents=True, exist_ok=True)
+    lock = open(Path(base) / ".series.lock", "a+")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print(f"ants series: another `ants series run` already holds {Path(base) / '.series.lock'}", file=sys.stderr)
+        return 3
     from .seeds import run_seeds
-    return run_seeds(ns)
+    try:
+        return run_seeds(ns)
+    finally:
+        lock.close()
 
 
 def series_status(a) -> int:

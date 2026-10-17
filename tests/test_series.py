@@ -498,3 +498,116 @@ def test_shell_scripts_syntax():
     for s in (ROOT / "deploy/series_backup.sh", ROOT / "deploy/install.sh", ROOT / "deploy/remote_deploy.sh"):
         r = subprocess.run(["bash", "-n", str(s)], capture_output=True, text=True)
         assert r.returncode == 0, f"{s.name}: {r.stderr}"
+
+
+# ---- review fixes (2026-10-17): the sealed snapshot is not migrated, tar extraction is safe, an archive can be re-sealed, one runner per series
+
+def _old_schema_ledger(path):
+    from antslab.ledger import Ledger
+    led = Ledger(path)
+    led.event("note", {"a": 1})
+    led.conn.execute("PRAGMA user_version=1")
+    led.close()
+    return path
+
+
+def test_a_bundle_seals_the_snapshot_exactly_and_does_not_migrate_it(tmp_path):
+    import gzip
+    import json
+    import sqlite3
+    from antslab import bundle
+    from antslab.ledger import SCHEMA_VERSION
+    wd = tmp_path / "wd" / "pilot"
+    wd.mkdir(parents=True)
+    _old_schema_ledger(wd / "ledger.sqlite")
+    before = sqlite3.connect(f"file:{wd / 'ledger.sqlite'}?mode=ro", uri=True).execute("PRAGMA user_version").fetchone()[0]
+    assert before < SCHEMA_VERSION
+    bundle.make_bundle("t", tmp_path / "out", [wd])
+    led = json.loads((tmp_path / "out" / "t" / "MANIFEST.json").read_text())["ledgers"]["pilot"]
+    raw = gzip.decompress((tmp_path / "out" / "t" / "ledgers" / "pilot.sqlite.gz").read_bytes())
+    import hashlib
+    assert hashlib.sha256(raw).hexdigest() == led["raw_sha256"]                      # the gz holds exactly the snapshot whose hash is recorded
+    p = tmp_path / "raw.sqlite"
+    p.write_bytes(raw)
+    assert sqlite3.connect(p).execute("PRAGMA user_version").fetchone()[0] == before    # and it was not migrated by looking at it
+    assert led["schema_version"] == before
+    assert bundle.verify_bundle(tmp_path / "out" / "t") == 0
+
+
+def test_verify_refuses_a_tar_that_writes_outside_its_directory(tmp_path, capsys):
+    import io
+    import tarfile
+    from antslab import bundle
+    evil = tmp_path / "evil.tar.gz"
+    with tarfile.open(evil, "w:gz") as tf:
+        info = tarfile.TarInfo("../escaped.txt")
+        info.size = 3
+        tf.addfile(info, io.BytesIO(b"bad"))
+        link = tarfile.TarInfo("b/link")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "/etc/passwd"
+        tf.addfile(link)
+    assert bundle.verify_bundle(evil) == 1
+    assert not (tmp_path.parent / "escaped.txt").exists() and "unsafe entry" in capsys.readouterr().out
+
+
+def test_an_archived_read_only_workdir_can_be_sealed_again(tmp_path):
+    import os
+    from antslab import bundle
+    wd = tmp_path / "arch" / "pilot"
+    wd.mkdir(parents=True)
+    _old_schema_ledger(wd / "ledger.sqlite")
+    for p in (wd / "ledger.sqlite", wd):
+        os.chmod(p, 0o555 if p.is_dir() else 0o444)
+    try:
+        if os.access(wd, os.W_OK):
+            import pytest
+            pytest.skip("directory permissions are not enforced here (root)")
+        bundle.make_bundle("again", tmp_path / "out", [wd])
+        import json
+        man = json.loads((tmp_path / "out" / "again" / "MANIFEST.json").read_text())
+        assert man["ledgers"]["pilot"]["events_count"] >= 1 and bundle.verify_bundle(tmp_path / "out" / "again") == 0
+    finally:
+        os.chmod(wd, 0o755)
+        os.chmod(wd / "ledger.sqlite", 0o644)
+
+
+def test_seal_md_states_what_verification_cannot_detect(tmp_path):
+    from antslab import bundle
+    wd = tmp_path / "wd" / "x"
+    wd.mkdir(parents=True)
+    _old_schema_ledger(wd / "ledger.sqlite")
+    bundle.make_bundle("s", tmp_path / "out", [wd])
+    text = (tmp_path / "out" / "s" / "SEAL.md").read_text()
+    assert "does **not** detect a deliberate, self-consistent rewrite" in text and "off this machine" in text
+
+
+def test_a_series_file_with_a_base_outside_the_rules_is_refused(tmp_path):
+    from antslab import series
+    f = tmp_path / "s.toml"
+    base = open(Path(__file__).resolve().parents[1] / "deploy" / "series" / "e43a.toml").read()
+    f.write_text(base + '\nbase = "/tmp/../etc/x"\n')
+    import pytest
+    with pytest.raises(series.SeriesError, match="absolute path without"):
+        series.load_series(f)
+    f.write_text(base + '\nbase = "relative/dir"\n')
+    with pytest.raises(series.SeriesError):
+        series.load_series(f)
+
+
+def test_a_second_runner_on_the_same_series_directory_exits_3(tmp_path):
+    import fcntl
+    from antslab import series
+    contract = Path(__file__).resolve().parents[1] / "contracts" / "tinyts_real.toml"
+    f = tmp_path / "locktest.toml"
+    f.write_text(f'name = "locktest"\nquestion = "q"\narms = ["portfolio"]\nseeds = "1"\nmax_cpu_s = 10\nworkers = 1\n'
+                 f'epoch = "{series.compute_epoch(str(contract))}"\ncontract = "{contract}"\nbase = "{tmp_path / "base"}"\n')
+    (tmp_path / "base").mkdir()
+    held = open(tmp_path / "base" / ".series.lock", "a+")
+    fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    ns = type("A", (), {"name": "locktest", "file": str(f), "base": None, "dry_run": True, "llm_env": None})()
+    try:
+        assert series.run_series(ns) == 3
+    finally:
+        held.close()
+    assert series.run_series(ns) == 0                                       # released: a dry run goes through
