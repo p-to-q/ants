@@ -277,24 +277,6 @@ def seed_endpoint_health(endpoints: list[Endpoint], ledger, window_s: float = 86
             ep.bad = by_ep[ep.name]["bad"]
 
 
-def _classify_error(note: str) -> str:
-    """Classify an error note into a cause bucket for llm_summary."""
-    if not note:
-        return ""
-    if note == "no-json":
-        return "no_json"
-    if "429" in note:
-        return "http_429"
-    if any(f"{c}" in note for c in range(500, 600)):
-        return "http_5xx"
-    low = note.lower()
-    if "timeout" in low or "timed out" in low:
-        return "timeout"
-    if "reset" in low or "disconnect" in low or "connection" in low:
-        return "connection"
-    return "other"
-
-
 class LLMClient:
     def __init__(self, endpoints: list[Endpoint], ledger=None, timeout_s: float = 100,
                  max_tokens: int = 4000, rng: random.Random | None = None, daily_calls: int | None = None,
@@ -429,12 +411,11 @@ class LLMClient:
         for ep in self._pick_order():
             # try this endpoint with retries for transient errors
             for attempt_num in range(1 + RETRY_MAX):
-                if self._capped(reserve=True):
+                if self._capped() or self._budget_reached():
                     meta["capped"] = True
                     return None, meta
-                if self._budget_reached(reserve=True):
-                    meta["capped"] = True
-                    return None, meta
+                with self._lock:                             # one reservation per HTTP attempt, covering both caps
+                    self._inflight += 1
 
                 t = time.time()
                 ok, note, toks, obj = False, "", None, None
@@ -463,8 +444,12 @@ class LLMClient:
                     meta["ep"] = ep.name
                     return obj, meta
 
+                # no-json (HTTP 200 with prose) is a model failure, not a transport failure:
+                # it does NOT trip the circuit breaker and is NOT retried
+                transport_failure = last_exc is not None
+
                 # decide whether to retry this endpoint
-                if last_exc is not None and _is_retryable(last_exc) and attempt_num < RETRY_MAX:
+                if transport_failure and _is_retryable(last_exc) and attempt_num < RETRY_MAX:
                     self._cb_record_failure(ep)
                     if self._stop():
                         return None, meta
@@ -474,26 +459,23 @@ class LLMClient:
                         return None, meta         # shutdown during backoff
                     continue
 
-                # not retryable or retries exhausted: record failure and move to next endpoint
-                self._cb_record_failure(ep)
+                # transport failure (not retryable or retries exhausted): record for circuit breaker
+                if transport_failure:
+                    self._cb_record_failure(ep)
                 break
 
         return None, meta
 
-    def _capped(self, reserve: bool = False) -> bool:
+    def _capped(self) -> bool:
         if not (self.ledger and self.daily_calls):
             return False
         try:
             with self._lock:
-                if self.ledger.llm_calls_since(time.time() - 86400) + self._inflight >= self.daily_calls:
-                    return True
-                if reserve:
-                    self._inflight += 1
-                return False
+                return self.ledger.llm_calls_since(time.time() - 86400) + self._inflight >= self.daily_calls
         except Exception:                                # a ledger that cannot be read must not take the proposer down (see test_security_llm)
             return False
 
-    def _budget_reached(self, reserve: bool = False) -> bool:
+    def _budget_reached(self) -> bool:
         """Lifetime budget: total HTTP attempts this arm may spend, counted from the ledger."""
         if not (self.ledger and self.budget):
             return False
@@ -508,8 +490,6 @@ class LLMClient:
                         except Exception:
                             pass
                     return True
-                if reserve:
-                    self._inflight += 1
                 return False
         except Exception:
             return False
