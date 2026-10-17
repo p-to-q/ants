@@ -2,6 +2,31 @@
 
 What can change next, in order, what each step needs and which ones start a new epoch (a new measuring protocol: results before and after are not compared). Status is dated. Everything here is a plan; the evidence it rests on is the first eight hours of three searches on the server (2026-10-13), analysed from copies of their ledgers.
 
+## What comes last: engineering, academic output, packaging (2026-10-17)
+
+What would make the project better at the end of this plan, as opposed to the next step. None of it starts before the pre-registered series (E43) has been read; the order inside each column is the order of value for the effort.
+
+| for | item | why it is last, and what it needs | roadmap |
+|---|---|---|---|
+| **engineering** | a pre/post-deploy check (`ants preflight`, `remote_deploy.sh verify`) and a pinned-arm table (`pins.py`) | the incidents of this week were silent drifts (an evaluator file, an arm definition, a catalog the service user could not read, a one-way migration); one read-only command catches the class. In progress | 0.6.3 |
+| | the golden-replay and epoch-equivalence rule; the faster window builder (1.2 to 2 times more trials per CPU-hour, bit-identical) | speed without cutting the history in two; needs the rule first | 48 |
+| | ledger audit and keyed, off-machine anchors | a verified chain only says the event stream was not edited in the middle; reconcile the mutable tables with it and keep a head where the writer cannot reach | 29 |
+| | operating-system isolation of evaluation | a precondition for anything that executes model-written code | 25 |
+| | soak evidence with drills actually run | scripts exist on a branch; no drill has been run; the clock has run since 2026-10-13 | 28 |
+| **academic output** | the four quantities per arm (speed, quality, probability, evidence) in one `ants report`, per-seed curves, the analysis script run once at the end of each series, with deviations logged | the protocol is written (E43); the report is a script today | 31 |
+| | TinyTS-Bench Tier A with standard MSE and MAE per dataset and horizon, SearchCast and DLinear/FITS/SparseTSF/PatchTST under the same harness and an equal tuning budget; `rel_mse` last | the first half (a report-only tool on validation windows, the columns in the interface) is being built; the evaluator emitting per-task values, fixed lookbacks and the gate-mediated test/confirm/sealed reports need the epoch-3 package | 13 to 15, 45 |
+| | the ablation ladder from ordinary least squares to the finisher, per cap, with seeds | attributes the gain to a tool instead of to the pipeline | 46, 47 |
+| | the final claim through `ants freeze / seal / claim`, counting policy versions | an out-of-sample statement produced by the tool, not by hand | 27, 37 |
+| | deployment cost measured (export, latency, memory, int8 agreement) on a stated device | 'tiny' has to mean cheap to run, not few parameters | 26 |
+| | the sealed pilot and each series as BagIt-style bundles with a scrubbed public view; a deposit with a DOI | reproducible by a stranger; the full ledgers contain hints and tool outputs and stay private | 24 |
+| **packaging and tools** | `ants bench` (one command re-runs the benchmark and writes one table with the protocol, version, epoch and package hash) | after the benchmark exists | 15 |
+| | the npm package and a tagged GitHub release per version, with the lock-file hashes; PyPI only if the owner wants it | npm and GitHub are the stable surface; PyPI has never been published | release routine |
+| | a container image or a pinned environment file so a reader can reproduce a series without the server's setup | the server installs from a hashed lock already; an image is the same idea for others | later |
+| | the experiment registry and series files as the single source of what runs where; `ants series status` as the weekly check-in | built on a branch | 0.6.2 |
+| | agent tools for the model (`check`, `neighbors`, `effects`, `predict`, `scorecard`) and a reply protocol with `parent`, `expect`, `why`, on new arms only | read-only and deterministic; the model proposes and never sets a status; in progress on a branch | 0.6.3 |
+
+**The error metrics (owner's question, 2026-10-17).** Yes: the interface and the reports show the standard MSE and MAE, not only `rel_mse`, and `rel_mse` is the last error column because it is ours. Today the ledger holds a plain mean of the standardised MSE over the 16 (dataset, horizon) tasks (`val_mse`) and `rel_mae`; that is shown now (with a definition that says it is not comparable to a paper's table). MSE and MAE per dataset and per horizon are not in the ledger: a report-only tool computes them for frozen finalists on the validation windows of the development datasets (it lives outside the five hashed files, so it changes no epoch), and the evaluator will emit them for every trial in the epoch-3 package. Test windows of the development data, and confirm and sealed data, are looks and stay behind the gate.
+
 ## Status of everything raised so far (2026-10-17, evening)
 
 Vocabulary: **released** = on GitHub in a tagged version; **on main** = merged, not tagged; **branch** = built and reviewed on a branch, not merged (0.6.2 preparation); **measured** = an experiment or profile was run, nothing changed in the code; **planned** = in this roadmap with a step and a trigger; **deferred**/**declined** = decided, with the reason in the assessment table; **open** = needs the owner or an answer.
