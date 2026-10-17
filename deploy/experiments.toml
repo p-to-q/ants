@@ -1,0 +1,26 @@
+# Experiment registry.  Schema: docs/operations.md section 'Experiment registry'.
+# One [[experiment]] per run.  `deploy/remote_deploy.sh start --registry` reads this.
+
+[[experiment]]
+name = "portfolio"
+arm = "portfolio"
+seed = 1
+contract = "tinyts_real"
+question = "equal-budget comparison of the plain portfolio, the portfolio with a one-shot model operator, and the portfolio with the agent operator; docs/open.md question 7"
+status = "running"
+
+[[experiment]]
+name = "portfolio_llm"
+arm = "portfolio_llm"
+seed = 1
+contract = "tinyts_real"
+question = "equal-budget comparison of the plain portfolio, the portfolio with a one-shot model operator, and the portfolio with the agent operator; docs/open.md question 7"
+status = "running"
+
+[[experiment]]
+name = "portfolio_agent"
+arm = "portfolio_agent"
+seed = 1
+contract = "tinyts_real"
+question = "equal-budget comparison of the plain portfolio, the portfolio with a one-shot model operator, and the portfolio with the agent operator; docs/open.md question 7"
+status = "running"
