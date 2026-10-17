@@ -15,6 +15,6 @@ from __future__ import annotations
 # arm name -> (hash, date pinned, note)
 PINNED_HASHES: dict[str, tuple[str, str, str]] = {
     "portfolio":        ("67618a671563", "2026-10-17", "the server's epoch-2 definition: all nine operators, plain bandit, no reserved pair"),
-    "portfolio_screen": ("aad309c3b082", "2026-10-17", "portfolio + learned screen promoter"),
-    "portfolio_lean":   ("19231e5d9e2e", "2026-10-17", "noisy operators dropped, reserved evo+qd pair, discounted bandit"),
+    "portfolio_screen": ("975051784e2d", "2026-10-17", "portfolio + learned screen promoter"),
+    "portfolio_lean":   ("85cf381baf83", "2026-10-17", "noisy operators dropped, reserved evo+qd pair, discounted bandit"),
 }

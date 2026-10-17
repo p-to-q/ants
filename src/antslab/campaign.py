@@ -147,7 +147,7 @@ class Campaign:
     def definition_of(arm: str, proposer, c: Contract, batch: int = DEFAULT_BATCH) -> dict:
         """what makes an arm this arm, apart from the measuring machinery (that is the epoch): its operators, their guaranteed shares,
         the stage budgets, its promotion rule. A pure function of the arm's proposer and contract, so a check (`ants experiments`) computes it
-        without opening a ledger and cannot drift from what a running campaign records. If it changes inside one ledger, results before and
+        (and `ants preflight`) without opening a ledger and cannot drift from what a running campaign records. If it changes inside one ledger, results before and
         after are not one experiment. The operators are the REQUESTED ones: an optional operator whose package is missing on this host
         (`unavailable`) stays in the definition, so a restart on a host without it is a degraded run (recorded in daemon_started), not a new
         definition that the guard would answer with exit 4 and a downed service."""

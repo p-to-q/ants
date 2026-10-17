@@ -437,3 +437,19 @@ def test_deploy_verify_exits_nonzero_on_fail(tmp_path):
     r = subprocess.run(["bash", str(ROOT / "deploy/remote_deploy.sh"), "verify", "--series", "stage_a"],
                        env=env, capture_output=True, text=True, cwd=str(ROOT))
     assert r.returncode != 0
+
+
+def test_the_hash_a_check_computes_is_the_hash_a_running_campaign_records(tmp_path):
+    """experiments/preflight used to carry a copy of the arm definition that lacked the reserve, discount and promotion keys: right for `portfolio`,
+    wrong for the other arms (a false MISMATCH). Both now call Campaign.definition_of."""
+    from pathlib import Path
+    from antslab.campaign import Campaign
+    from antslab.contract import load_contract
+    from antslab.experiments import arm_definition_hash
+    from antslab.ledger import Ledger
+    from antslab.proposers import make_proposer
+    ct = Path(__file__).resolve().parents[1] / "contracts" / "tinyts_real.toml"
+    c = load_contract(ct)
+    for arm in ("portfolio", "portfolio_screen", "portfolio_lean", "random", "evo"):
+        camp = Campaign(Ledger(tmp_path / f"{arm}.sqlite"), c, tmp_path / arm, arm, make_proposer(arm, c, 1), 1)
+        assert arm_definition_hash(arm, ct, 1) == camp.start_record()["arm_def_hash"], arm
