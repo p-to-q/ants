@@ -410,7 +410,7 @@ def scatter():
         o.append(f'<line x1="{X(p):.1f}" x2="{X(p):.1f}" y1="{H-B}" y2="{H-B+6}" stroke="{FILL}"/>')
         label(o, X(p), H - B + 26, lab, 11.5, MUTE, "middle", halo=False)
     o.append(f'<line x1="{L}" x2="{W-R}" y1="{H-B}" y2="{H-B}" stroke="{FILL}"/>')
-    label(o, W - R, H - 22, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
+    label(o, W - PAD, H - 32, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
     # every deepest-stage evaluation of the ants run: the cloud the best models are picked from
     cloud = d["ants_demo"].get("cloud", [])
     for p, v in cloud:
