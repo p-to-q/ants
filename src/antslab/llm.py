@@ -5,15 +5,25 @@
 - Models here are 'reasoning' models: they burn tokens thinking before answering, so max_tokens must
   be generous and timeouts long. Calls are cheap; evaluation is the scarce resource.
 - API keys are read from an env file (mode 0600 enforced) and never logged or placed in exceptions.
+
+Reliability (step 39):
+- Endpoint health seeded from ledger (last 24 h) so the bandit does not relearn from scratch.
+- Circuit breaker per endpoint: quarantine after N consecutive failures, exponential back-off.
+- Retry with jitter for transient errors (429, 5xx, timeout, connection reset); Retry-After honoured.
+- Per-arm lifetime budget (--llm-budget / ANTS_LLM_BUDGET).
+- call_id + attempt columns group HTTP attempts into logical calls.
 """
 from __future__ import annotations
 
+import email.utils
 import json
 import os
 import random
+import re
 import ssl
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
@@ -26,6 +36,17 @@ MAX_REPLY_CHARS = 1 << 20           # the text we are willing to search for a JS
 MAX_JSON_STARTS = 64                # '{' positions tried per reply: bounds the work on adversarial text like '{"a":1,{"a":1,...'
 _LOOPBACK = ("localhost", "127.0.0.1", "::1")
 
+# ---- retry constants --------------------------------------------------------
+RETRY_MAX = 2                        # additional attempts (total = 1 + RETRY_MAX)
+RETRY_BASE_S = 1.0
+RETRY_CAP_S = 20.0
+RETRY_AFTER_CAP_S = 60.0
+
+# ---- circuit breaker defaults -----------------------------------------------
+CB_CONSECUTIVE = 5                   # trip after this many consecutive failures
+CB_BASE_S = 600                      # initial quarantine: 10 min
+CB_MAX_S = 7200                      # quarantine cap: 2 h
+
 
 @dataclass
 class Endpoint:
@@ -37,6 +58,10 @@ class Endpoint:
     ok: int = 0
     bad: int = 0
     lat: list = field(default_factory=list)
+    # circuit breaker state
+    _consec_fail: int = field(default=0, repr=False)
+    _quarantine_until: float = field(default=0.0, repr=False)     # monotonic time
+    _quarantine_duration: float = field(default=CB_BASE_S, repr=False)
 
     def __post_init__(self):
         self.sem = threading.Semaphore(self.conc)
@@ -100,13 +125,52 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+class HTTPCallError(Exception):
+    """Wraps an HTTP error with the status code and optional Retry-After header value, so retry logic can inspect them
+    without parsing the error string.  The message never contains the API key (caller is responsible for that)."""
+    def __init__(self, status: int, reason: str, retry_after: float | None = None):
+        self.status, self.retry_after = status, retry_after
+        super().__init__(f"HTTP Error {status}: {reason}")
+
+
+class BodyTooSlow(TimeoutError):
+    """The response body was dripped slowly past the deadline. Not retried: the server connected fine
+    but is either hostile or serving huge content. Distinguished from a socket-level timeout."""
+    pass
+
+
+def _parse_retry_after(value: str | None) -> float | None:
+    """Parse a Retry-After header (seconds or HTTP date). Returns seconds to wait, capped."""
+    if not value:
+        return None
+    value = value.strip()
+    try:
+        s = float(value)
+        return min(max(s, 0), RETRY_AFTER_CAP_S) if s == s else None   # NaN guard
+    except ValueError:
+        pass
+    try:
+        t = email.utils.parsedate_to_datetime(value).timestamp()
+        delta = t - time.time()
+        return min(max(delta, 0), RETRY_AFTER_CAP_S)
+    except Exception:
+        return None
+
+
 def http_post_json(url: str, body: dict, headers: dict, timeout_s: float, max_bytes: int = MAX_RESPONSE_BYTES):
-    """POST JSON, no redirects, response read in chunks with a size cap and a deadline, parsed strictly. Returns the object."""
+    """POST JSON, no redirects, response read in chunks with a size cap and a deadline, parsed strictly.
+    Returns the object on success.  Raises HTTPCallError for HTTP errors (preserving status and Retry-After),
+    and the original exception for network/TLS/timeout errors."""
     check_base(url)
     local = urllib.parse.urlsplit(url).scheme == "http"
     handlers = [_NoRedirect()] + ([urllib.request.ProxyHandler({})] if local else [urllib.request.HTTPSHandler(context=ssl_context())])
     req = urllib.request.Request(url, json.dumps(body).encode(), {**headers, "Content-Type": "application/json"})
-    with urllib.request.build_opener(*handlers).open(req, timeout=timeout_s) as r:
+    try:
+        resp = urllib.request.build_opener(*handlers).open(req, timeout=timeout_s)
+    except urllib.error.HTTPError as e:
+        ra = _parse_retry_after(e.headers.get("Retry-After") if e.headers else None)
+        raise HTTPCallError(e.code, str(e.reason)[:200], ra) from e
+    with resp as r:
         declared = r.headers.get("Content-Length")
         if declared and declared.isdigit() and int(declared) > max_bytes:
             raise ValueError(f"response too large ({declared} bytes)")
@@ -119,7 +183,7 @@ def http_post_json(url: str, body: dict, headers: dict, timeout_s: float, max_by
             if len(buf) > max_bytes:
                 raise ValueError("response too large")
             if time.monotonic() > deadline:
-                raise TimeoutError("response body too slow")
+                raise BodyTooSlow("response body too slow")
     return loads_strict(bytes(buf), max_chars=max_bytes)
 
 
@@ -160,22 +224,155 @@ def daily_cap() -> int:
     return n if n >= 0 else DEFAULT_DAILY_CALLS            # 0 = no cap, on purpose; a negative number is a typo, not a request for no cap
 
 
+def _is_retryable(exc: Exception) -> bool:
+    """True for transient errors worth retrying: 429, 5xx, timeouts, connection resets.
+    NOT retryable: no-json (model answered with prose), 4xx other than 408/429, body-too-slow (hostile drip)."""
+    if isinstance(exc, HTTPCallError):
+        return exc.status == 429 or exc.status == 408 or exc.status >= 500
+    if isinstance(exc, BodyTooSlow):
+        return False                         # connected fine, body dripped: retrying would repeat the same slow read
+    name = type(exc).__name__
+    # TimeoutError, ConnectionResetError, RemoteDisconnected, socket.timeout, OSError for broken pipe
+    if isinstance(exc, (TimeoutError, ConnectionResetError, BrokenPipeError)):
+        return True
+    if "RemoteDisconnected" in name or "ConnectionAborted" in name:
+        return True
+    if isinstance(exc, OSError) and exc.errno in (104, 110, 111):   # ECONNRESET, ETIMEDOUT, ECONNREFUSED on Linux
+        return True
+    return False
+
+
+def _retry_delay(attempt: int, rng: random.Random, retry_after: float | None = None) -> float:
+    """Exponential backoff with full jitter, honouring Retry-After when present."""
+    base = min(RETRY_BASE_S * (2 ** attempt), RETRY_CAP_S)
+    jitter = rng.uniform(0, base)
+    if retry_after is not None and retry_after > jitter:
+        return retry_after
+    return jitter
+
+
+def seed_endpoint_health(endpoints: list[Endpoint], ledger, window_s: float = 86400):
+    """Seed each endpoint's ok/bad from the ledger so the bandit does not relearn from scratch after a restart.
+    The model field in llm_calls is '<endpoint name>:<model>'."""
+    if not ledger:
+        return
+    since = time.time() - window_s
+    try:
+        rows = ledger.conn.execute("SELECT model, ok, COUNT(*) FROM llm_calls WHERE ts>=? GROUP BY model, ok", (since,)).fetchall()
+    except Exception:
+        return
+    by_ep: dict[str, dict[str, int]] = {}
+    for model_str, ok_val, cnt in rows:
+        if not model_str or ":" not in model_str:
+            continue
+        ep_name = model_str.split(":")[0]
+        d = by_ep.setdefault(ep_name, {"ok": 0, "bad": 0})
+        if ok_val:
+            d["ok"] += cnt
+        else:
+            d["bad"] += cnt
+    for ep in endpoints:
+        if ep.name in by_ep:
+            ep.ok = by_ep[ep.name]["ok"]
+            ep.bad = by_ep[ep.name]["bad"]
+
+
+def _classify_error(note: str) -> str:
+    """Classify an error note into a cause bucket for llm_summary."""
+    if not note:
+        return ""
+    if note == "no-json":
+        return "no_json"
+    if "429" in note:
+        return "http_429"
+    if any(f"{c}" in note for c in range(500, 600)):
+        return "http_5xx"
+    low = note.lower()
+    if "timeout" in low or "timed out" in low:
+        return "timeout"
+    if "reset" in low or "disconnect" in low or "connection" in low:
+        return "connection"
+    return "other"
+
+
 class LLMClient:
     def __init__(self, endpoints: list[Endpoint], ledger=None, timeout_s: float = 100,
-                 max_tokens: int = 4000, rng: random.Random | None = None, daily_calls: int | None = None):
+                 max_tokens: int = 4000, rng: random.Random | None = None, daily_calls: int | None = None,
+                 budget: int = 0, arm: str = "", clock=None, stop=None,
+                 cb_consecutive: int = CB_CONSECUTIVE, cb_base_s: float = CB_BASE_S, cb_max_s: float = CB_MAX_S):
         self.eps, self.ledger, self.timeout_s, self.max_tokens = endpoints, ledger, timeout_s, max_tokens
         self.daily_calls = daily_cap() if daily_calls is None else daily_calls
+        self.budget = budget                                     # 0 = no lifetime budget
+        self.arm = arm                                           # recorded in llm_calls.arm
         self.rng = rng or random.Random(0)
         self._lock = threading.Lock()
-        self._inflight = 0                                   # calls started but not yet in the ledger: counted, so concurrent callers cannot all pass the check
+        self._inflight = 0                                       # calls started but not yet in the ledger: counted, so concurrent callers cannot all pass the check
+        self._call_seq = 0                                       # monotonic call_id within this client instance
+        self._clock = clock or time.monotonic                    # injectable for tests
+        self._sleep = time.sleep                                 # injectable for tests
+        self._stop = stop or (lambda: False)                     # shutdown check
+        self._cb_consecutive = cb_consecutive
+        self._cb_base_s = cb_base_s
+        self._cb_max_s = cb_max_s
+        self._budget_event_written = False
+        for ep in endpoints:
+            ep._quarantine_duration = cb_base_s    # align with client config
+        seed_endpoint_health(endpoints, ledger)
 
     # overridable for tests
     def _post(self, ep: Endpoint, body: dict) -> dict:
         return http_post_json(ep.base + "/chat/completions", body, {"Authorization": "Bearer " + ep.key}, self.timeout_s)
 
-    def _pick_order(self) -> list[Endpoint]:
+    def _next_call_id(self) -> int:
         with self._lock:
-            draws = [(self.rng.betavariate(e.ok + 1, e.bad + 1), e) for e in self.eps]
+            self._call_seq += 1
+            return self._call_seq
+
+    # ---- circuit breaker ----------------------------------------------------
+    def _cb_is_open(self, ep: Endpoint) -> bool:
+        return ep._quarantine_until > 0 and self._clock() < ep._quarantine_until
+
+    def _cb_record_success(self, ep: Endpoint):
+        with self._lock:
+            was_quarantined = ep._quarantine_until > 0
+            ep._consec_fail = 0
+            ep._quarantine_until = 0.0
+            ep._quarantine_duration = self._cb_base_s    # reset backoff
+        if was_quarantined:
+            self._cb_event(ep, "recovered", "success after quarantine")
+
+    def _cb_record_failure(self, ep: Endpoint):
+        with self._lock:
+            ep._consec_fail += 1
+            if ep._consec_fail >= self._cb_consecutive and not self._cb_is_open(ep):
+                dur = min(ep._quarantine_duration, self._cb_max_s)
+                ep._quarantine_until = self._clock() + dur
+                ep._quarantine_duration = min(dur * 2, self._cb_max_s)
+                until_wall = time.time() + dur
+                self._cb_event(ep, "quarantined", f"{ep._consec_fail} consecutive failures", until_wall)
+
+    def _cb_event(self, ep: Endpoint, state: str, reason: str, until: float | None = None):
+        """Write a ledger event for state changes only. Low volume: only on trip and recovery."""
+        if not self.ledger:
+            return
+        try:
+            payload = {"endpoint": ep.name, "state": state, "reason": reason}
+            if until is not None:
+                payload["until"] = until
+            self.ledger.event("llm_endpoint_state", payload)
+        except Exception:
+            pass
+
+    def _all_quarantined(self) -> bool:
+        now = self._clock()
+        return all(ep._quarantine_until > 0 and now < ep._quarantine_until for ep in self.eps)
+
+    def _pick_order(self) -> list[Endpoint]:
+        """Thompson sampling, skipping quarantined endpoints (unless all are quarantined)."""
+        all_q = self._all_quarantined()
+        with self._lock:
+            draws = [(self.rng.betavariate(e.ok + 1, e.bad + 1), e) for e in self.eps
+                     if all_q or not self._cb_is_open(e)]
         return [e for _, e in sorted(draws, key=lambda t: -t[0])]
 
     @staticmethod
@@ -188,44 +385,99 @@ class LLMClient:
                 text = text.replace(secret, "***")
         return clean_text(text, 160)
 
+    def _interruptible_sleep(self, seconds: float):
+        """Sleep that wakes early if the process is shutting down. Returns True if interrupted."""
+        end = self._clock() + seconds
+        while (left := end - self._clock()) > 0:
+            if self._stop():
+                return True
+            self._sleep(min(0.25, left))
+        return False
+
+    def _attempt_one(self, ep: Endpoint, messages: list[dict], temperature: float) -> tuple[bool, str, int | None, dict | None]:
+        """Make one HTTP attempt.  Returns (ok, note, tokens, obj)."""
+        try:
+            with ep.sem:
+                d = self._post(ep, {"model": ep.model, "messages": messages,
+                                    "max_tokens": self.max_tokens, "temperature": temperature})
+            msg = d["choices"][0]["message"]
+            u = d.get("usage")
+            n = u.get("completion_tokens") if isinstance(u, dict) else None
+            toks = n if isinstance(n, int) and not isinstance(n, bool) and 0 <= n < 1 << 31 else None
+            content = msg.get("content")
+            obj = extract_json(content if isinstance(content, str) else "")
+            ok = obj is not None
+            note = "" if ok else "no-json"
+            return ok, note, toks, obj
+        except Exception as e:
+            raise
+
     def chat_json(self, messages: list[dict], temperature: float = 0.9):
         """Returns (obj|None, meta). Tries endpoints in bandit order; first parseable JSON wins. Never raises: whatever the
         server (or the ledger) does, the caller gets (None, meta) at worst."""
         meta = {"attempts": []}
+
+        # all endpoints quarantined: return paused without spending a call
+        if self.eps and self._all_quarantined():
+            earliest = min(ep._quarantine_until for ep in self.eps)
+            meta["paused"] = True
+            meta["until"] = time.time() + max(0, earliest - self._clock())
+            return None, meta
+
+        call_id = self._next_call_id()
+
         for ep in self._pick_order():
-            if self._capped(reserve=True):                   # spend is bounded no matter what the proposers ask: callers fall back to search
-                meta["capped"] = True
-                return None, meta
-            t = time.time()
-            ok, note, toks, obj = False, "", None, None
-            try:
-                with ep.sem:
-                    d = self._post(ep, {"model": ep.model, "messages": messages,
-                                        "max_tokens": self.max_tokens, "temperature": temperature})
-                msg = d["choices"][0]["message"]
-                u = d.get("usage")
-                n = u.get("completion_tokens") if isinstance(u, dict) else None
-                toks = n if isinstance(n, int) and not isinstance(n, bool) and 0 <= n < 1 << 31 else None
-                content = msg.get("content")
-                obj = extract_json(content if isinstance(content, str) else "")
-                ok = obj is not None
-                note = "" if ok else "no-json"
-            except Exception as e:                       # network, HTTP, TLS, malformed or hostile body: keep the reason (never the key)
-                note = self._note(ep, e)
-            dt = time.time() - t
-            with self._lock:
-                ep.ok += ok; ep.bad += (not ok); ep.lat = (ep.lat + [dt])[-1000:]
-            if self.ledger:
+            # try this endpoint with retries for transient errors
+            for attempt_num in range(1 + RETRY_MAX):
+                if self._capped(reserve=True):
+                    meta["capped"] = True
+                    return None, meta
+                if self._budget_reached(reserve=True):
+                    meta["capped"] = True
+                    return None, meta
+
+                t = time.time()
+                ok, note, toks, obj = False, "", None, None
+                last_exc = None
                 try:
-                    self.ledger.log_llm(clean_text(f"{ep.name}:{ep.model}", 80), ok, toks, note)
-                except Exception:                        # the audit row is best-effort; a full disk must not kill the proposer thread
-                    pass
-            with self._lock:
-                self._inflight = max(0, self._inflight - 1)
-            meta["attempts"].append({"ep": ep.name, "ok": ok, "s": round(dt, 1), "note": note})
-            if ok:
-                meta["ep"] = ep.name
-                return obj, meta
+                    ok, note, toks, obj = self._attempt_one(ep, messages, temperature)
+                except Exception as e:
+                    note = self._note(ep, e)
+                    last_exc = e
+                dt = time.time() - t
+
+                with self._lock:
+                    ep.ok += ok; ep.bad += (not ok); ep.lat = (ep.lat + [dt])[-1000:]
+                if self.ledger:
+                    try:
+                        self.ledger.log_llm(clean_text(f"{ep.name}:{ep.model}", 80), ok, toks, note,
+                                            call_id=call_id, attempt=attempt_num + 1, arm=self.arm or None)
+                    except Exception:
+                        pass
+                with self._lock:
+                    self._inflight = max(0, self._inflight - 1)
+                meta["attempts"].append({"ep": ep.name, "ok": ok, "s": round(dt, 1), "note": note})
+
+                if ok:
+                    self._cb_record_success(ep)
+                    meta["ep"] = ep.name
+                    return obj, meta
+
+                # decide whether to retry this endpoint
+                if last_exc is not None and _is_retryable(last_exc) and attempt_num < RETRY_MAX:
+                    self._cb_record_failure(ep)
+                    if self._stop():
+                        return None, meta
+                    ra = getattr(last_exc, "retry_after", None) if isinstance(last_exc, HTTPCallError) else None
+                    delay = _retry_delay(attempt_num, self.rng, ra)
+                    if self._interruptible_sleep(delay):
+                        return None, meta         # shutdown during backoff
+                    continue
+
+                # not retryable or retries exhausted: record failure and move to next endpoint
+                self._cb_record_failure(ep)
+                break
+
         return None, meta
 
     def _capped(self, reserve: bool = False) -> bool:
@@ -241,6 +493,34 @@ class LLMClient:
         except Exception:                                # a ledger that cannot be read must not take the proposer down (see test_security_llm)
             return False
 
+    def _budget_reached(self, reserve: bool = False) -> bool:
+        """Lifetime budget: total HTTP attempts this arm may spend, counted from the ledger."""
+        if not (self.ledger and self.budget):
+            return False
+        try:
+            with self._lock:
+                total = self.ledger.llm_calls_since(0, arm=self.arm) if self.arm else 0
+                if total + self._inflight >= self.budget:
+                    if not self._budget_event_written:
+                        self._budget_event_written = True
+                        try:
+                            self.ledger.event("llm_budget_reached", {"arm": self.arm, "budget": self.budget, "used": total})
+                        except Exception:
+                            pass
+                    return True
+                if reserve:
+                    self._inflight += 1
+                return False
+        except Exception:
+            return False
+
     def stats(self) -> dict:
-        return {e.name: {"ok": e.ok, "bad": e.bad,
-                         "p50_s": (sorted(e.lat)[len(e.lat) // 2] if e.lat else None)} for e in self.eps}
+        out = {}
+        for e in self.eps:
+            d = {"ok": e.ok, "bad": e.bad,
+                 "p50_s": (sorted(e.lat)[len(e.lat) // 2] if e.lat else None)}
+            if self._cb_is_open(e):
+                d["quarantined_until"] = time.time() + max(0, e._quarantine_until - self._clock())
+            d["consec_fail"] = e._consec_fail
+            out[e.name] = d
+        return out
