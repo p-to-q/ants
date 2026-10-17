@@ -327,10 +327,13 @@ class PortfolioProposer:
     name = "portfolio"
 
     def __init__(self, c: Contract, ops: dict, rng: random.Random, min_share: float = 0.04,
-                 probe: float = 0.05, stagnation_n: int = 300, delayed_weight: float = 1.0, floors: dict | None = None):
+                 probe: float = 0.05, stagnation_n: int = 300, delayed_weight: float = 1.0, floors: dict | None = None,
+                 reserve: dict | None = None, use_discount: bool = True):
         self.c, self.ops, self.rng, self.min_share, self.probe, self.stag = c, ops, rng, min_share, probe, stagnation_n
         self.floors = floors or {}                         # operator -> guaranteed share of every batch (the language-model operators: see build_portfolio)
+        self.reserve = reserve or {}                       # frozenset(ops) -> guaranteed share, split equally (the stepping-stone pair)
         self.delayed_weight = delayed_weight
+        self.use_discount = use_discount
         self.burst, self.burst_left, self.last_jump = 30, 0, 0
         self.stats = {"errors": {}, "filtered_tabu": 0, "filtered_retired": 0, "jumps": 0, "alloc": {}}
 
@@ -341,8 +344,11 @@ class PortfolioProposer:
         total_succ = sum(o["succ"] for o in h.ops.values())
         for n in names:
             o = h.ops.get(n, {"n": 0, "succ": 0})
+            # the bandit's Beta is over recent behaviour: discounted counts (History.ingest) weigh the last
+            # trials more, so a deliberately slow-starting stepping-stone operator is not starved by its early rate
+            dn, dsucc = (o.get("dn", o["n"]), o.get("dsucc", o["succ"])) if self.use_discount else (o["n"], o["succ"])
             pseudo = self.delayed_weight * delayed.get(n, 0.0) * total_succ      # lineage credit, redistributed
-            theta[n] = self.rng.betavariate(1 + o["succ"] + pseudo, 1 + max(0, o["n"] - o["succ"]))
+            theta[n] = self.rng.betavariate(1 + dsucc + pseudo, 1 + max(0, dn - dsucc))
         sw = self.ops.get("sweep")
         if sw is not None and "sweep" in theta and sw.i < len(sw.combos):
             theta["sweep"] = max(theta["sweep"], 0.5)                      # finish mapping the skeleton first
@@ -358,8 +364,27 @@ class PortfolioProposer:
         share = {n: max(self.min_share, t / tot) for n, t in theta.items()}
         z = sum(share.values())
         probs = {n: share[n] / z for n in names}
-        for n, f in self.floors.items():                  # a floor is a guarantee: that operator gets at least f of the batch, the rest share what is left
-            if n in probs and probs[n] < f:
+        for ops_set, share in self.reserve.items():        # a reserve is a guarantee for a SET, split equally
+            present = [n for n in names if n in ops_set]
+            if len(present) < 2:
+                continue
+            each = share / len(present)
+            others = [m for m in names if m not in present]
+            othertot = sum(probs[m] for m in others)
+            if othertot <= 0:                            # everything is already in the set
+                for n in present:
+                    probs[n] = each
+                continue
+            deficit = sum(max(0.0, each - probs[n]) for n in present)
+            for m in others:                             # take the deficit from the others, proportionally
+                probs[m] = max(0.0, probs[m] - deficit * probs[m] / othertot)
+            for n in present:
+                probs[n] = max(each, probs[n])
+            zz = sum(probs.values()) or 1.0              # renormalise: the reserve is part of the budget, not extra
+            for n in probs:
+                probs[n] /= zz
+        for n, f in self.floors.items():                  # a floor is a guarantee applied LAST, so it is absolute: it is never
+            if n in probs and probs[n] < f:              # quietly eaten by a reserve that takes its deficit from floored ops
                 rest = sum(p for m, p in probs.items() if m != n) or 1.0
                 probs = {m: (f if m == n else p * (1 - f) / rest) for m, p in probs.items()}
         counts = {n: 0 for n in names}
@@ -417,13 +442,16 @@ class PortfolioProposer:
 LLM_FLOOR = 0.2
 
 
-def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tpe=True, agent=False) -> PortfolioProposer:
+def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tpe=True, agent=False,
+                    reserve=None, use_discount=True, drop=("sweep", "sa", "aco")) -> PortfolioProposer:
     rng = lambda i: random.Random(seed * 101 + i)
     ops = {"random": RandomProposer(c, rng(1)), "sweep": SweepProposer(c, rng(2)),
            "evo": EvoProposer(c, rng(3)), "de": DEProposer(c, rng(4)), "cem": CEMProposer(c, rng(5)),
            "aco": ACOProposer(c, rng(6)), "sa": SAProposer(c, rng(7)), "qd": QDProposer(c, rng(10))}
     if not c.space.skeleton_names():
         ops.pop("sweep")
+    for name in drop:                                  # drop removes a noisy operator from the arm (it is not in the comparison otherwise)
+        ops.pop(name, None)
     if with_tpe:
         try:
             ops["tpe"] = TPEHistProposer(c, rng(8), seed)
@@ -438,4 +466,10 @@ def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tp
     # bandit starves it (in eight hours 137 good calls produced two evaluated trials). To compare what a model proposes, not how the bandit
     # treats it, it is given a fixed slice of every batch. The slice is part of the arm's definition.
     floors = {k: LLM_FLOOR for k in ("llm", "agent") if k in ops}
-    return PortfolioProposer(c, ops, rng(0), floors=floors)
+    # The stepping-stone pair (evo + qd) is the only pair whose combination is documented to beat either alone on deceptive
+    # landscapes; reserve half the budget for it, split equally, and let the bandit allocate the rest. Without the reserve the
+    # bandit starves qd (it deliberately visits occupied cells, so its myopic cell-fill success rate is low) and the portfolio
+    # ends up ~1.5x worse than qd alone on `trap`.
+    if reserve is None and "evo" in ops and "qd" in ops:
+        reserve = {frozenset({"evo", "qd"}): 0.5}
+    return PortfolioProposer(c, ops, rng(0), floors=floors, reserve=reserve, use_discount=use_discount)

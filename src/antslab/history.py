@@ -15,9 +15,11 @@ from .contract import Contract
 
 
 class History:
-    def __init__(self, ledger, c: Contract, arm: str, epoch: str | None = None, max_records: int = 60_000):
+    def __init__(self, ledger, c: Contract, arm: str, epoch: str | None = None, max_records: int = 60_000,
+                 discount: float = 0.995):
         self.l, self.c, self.arm = ledger, c, arm
         self.epoch, self.max_records = epoch, max_records       # epoch=None: ingest every epoch (tools/tests)
+        self._discount = discount                               # exponential decay per trial for the bandit's Beta counts
         self.cursor, self.cursor_id = -1.0, -1
         self.stage_sorted: dict = {}                            # stage index -> sorted signed values (feasible)
         self.stage_sorted_cap: dict = {}                        # (stage index, cap bin) -> the same, per size cap
@@ -150,6 +152,14 @@ class History:
         o = self.ops.setdefault(op, {"n": 0, "succ": 0})
         o["n"] += 1
         o["succ"] += bool(improved and ok)
+        # Discounted counts: an operator's recent behaviour weighs more than its lifetime average, so a starved
+        # stepping-stone operator (qd) is not held back by a low early success rate. dn/dsucc are the
+        # exponentially-decayed trial and success counts; the bandit reads them when discount > 0.
+        t, last, g = len(self.order), o.get("_last", 0), self._discount
+        age = t - last
+        o["dn"] = o.get("dn", 0.0) * (g ** age) + 1.0
+        o["dsucc"] = o.get("dsucc", 0.0) * (g ** age) + (1.0 if (improved and ok) else 0.0)
+        o["_last"] = t
         if rec["origin_key"] and rec["edit"] and rec["origin_key"] in self.s0:
             pv = self.s0[rec["origin_key"]]
             d = (pv - v) / max(abs(pv), 1e-9) * self.sign

@@ -176,3 +176,41 @@ def test_history_memory_is_bounded(ledger, make_contract):
         t = ledger.claim(60, arm="h"); ledger.finish(t["id"], 1, "done", {"val_mse": 1.0 + (i % 13) * .1, "n_params": 30})
         h.update()
     assert len(h.order) <= 60 and len(h.first) < 300 and h.n == 300
+
+
+@pytest.mark.slow
+def test_portfolio_is_not_worse_than_its_best_member():
+    """Paper A's core claim, stored as a regression test (ideas.md finding 1).
+
+    The meta-controller used to be ~1.5x worse than qd alone on `trap`: the bandit's myopic cell-fill success rate
+    starves the one operator (qd) that implements stepping-stone search, while sweep burns ~35% of the budget
+    delivering almost nothing. The fix is a discounted Beta + a reserved half for the evo/qd pair with the noisy
+    operators dropped. Tolerance: portfolio mean regret <= best single operator * 1.15 at every checkpoint.
+    """
+    import statistics
+    from antslab.bench import drive, make_contract, trap, OPTIMUM
+    from antslab.portfolio import build_portfolio, PortfolioProposer, RandomProposer, EvoProposer, QDProposer
+    from antslab.contract import load_static_cost
+
+    c, static = make_contract(), load_static_cost(make_contract().static_cost)
+    fn = lambda s, n, r: trap(s)
+    truth = lambda s: trap(s)
+    seeds, evals, checkpoints = range(3), 250, (100, 250)
+
+    def single(name):
+        def f(cc, seed):
+            rng = lambda i: random.Random(seed * 101 + i)
+            m = {"random": RandomProposer(cc, rng(1)), "evo": EvoProposer(cc, rng(3)), "qd": QDProposer(cc, rng(10))}[name]
+            return PortfolioProposer(cc, {name: m}, rng(0))
+        return f
+
+    def portfolio(cc, seed):
+        return build_portfolio(cc, seed, with_tpe=False)
+
+    def mean_regret(fac, ck):
+        return statistics.mean(drive(fac, c, evals, s, noise=0.01, fn=fn, truth=truth, static=static,
+                                     checkpoints=checkpoints)["best"][ck] - OPTIMUM for s in seeds)
+
+    best_single = min(mean_regret(single(n), ck) for n in ("random", "evo", "qd") for ck in checkpoints)
+    port = mean_regret(portfolio, evals)
+    assert port <= best_single * 1.15, f"portfolio {port:.4f} > best single {best_single:.4f} x 1.15"

@@ -3,6 +3,9 @@
 Short answers, each pointing at a file or a test. Where the honest answer is "we do not know yet", it says so and links [open.md](open.md).
 Numbers come from the repository or from commands run while writing these pages (marked "measured here", macOS arm64).
 
+## 0. Does the nine-operator portfolio beat simpler search?
+Not shown. Nothing has been run against Optuna's TPE with a pruner, random search at twice the budget or plain aging evolution, and in the first measurements all top specs came from evolutionary mutation and crossover. What ants offers today is the experiment framework and the control of evidence, not a proven better optimiser; the comparison is roadmap steps 16 and 17.
+
 ## 1. Why not just use Optuna?
 You can: `ants run --arm tpe` is Optuna's TPE on the same space, same evaluator, same ledger (`proposers.TPEProposer`; extra `search`). TPE is also one
 operator inside the portfolio (`portfolio.TPEHistProposer`). ants is not a better optimiser claim. It is the harness around one: a fixed evaluator proposers cannot edit,

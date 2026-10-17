@@ -173,9 +173,9 @@ def test_operator_success_means_archive_improvement(ledger, make_contract):
         t = ledger.claim(60, arm="h")
         ledger.finish(t["id"], 1, "done", {"val_mse": v, "n_params": 60})
     h.update()
-    assert h.ops["random"] == {"n": 1, "succ": 1}        # opens the cell
-    assert h.ops["evo"] == {"n": 3, "succ": 1}           # 4.0 improves; 4.5 and 3.0-tie do not
-    assert h.ops["qd"] == {"n": 1, "succ": 1}
+    assert h.ops["random"]["n"] == 1 and h.ops["random"]["succ"] == 1        # opens the cell
+    assert h.ops["evo"]["n"] == 3 and h.ops["evo"]["succ"] == 1           # 4.0 improves; 4.5 and 3.0-tie do not
+    assert h.ops["qd"]["n"] == 1 and h.ops["qd"]["succ"] == 1
 
 
 def test_portfolio_survives_operator_failures_and_exhaustion(ledger, make_contract):
@@ -205,7 +205,7 @@ def test_over_cap_records_are_stepping_stones_not_leaders(ledger, make_contract)
         ledger.finish(t["id"], 1, "done", {"val_mse": v, "n_params": n})
     h.update()
     assert [r["key"] for r in h.ranked()] == ["k0"]            # the over-cap model is not a leader
-    assert h.best_s0 == 1.0 and h.ops["evo"] == {"n": 2, "succ": 1}
+    assert h.best_s0 == 1.0 and h.ops["evo"]["n"] == 2 and h.ops["evo"]["succ"] == 1
     assert any(rec["key"] == "k1" for rec in h.cells.values())  # but it is archived (stepping stone)
 
 
