@@ -199,7 +199,22 @@ Scheduling templates: `deploy/launchd/io.ants.pull-backups.plist` (macOS, daily 
 
 `ants doctor`: if `ANTS_OFFSITE_DIR` is set, reports the age of the newest verified copy found there (WARN > 36 h, FAIL if the directory is empty).
 
-## 12. Soak and drills (roadmap step 28)
+## 12. Replacing the harness while experiments run
+
+The procedure below seals the pilot workdirs, installs the updated harness, and starts a pre-registered series.  Each step says what it protects and what it does not.
+
+| # | step | command (as user `ants` unless noted) | protects | does not protect |
+|---|---|---|---|---|
+| a | pre-deploy verified backups | `ants backup --workdir W --dest /var/lib/ants/backups/<arm> --keep 14 --gzip` for every pilot workdir (the installer does this automatically) | the ledger file against a bad install or a corruption during the transition | the per-trial files (they are on the same disk, not backed up) |
+| b | stop the arms cleanly | `sudo systemctl stop ants@portfolio ants@portfolio_llm ants@portfolio_agent` and their timers | the trial in flight: SIGTERM requeues it; the ledger is clean after the process exits | nothing lost: `recover()` reclaims anything left |
+| c | seal the pilot | `ants bundle make --name pilot_epoch5da6 --out /var/lib/ants/bundles /var/lib/ants/portfolio /var/lib/ants/portfolio_llm /var/lib/ants/portfolio_agent` then `ants bundle verify /var/lib/ants/bundles/pilot_epoch5da6/`.  Pull the bundle off the server (`scp` or `pull-backups`-style) and `ants bundle verify` again locally.  Record the tar.gz sha256 in docs | the ledger data: the bundle is a self-contained, checksummed, chain-verified snapshot that can be re-verified by anyone | the bundle is on the same disk until pulled; pull it before proceeding |
+| d | archive the pilot workdirs | `sudo mv /var/lib/ants/portfolio /var/lib/ants/archive/pilot_portfolio` (same for the other two); `sudo chmod -R a-w /var/lib/ants/archive/pilot_*` | the original files: read-only, never deleted, never reused | if the disk fails, only the off-machine bundle survives |
+| e | install the new package | `deploy/remote_deploy.sh install` (uploads, hashes, runs `install.sh`, installs units and series registries) | the code tree is replaced; `/var/lib/ants` is never touched | nothing under `/var/lib/ants` changes |
+| f | start the series | `deploy/remote_deploy.sh series-start stage_a` | epoch check: the series runner refuses (exit 5, no restart loop) if the evaluator's epoch differs from the one written in the registry file | the series does not validate arm definitions against the pilot's; it starts fresh workdirs |
+| g | check after a day | `deploy/remote_deploy.sh series-status stage_a`; `deploy/remote_deploy.sh soak`; `ants series check stage_a` | all three: the epoch matches, the chain is intact, the arm definition has not changed inside any ledger | these checks run on the server; the off-machine copy is a separate concern |
+| h | roll back | stop the series (`series-stop`); install the old package; move the archive back; re-enable the old units | the old workdirs are untouched in the archive; a new workdir created by the series is separate | if the series wrote data to fresh workdirs under `/var/lib/ants/series/`, those stay; they are a separate experiment |
+
+## 13. Soak and drills (roadmap step 28)
 
 `deploy/remote_deploy.sh soak` prints a dated table per arm: active since, NRestarts, watchdog events (journal), last backup age, chain ok, disk free.
 

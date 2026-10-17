@@ -59,6 +59,10 @@ Locally or from npm: `ants update` looks for a newer version (cached for a day),
 | a restore would forget events | `ants restore` refuses unless `--allow-different`; it also writes a `restored` event |
 | an experiment was started on the wrong arm definition | the workdir stays as it is; start a new one and compare there |
 
+## Sealed data from a previous epoch
+
+A new design is a new arm name and a new workdir.  Sealed data from a finished or abandoned epoch is read with `ants bundle verify` and, if the schema moved on, through a migrated COPY (never the original: `ants bundle make` snapshots read-only, and the bundle stays intact).  The bundle's MANIFEST.json records the schema version; if the current ants reports `LedgerTooNew`, the bundle was made by a newer version and the reader must be upgraded.
+
 ## Rules for changing the harness without losing results
 
 1. Never edit an old migration; append one and bump `SCHEMA_VERSION`.
