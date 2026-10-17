@@ -375,12 +375,12 @@ def frontier():
     right_call = f"{names[big[0]]} has {big[1]['params'] // best_b['params']}× the parameters of ants ≤ 3000 and {abs(gap):.1f} points {'less' if gap > 0 else 'more'} skill"
     ph = 200
     base = TOP + 64 + ph
-    h = base + 72 + PAD + 4
+    h = base + 72 + PAD - 24
     o = head("Skill versus parameters", "Percent MSE reduction against seasonal naive on development data, at stage S2.")
     lw, gap = 372, 56
     deep = d["ants_demo"].get("deepest_stage_evaluations", d["ants_demo"]["finished_trials"])
-    panel_bars(o, PAD, lw, base, ph, 24.0, ours, f"ants, best of {deep:,} evaluations", "best model of at most N parameters", left_call)
-    panel_bars(o, PAD + lw + gap, W - 2 * PAD - lw - gap, base, ph, 24.0, base_items, "Hand-built baselines", "fixed specs, not tuned", right_call)
+    panel_bars(o, PAD, lw, base, ph, 24.0, ours, f"ants, best of {deep:,} evaluations", "best model of at most N parameters")
+    panel_bars(o, PAD + lw + gap, W - 2 * PAD - lw - gap, base, ph, 24.0, base_items, "Hand-built baselines", "fixed specs, not tuned")
     (A / "frontier.svg").write_text(canvas(h, o, "Skill versus parameters"))
 
 
@@ -417,7 +417,7 @@ def scatter():
         if 100 <= p <= 1e6 and y0 <= v <= y1:
             o.append(f'<circle cx="{X(p):.1f}" cy="{Y(v):.1f}" r="2.2" fill="{MINT_3}" fill-opacity="0.28"/>')
     if cloud:
-        label(o, W - R, Y(1.0) + 24, f"dots: the {len(cloud):,} evaluations of the ants run", 11.5, MUTE, "end", 500, halo=False)
+        label(o, W - R, Y(1.0) + 20, f"dots: the {len(cloud):,} evaluations of the ants run", 10.5, MUTE, "end", 500, halo=False)
     # hand-built baselines and their best-so-far envelope
     names = {"ridge_L720": "ridge 720", "ridge_L336": "ridge 336", "ridge_L96": "ridge 96", "dlinear_like": "DLinear-like", "fits_like": "FITS-like"}
     pos = {"ridge_L720": ("middle", 0, 26), "ridge_L336": ("end", -13, 5), "dlinear_like": ("middle", 0, -15), "ridge_L96": ("middle", 0, -15), "fits_like": ("middle", 0, -15)}
@@ -451,7 +451,7 @@ def scatter():
     big = max(d["measured"].values(), key=lambda m: m["params"])
     fp = big["params"]
     o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="{DASH}"/>')
-    label(o, W - R, Y(1.0) + 46, f"{fp / pa:.0f}× fewer parameters than ridge 720", 12, INK, "end", 600, halo=False)
+    label(o, W - R, Y(1.0) + 35, f"{fp / pa:.0f}× fewer parameters than ridge 720", 10.5, INK, "end", 600, halo=False)
     lab = [("start", 12, -14), ("start", 12, -14), ("end", -13, 22)]
     for i, (p, v, cap) in enumerate(pts):
         o.append(f'<rect x="{X(p)-6:.1f}" y="{Y(v)-6:.1f}" width="12" height="12" rx="2.5" fill="{MINT_3}" stroke="{INK}"/>')
