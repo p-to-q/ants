@@ -111,12 +111,14 @@ def _open(a):
 
 
 def _definition_guard(led, camp, new_definition: bool) -> int | None:
-    """Check the ledger's last daemon_started arm_def_hash against the current code.  Returns exit code 4 on mismatch
-    (unless new_definition is set), None to proceed normally."""
+    """Check the ledger's last daemon_started arm_def_hash FOR THIS ARM against the current code.
+    Returns exit code 4 on mismatch (unless new_definition is set), None to proceed normally."""
     import hashlib as _h, json as _j
-    starts = led.recent_events("daemon_started", 1)
+    # filter daemon_started events to those belonging to this arm
+    all_starts = led.recent_events("daemon_started", 50)
+    starts = [e for e in all_starts if e["payload"].get("arm") == camp.arm]
     if not starts:
-        return None  # fresh ledger, no prior start
+        return None  # fresh ledger or no prior start for this arm
     last = starts[-1]["payload"]
     prev_hash = last.get("arm_def_hash")
     if not prev_hash:
@@ -128,11 +130,12 @@ def _definition_guard(led, camp, new_definition: bool) -> int | None:
     if prev_hash == cur_hash:
         return None  # same definition, proceed
     if new_definition:
-        print(f"ants: arm definition changed (previous {prev_hash}, current {cur_hash}); proceeding with --new-definition", file=sys.stderr)
+        print(f"ants: arm definition changed for arm {camp.arm!r} (previous {prev_hash}, current {cur_hash}); "
+              f"proceeding with --new-definition", file=sys.stderr)
         return None  # caller will record definition_changed in the daemon_started event below
     # find differing keys
     diff_keys = sorted(k for k in set(list(prev_def) + list(cur)) if prev_def.get(k) != cur.get(k))
-    print(f"ants: the arm definition has changed since the last start of this ledger.\n"
+    print(f"ants: the arm definition for {camp.arm!r} has changed since the last start in {led.path}.\n"
           f"  previous hash: {prev_hash}\n  current hash:  {cur_hash}\n"
           f"  differing keys: {', '.join(diff_keys) or '(hash method changed)'}\n"
           f"  Pass --new-definition to start anyway (the change is recorded).\n"
