@@ -399,18 +399,18 @@ def scatter():
     label(o, X(50) + 14, H - B - 12, "parameter caps", 11.5, MINT_TEXT, "start", 600, halo=False)
     # references
     o.append(f'<line x1="{L}" x2="{L}" y1="{T}" y2="{H-B}" stroke="{FILL}"/>')
-    label(o, PAD, T + 4, "rel_mse", 11.5, MUTE, "start", 500, halo=False)
+    label(o, L - 14, T - 22, "rel_mse", 11.5, MUTE, "end", 500, halo=False)
     for v in (0.8, 0.9):
         o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="{INK}" stroke-opacity="0.16" stroke-dasharray="2 6"/>')
         label(o, L - 14, Y(v) + 4, f"{v:.2f}", 11.5, MUTE, "end", halo=False)
     o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(1.0):.1f}" y2="{Y(1.0):.1f}" stroke="{INK}" stroke-dasharray="{DASH}"/>')
     label(o, L - 14, Y(1.0) + 4, "1.00", 11.5, MUTE, "end", halo=False)
-    label(o, W - R - 240, Y(1.0) - 10, "seasonal naive", 12.5, MUTE, "start", 500, halo=False)
+    label(o, W - R, Y(1.0) - 10, "seasonal naive", 12.5, MUTE, "end", 500, halo=False)
     for p, lab in ((100, "100"), (1e3, "1k"), (1e4, "10k"), (1e5, "100k"), (1e6, "1M")):
         o.append(f'<line x1="{X(p):.1f}" x2="{X(p):.1f}" y1="{H-B}" y2="{H-B+6}" stroke="{FILL}"/>')
-        label(o, X(p), H - B + 26, lab, 11.5, MUTE, "end" if p == 1e6 else "middle", halo=False)     # the last tick ends at the axis, like the title under it
+        label(o, X(p), H - B + 26, lab, 11.5, MUTE, "middle", halo=False)
     o.append(f'<line x1="{L}" x2="{W-R}" y1="{H-B}" y2="{H-B}" stroke="{FILL}"/>')
-    label(o, W - R, H - B + 52, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
+    label(o, W - R, H - 22, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
     # every deepest-stage evaluation of the ants run: the cloud the best models are picked from
     cloud = d["ants_demo"].get("cloud", [])
     for p, v in cloud:
@@ -452,8 +452,8 @@ def scatter():
     fp = big["params"]
     o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="{DASH}"/>')
     # a small legend under the reference line, left-aligned with it: glyphs in a column, texts start at one x
-    lx = W - R - 240                              # left edge of the block, chosen so that the longest row ends at the plot's right edge
-    tx = lx + 40
+    lx = W - R - 236                              # left edge of the block
+    tx = lx + 36
     ly = Y(1.0) + 22
     for dx in (3.5, 11):                          # the cloud: two of its dots
         o.append(f'<circle cx="{lx + dx:.1f}" cy="{ly - 4:.1f}" r="3" fill="{MINT_3}" fill-opacity="0.5"/>')
