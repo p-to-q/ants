@@ -650,3 +650,40 @@ def test_the_epoch_of_the_real_contract_does_not_move_with_a_release():
     root = Path(__file__).resolve().parents[1]
     paths = [root / "src/antslab/gyms/tinyts.py", root / "src/antslab/metrics.py", root / "src/antslab/data.py", root / "data/catalog.toml", root / "data/catalog_synth.toml"]
     assert code_fingerprint(paths) == "e6a26c82e05dad1ece3c99e8817a47ce4e29373d34af6f425d8b310e74e93a0f"   # the value on the server since epoch 2 (2026-10-13)
+
+
+def _v1_ledger(path, n=5):
+    led = Ledger(path)
+    for i in range(n):
+        led.event("note", {"i": i})
+    led.conn.execute("PRAGMA user_version=1")
+    led.checkpoint()
+    led.close()
+    return path
+
+
+def test_backing_up_an_older_schema_ledger_keeps_the_schema_and_leaves_nothing_but_the_backup(tmp_path):
+    src = _v1_ledger(tmp_path / "w" / "ledger.sqlite")
+    dest = tmp_path / "bk"
+    m = make_backup(src, dest, keep=3, now=1_700_000_000)
+    names = sorted(p.name for p in dest.iterdir())
+    assert not [n for n in names if "pre-migration" in n or ".partial" in n or ".probe" in n], names
+    assert m["schema_version"] == 1                                # a faithful snapshot: an older ants can still restore it
+    verify_backup(dest, m)
+    assert sorted(p.name for p in dest.iterdir()) == names           # and verifying leaves nothing either
+    assert not [p for p in (tmp_path / "w").iterdir() if "pre-migration" in p.name]       # the live ledger was not touched
+
+
+def test_a_stale_rollback_copy_is_set_aside_when_a_restored_ledger_is_migrated_again(tmp_path):
+    p = _v1_ledger(tmp_path / "ledger.sqlite")
+    old = Ledger(p)                                               # first migration: makes the rollback copy
+    old.close()
+    copy = Path(str(p) + ".pre-migration-v1")
+    assert copy.exists()
+    os.utime(copy, (1_000_000_000, 1_000_000_000))                # that copy is from a past life of this path
+    for ext in ("", "-wal", "-shm"):
+        Path(str(p) + ext).unlink(missing_ok=True)
+    _v1_ledger(p, n=7)                                            # a backup is restored over it: a v1 file, newer than the old copy
+    Ledger(p).close()
+    assert copy.exists() and Ledger.open_readonly(copy).events("note").__len__() == 7
+    assert [x for x in tmp_path.iterdir() if ".pre-migration-v1.stale-" in x.name]

@@ -666,3 +666,68 @@ def test_five_consecutive_timeouts_do_quarantine(ledger):
     # 3 attempts (1 + 2 retries) all timeout -> consec_fail >= 3 -> quarantined
     assert cl.eps[0]._consec_fail >= 3
     assert cl.eps[0]._quarantine_until > 0
+
+
+# ---- PR review fixes (2026-10-18): atomic reservation, a deadline for one call, no leak on BaseException, unlabelled rows count ---------
+
+def test_the_cap_is_atomic_with_many_threads_at_cap_minus_one(ledger):
+    """Several proposer threads reaching the cap together must not overshoot it (a check and an increment in two steps let them all pass)."""
+    s = _server(["ok"] * 200)
+    cl = _fast_client(s, ledger, daily_calls=5)
+    gate = threading.Barrier(8)
+    def go():
+        gate.wait()
+        for _ in range(3):
+            cl.chat_json([{"role": "user", "content": "hi"}])
+    ts = [threading.Thread(target=go) for _ in range(8)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert ledger.llm_calls_since(0) == 5 and cl._inflight == 0
+
+
+def test_a_base_exception_in_an_attempt_does_not_leak_the_reservation(ledger):
+    s = _server(["ok"])
+    cl = _fast_client(s, ledger, daily_calls=5)
+    class Shutdown(BaseException):
+        pass
+    def boom(ep, body):
+        raise Shutdown()
+    cl._post = boom
+    with pytest.raises(Shutdown):
+        cl.chat_json([{"role": "user", "content": "hi"}])
+    assert cl._inflight == 0
+
+
+def test_one_call_ends_within_its_deadline_even_when_every_endpoint_times_out(ledger):
+    """3 endpoints x 3 attempts x a long timeout used to be ~900 s for one chat_json: longer than the watchdog's cover."""
+    clock = FakeClock()
+    t0 = clock()
+    eps = [Endpoint(n, f"http://127.0.0.1:1/v1", KEY, "m") for n in "ABC"]
+    cl = LLMClient(eps, ledger, timeout_s=100, clock=clock, call_deadline_s=300)
+    cl._sleep = clock.advance
+    def slow_timeout(ep, body):
+        clock.advance(min(100, cl._tls.timeout))          # the attempt used its whole timeout
+        raise TimeoutError("The read operation timed out")
+    cl._post = slow_timeout
+    obj, meta = cl.chat_json([{"role": "user", "content": "hi"}])
+    assert obj is None and meta.get("deadline") is True
+    assert clock() - t0 <= 300 + 5 and len(meta["attempts"]) <= 4
+    assert cl._inflight == 0
+
+
+def test_the_daemons_shutdown_flag_stops_further_attempts(ledger):
+    s = _server(["500"] * 10)
+    cl = _fast_client(s, ledger)
+    cl.set_stop(lambda: True)
+    obj, meta = cl.chat_json([{"role": "user", "content": "hi"}])
+    assert obj is None and meta.get("stopped") is True and ledger.llm_calls_since(0) == 0
+
+
+def test_the_lifetime_budget_counts_rows_from_before_the_arm_column(ledger):
+    for _ in range(4):
+        ledger.log_llm("A:m", True, 10, "")                      # a v1-style row: no arm
+    s = _server(["ok"] * 5)
+    cl = _fast_client(s, ledger, budget=5, arm="x")
+    assert cl.chat_json([{"role": "user", "content": "hi"}])[0] is not None       # the 5th call is allowed
+    obj, meta = cl.chat_json([{"role": "user", "content": "hi"}])
+    assert obj is None and meta.get("capped") is True

@@ -38,6 +38,7 @@ _LOOPBACK = ("localhost", "127.0.0.1", "::1")
 
 # ---- retry constants --------------------------------------------------------
 RETRY_MAX = 2                        # additional attempts (total = 1 + RETRY_MAX)
+CALL_DEADLINE_S = 300                # one chat_json (all its attempts, all endpoints, all backoff) ends within this; under the 900 s of notify.keepalive and the unit's 300 s watchdog
 RETRY_BASE_S = 1.0
 RETRY_CAP_S = 20.0
 RETRY_AFTER_CAP_S = 60.0
@@ -280,7 +281,7 @@ def seed_endpoint_health(endpoints: list[Endpoint], ledger, window_s: float = 86
 class LLMClient:
     def __init__(self, endpoints: list[Endpoint], ledger=None, timeout_s: float = 100,
                  max_tokens: int = 4000, rng: random.Random | None = None, daily_calls: int | None = None,
-                 budget: int = 0, arm: str = "", clock=None, stop=None,
+                 budget: int = 0, arm: str = "", clock=None, stop=None, call_deadline_s: float = CALL_DEADLINE_S,
                  cb_consecutive: int = CB_CONSECUTIVE, cb_base_s: float = CB_BASE_S, cb_max_s: float = CB_MAX_S):
         self.eps, self.ledger, self.timeout_s, self.max_tokens = endpoints, ledger, timeout_s, max_tokens
         self.daily_calls = daily_cap() if daily_calls is None else daily_calls
@@ -293,6 +294,8 @@ class LLMClient:
         self._clock = clock or time.monotonic                    # injectable for tests
         self._sleep = time.sleep                                 # injectable for tests
         self._stop = stop or (lambda: False)                     # shutdown check
+        self.call_deadline_s = call_deadline_s
+        self._tls = threading.local()                            # the timeout of the attempt in progress on this thread
         self._cb_consecutive = cb_consecutive
         self._cb_base_s = cb_base_s
         self._cb_max_s = cb_max_s
@@ -301,9 +304,14 @@ class LLMClient:
             ep._quarantine_duration = cb_base_s    # align with client config
         seed_endpoint_health(endpoints, ledger)
 
+    def set_stop(self, stop) -> None:
+        """the daemon's shutdown flag, known only after the client was built: backoff and further attempts end as soon as it is true"""
+        self._stop = stop
+
     # overridable for tests
     def _post(self, ep: Endpoint, body: dict) -> dict:
-        return http_post_json(ep.base + "/chat/completions", body, {"Authorization": "Bearer " + ep.key}, self.timeout_s)
+        timeout = getattr(self._tls, "timeout", None) or self.timeout_s
+        return http_post_json(ep.base + "/chat/completions", body, {"Authorization": "Bearer " + ep.key}, timeout)
 
     def _next_call_id(self) -> int:
         with self._lock:
@@ -407,36 +415,40 @@ class LLMClient:
             return None, meta
 
         call_id = self._next_call_id()
+        deadline = self._clock() + self.call_deadline_s
 
         for ep in self._pick_order():
             # try this endpoint with retries for transient errors
             for attempt_num in range(1 + RETRY_MAX):
-                if self._capped() or self._budget_reached():
+                left = deadline - self._clock()
+                if left <= 5 or self._stop():                # the whole call is bounded: see CALL_DEADLINE_S
+                    meta["deadline" if left <= 5 else "stopped"] = True
+                    return None, meta
+                if not self._reserve():                      # both caps, one reservation, one critical section
                     meta["capped"] = True
                     return None, meta
-                with self._lock:                             # one reservation per HTTP attempt, covering both caps
-                    self._inflight += 1
-
                 t = time.time()
                 ok, note, toks, obj = False, "", None, None
                 last_exc = None
                 try:
-                    ok, note, toks, obj = self._attempt_one(ep, messages, temperature)
-                except Exception as e:
-                    note = self._note(ep, e)
-                    last_exc = e
-                dt = time.time() - t
-
-                with self._lock:
-                    ep.ok += ok; ep.bad += (not ok); ep.lat = (ep.lat + [dt])[-1000:]
-                if self.ledger:
+                    self._tls.timeout = min(self.timeout_s, max(left, 1.0))     # an attempt never outlives the call's deadline by more than a few seconds
                     try:
-                        self.ledger.log_llm(clean_text(f"{ep.name}:{ep.model}", 80), ok, toks, note,
-                                            call_id=call_id, attempt=attempt_num + 1, arm=self.arm or None)
-                    except Exception:
-                        pass
-                with self._lock:
-                    self._inflight = max(0, self._inflight - 1)
+                        ok, note, toks, obj = self._attempt_one(ep, messages, temperature)
+                    except Exception as e:
+                        note = self._note(ep, e)
+                        last_exc = e
+                    dt = time.time() - t
+                    with self._lock:
+                        ep.ok += ok; ep.bad += (not ok); ep.lat = (ep.lat + [dt])[-1000:]
+                    if self.ledger:
+                        try:
+                            self.ledger.log_llm(clean_text(f"{ep.name}:{ep.model}", 80), ok, toks, note,
+                                                call_id=call_id, attempt=attempt_num + 1, arm=self.arm or None)
+                        except Exception:
+                            pass
+                finally:
+                    self._tls.timeout = None
+                    self._release()                          # exactly once per reservation, whatever escapes (a Shutdown raised by the signal handler included)
                 meta["attempts"].append({"ep": ep.name, "ok": ok, "s": round(dt, 1), "note": note})
 
                 if ok:
@@ -454,7 +466,7 @@ class LLMClient:
                     if self._stop():
                         return None, meta
                     ra = getattr(last_exc, "retry_after", None) if isinstance(last_exc, HTTPCallError) else None
-                    delay = _retry_delay(attempt_num, self.rng, ra)
+                    delay = min(_retry_delay(attempt_num, self.rng, ra), max(0.0, deadline - self._clock() - 5))
                     if self._interruptible_sleep(delay):
                         return None, meta         # shutdown during backoff
                     continue
@@ -466,33 +478,51 @@ class LLMClient:
 
         return None, meta
 
+    def _reserve(self) -> bool:
+        """Check both caps and take one reservation in ONE critical section (several proposer threads may be here at once; a check
+        and an increment in two steps lets all of them pass at cap - 1). False = capped; the caller must `_release()` after the attempt."""
+        with self._lock:
+            try:
+                if self.ledger and self.daily_calls and self.ledger.llm_calls_since(time.time() - 86400) + self._inflight >= self.daily_calls:
+                    return False
+                if self.ledger and self.budget and self._budget_used_locked() + self._inflight >= self.budget:
+                    return False
+            except Exception:                                # a ledger that cannot be read must not take the proposer down (see test_security_llm)
+                pass
+            self._inflight += 1
+            return True
+
+    def _release(self) -> None:
+        with self._lock:
+            self._inflight = max(0, self._inflight - 1)
+
+    def _budget_used_locked(self) -> int:
+        """HTTP attempts this arm has spent in its life. Rows written before the `arm` column existed (schema v1) carry no arm; the ledger
+        belongs to one arm, so they count too."""
+        total = self.ledger.llm_calls_since(0, arm=self.arm) if self.arm else 0
+        total += self.ledger.llm_calls_since(0, arm=None, unlabelled_only=True) if self.arm else 0
+        if total + self._inflight >= self.budget and not self._budget_event_written:
+            self._budget_event_written = True
+            try:
+                self.ledger.event("llm_budget_reached", {"arm": self.arm, "budget": self.budget, "used": total})
+            except Exception:
+                pass
+        return total
+
     def _capped(self) -> bool:
-        if not (self.ledger and self.daily_calls):
-            return False
-        try:
-            with self._lock:
-                return self.ledger.llm_calls_since(time.time() - 86400) + self._inflight >= self.daily_calls
-        except Exception:                                # a ledger that cannot be read must not take the proposer down (see test_security_llm)
-            return False
+        """not used by chat_json any more (see _reserve); kept for callers that only want to know"""
+        with self._lock:
+            try:
+                return bool(self.ledger and self.daily_calls and self.ledger.llm_calls_since(time.time() - 86400) + self._inflight >= self.daily_calls)
+            except Exception:
+                return False
 
     def _budget_reached(self) -> bool:
-        """Lifetime budget: total HTTP attempts this arm may spend, counted from the ledger."""
-        if not (self.ledger and self.budget):
-            return False
-        try:
-            with self._lock:
-                total = self.ledger.llm_calls_since(0, arm=self.arm) if self.arm else 0
-                if total + self._inflight >= self.budget:
-                    if not self._budget_event_written:
-                        self._budget_event_written = True
-                        try:
-                            self.ledger.event("llm_budget_reached", {"arm": self.arm, "budget": self.budget, "used": total})
-                        except Exception:
-                            pass
-                    return True
+        with self._lock:
+            try:
+                return bool(self.ledger and self.budget and self._budget_used_locked() + self._inflight >= self.budget)
+            except Exception:
                 return False
-        except Exception:
-            return False
 
     def stats(self) -> dict:
         out = {}

@@ -199,7 +199,15 @@ class Ledger:
         """a full copy next to the ledger before the first migration of its data (kept; delete it by hand once the new version has run)"""
         dest = Path(self.path + f".pre-migration-v{v}")
         if dest.exists():
-            return
+            # a copy from an EARLIER migration of this path (a backup was restored and is being migrated again) is not the rollback copy of
+            # this ledger any more: keep it under another name and make a fresh one
+            try:
+                if dest.stat().st_mtime < Path(self.path).stat().st_mtime - 1:
+                    os.replace(dest, Path(f"{dest}.stale-{int(time.time())}"))
+                else:
+                    return
+            except OSError:
+                return
         part = Path(f"{dest}.partial.{os.getpid()}.{threading.get_ident()}")          # several openers may get here at once
         out = sqlite3.connect(part)
         try:
@@ -709,7 +717,7 @@ class Ledger:
             c.execute("INSERT INTO llm_calls(ts,model,ok,tokens,note,call_id,attempt,arm) VALUES(?,?,?,?,?,?,?,?)",
                       (time.time(), model, int(ok), tokens, note, call_id, attempt, arm))
 
-    def llm_calls_since(self, since: float, ok_only=False, arm: str | None = None) -> int:
+    def llm_calls_since(self, since: float, ok_only=False, arm: str | None = None, unlabelled_only: bool = False) -> int:
         q = "SELECT COUNT(*) FROM llm_calls WHERE ts>=?"
         args: list = [since]
         if ok_only:
@@ -717,6 +725,8 @@ class Ledger:
         if arm is not None:
             q += " AND arm=?"
             args.append(arm)
+        if unlabelled_only:                                   # rows from before the `arm` column (schema v1)
+            q += " AND arm IS NULL"
         return self.conn.execute(q, args).fetchone()[0]
 
     def llm_summary(self, since: float) -> dict:
