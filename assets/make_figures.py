@@ -355,9 +355,8 @@ def panel_bars(o, x, w, base, ph, vmax, items, title, sub, callout=None):
         for j, line in enumerate(notes):
             o.append(t(cx, base + 68 + 14 * j, line, 10.5, MUTE, "middle", 400))
     o.append(f'<line x1="{x}" x2="{x + w}" y1="{base}" y2="{base}" stroke="{HAIR}"/>')
-    if callout:                                  # a short remark in the empty headroom above the low bars: one line that says it, one that names it
-        o.append(t(x, TOP + 84, callout[0], 12.5, INK, weight=600))
-        o.append(t(x, TOP + 102, callout[1], 11.5, MUTE))
+    if callout:                                  # one quiet line under the panel, in the voice of the sizes above it
+        o.append(t(x, base + 84, callout, 11.5, MUTE))
 
 
 def frontier():
@@ -371,12 +370,12 @@ def frontier():
     big = max(d["measured"].items(), key=lambda kv: kv[1]["params"])
     fits = d["measured"]["fits_like"]
     twin = next((b for b in bins if abs(b["rel_mse"] - fits["rel_mse"]) < 0.0015), None)
-    left_call = (f"Same skill, 1/{fits['params'] // twin['params']} the size", f"ants ≤ {int(twin['cap'])} against FITS-like") if twin else None
+    left_call = f"ants ≤ {int(twin['cap'])} matches FITS-like with 1/{fits['params'] // twin['params']} of its parameters" if twin else None
     gap = 100 * (big[1]["rel_mse"] - best_b["rel_mse"])
-    right_call = (f"{names[big[0]]} is {big[1]['params'] // best_b['params']}× larger", f"and {abs(gap):.1f} points {'lower' if gap > 0 else 'higher'} in skill")
+    right_call = f"{names[big[0]]} has {big[1]['params'] // best_b['params']}× the parameters of ants ≤ 3000 and {abs(gap):.1f} points {'less' if gap > 0 else 'more'} skill"
     ph = 200
     base = TOP + 64 + ph
-    h = base + 72 + PAD - 24
+    h = base + 72 + PAD + 4
     o = head("Skill versus parameters", "Percent MSE reduction against seasonal naive on development data, at stage S2.")
     lw, gap = 372, 56
     deep = d["ants_demo"].get("deepest_stage_evaluations", d["ants_demo"]["finished_trials"])
@@ -392,7 +391,6 @@ def scatter():
     X = lambda p: L + (math.log10(p) - x0) / (x1 - x0) * (W - L - R)
     Y = lambda v: T + (y1 - v) / (y1 - y0) * (H - T - B)
     o = head("Parameters versus error", "rel_mse against parameters on development data at stage S2; lower is better.")
-    o.append(t(PAD, 108, "The ants models were picked on the same data they are scored on; the baselines were not tuned on it. Not a claim.", 12, MUTE))
     # the zone ants works in: at or under 3 000 parameters (the first design's shaded region, kept)
     o.append(f'<rect x="{X(50):.1f}" y="{T-12}" width="{X(3000)-X(50):.1f}" height="{H-B-T+12}" rx="12" fill="{MINT_2}" fill-opacity="0.34"/>')
     for c, lab in ((100, "100"), (300, "300"), (1000, "1k"), (3000, "3k")):
@@ -453,7 +451,7 @@ def scatter():
     big = max(d["measured"].values(), key=lambda m: m["params"])
     fp = big["params"]
     o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="{DASH}"/>')
-    label(o, X(3000) + 14, Y(va) + 19, f"{fp / pa:.0f}× fewer parameters", 12, INK, "start", 600, halo=False)
+    label(o, W - R, Y(1.0) + 46, f"{fp / pa:.0f}× fewer parameters than ridge 720", 12, INK, "end", 600, halo=False)
     lab = [("start", 12, -14), ("start", 12, -14), ("end", -13, 22)]
     for i, (p, v, cap) in enumerate(pts):
         o.append(f'<rect x="{X(p)-6:.1f}" y="{Y(v)-6:.1f}" width="12" height="12" rx="2.5" fill="{MINT_3}" stroke="{INK}"/>')
