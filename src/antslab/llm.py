@@ -38,7 +38,7 @@ _LOOPBACK = ("localhost", "127.0.0.1", "::1")
 
 # ---- retry constants --------------------------------------------------------
 RETRY_MAX = 2                        # additional attempts (total = 1 + RETRY_MAX)
-CALL_DEADLINE_S = 300                # one chat_json (all its attempts, all endpoints, all backoff) ends within this; under the 900 s of notify.keepalive and the unit's 300 s watchdog
+CALL_DEADLINE_S = 240                # one chat_json (all its attempts, all endpoints, all backoff) ends within this; under the 900 s of notify.keepalive and the unit's 300 s watchdog
 RETRY_BASE_S = 1.0
 RETRY_CAP_S = 20.0
 RETRY_AFTER_CAP_S = 60.0

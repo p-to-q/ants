@@ -18,16 +18,21 @@ TS="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 FAIL=0
 
 # pull from the server (uses ANTS_HOST, ANTS_USER, ANTS_KEY)
-deploy/remote_deploy.sh pull-backups "$DIR" || { echo "$TS pull FAILED" >> "$DIR/PULL.log"; exit 1; }
+# ANTS_NO_PULL=1 verifies what is already in DIR (tests; a second look at an earlier pull) without touching the network.
+if [ -z "${ANTS_NO_PULL:-}" ]; then
+  deploy/remote_deploy.sh pull-backups "$DIR" || { echo "$TS pull FAILED" >> "$DIR/PULL.log"; exit 1; }
+fi
 
 PULLED=0
 VERIFIED=0
 BAD=0
 WORST_AGE_H=0
 
-for arm_dir in "$DIR"/*/backups; do
+# The server keeps backups at /var/lib/ants/backups/<arm>/ (ants-backup@.service), so after the pull they are at DIR/backups/<arm>/. A
+# workdir-local DIR/<arm>/backups is read too (a backup made with a different --dest).
+for arm_dir in "$DIR"/backups/* "$DIR"/*/backups; do
   [ -d "$arm_dir" ] || continue
-  arm="$(basename "$(dirname "$arm_dir")")"
+  if [ "$(basename "$arm_dir")" = "backups" ]; then arm="$(basename "$(dirname "$arm_dir")")"; else arm="$(basename "$arm_dir")"; fi
   # verify each sidecar
   for sidecar in "$arm_dir"/ledger-*.json; do
     [ -f "$sidecar" ] || continue
@@ -83,6 +88,11 @@ done
 LINE="$TS pulled=$PULLED verified_ok=$VERIFIED bad=$BAD worst_backup_age_h=$WORST_AGE_H"
 echo "$LINE" >> "$DIR/PULL.log"
 echo "$LINE"
+
+if [ "$VERIFIED" -eq 0 ] && [ "$BAD" -eq 0 ]; then
+  echo "FAIL: no backup was found or verified under $DIR (a pull that verifies nothing is not a check)"
+  FAIL=1
+fi
 
 if [ "$BAD" -gt 0 ]; then
   echo "FAIL: $BAD backup(s) failed verification"

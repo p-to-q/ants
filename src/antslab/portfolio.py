@@ -463,11 +463,12 @@ def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tp
         ops.pop("sweep")
     for name in drop:                                  # drop removes a noisy operator from the arm (it is not in the comparison otherwise)
         ops.pop(name, None)
+    unavailable = []
     if with_tpe:
         try:
             ops["tpe"] = TPEHistProposer(c, rng(8), seed)
         except ImportError:
-            pass
+            unavailable.append("tpe")                      # optuna is not installed: the arm runs without it, and says so (daemon_started.unavailable)
     if client is not None and agent:
         from .agent import AgentProposer                  # the agent operator takes the place of `llm`: same budget, same slot, more to read
         ops["agent"] = AgentProposer(c, client, None, rng(9), memory_fn=memory_fn)
@@ -483,4 +484,6 @@ def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tp
     # ends up ~1.5x worse than qd alone on `trap`.
     if reserve is None and "evo" in ops and "qd" in ops:
         reserve = {frozenset({"evo", "qd"}): 0.5}
-    return PortfolioProposer(c, ops, rng(0), floors=floors, reserve=reserve, use_discount=use_discount)
+    p = PortfolioProposer(c, ops, rng(0), floors=floors, reserve=reserve, use_discount=use_discount)
+    p.unavailable = unavailable
+    return p

@@ -80,13 +80,10 @@ def test_experiments_cli_runs(tmp_path, capsys):
     assert "x" in out
 
 
-def test_experiments_uses_shared_batch_constant():
-    """experiments.py must use DEFAULT_BATCH from campaign, not a hardcoded 4."""
+def test_experiments_has_no_second_definition_of_the_arm():
+    """experiments.py must call Campaign.definition_of (which owns the batch size and every key), not rebuild the dict."""
     src = (ROOT / "src/antslab/experiments.py").read_text()
-    assert "DEFAULT_BATCH" in src
-    # after the import of DEFAULT_BATCH there must be no `batch: 4`
-    after_import = src[src.index("DEFAULT_BATCH"):]
-    assert "batch: 4" not in after_import
+    assert "Campaign.definition_of" in src and '"promote_quantile"' not in src
 
 
 def test_remote_deploy_start_registry_reads_experiments(tmp_path):
@@ -444,3 +441,91 @@ def test_operations_md_has_exit_4_everywhere():
     for h in hits:
         h = h.strip()
         assert "3 4" in h, f"stale reference (missing exit 4): {h}"
+
+
+def _pull_layout(tmp_path, arms=("alpha", "beta")):
+    """the layout the server really has after `remote_deploy.sh pull-backups`: DIR/backups/<arm>/"""
+    from antslab.backup import make_backup
+    for arm in arms:
+        wd = tmp_path / "src" / arm
+        wd.mkdir(parents=True)
+        led = Ledger(wd / "ledger.sqlite")
+        led.event("note", {"x": 1})
+        led.close()
+        make_backup(wd / "ledger.sqlite", tmp_path / "pulled" / "backups" / arm, keep=3, compress=True)
+    return tmp_path / "pulled"
+
+
+def _run_pull(d):
+    return subprocess.run(["bash", str(ROOT / "deploy/pull_backups.sh"), str(d)], capture_output=True, text=True,
+                          env={**os.environ, "ANTS_NO_PULL": "1", "ANTS_PYTHON": sys.executable}, timeout=120)
+
+
+def test_pull_backups_verifies_the_real_layout(tmp_path):
+    d = _pull_layout(tmp_path)
+    r = _run_pull(d)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "pulled=2 verified_ok=2 bad=0" in r.stdout
+
+
+def test_pull_backups_fails_when_nothing_is_found(tmp_path):
+    d = tmp_path / "empty"
+    d.mkdir()
+    r = _run_pull(d)
+    assert r.returncode != 0 and "no backup" in r.stdout
+
+
+# ===================== review fixes of the second half =====================
+
+def test_experiments_hash_is_the_campaigns_own_for_every_registered_arm(tmp_path):
+    """ants experiments used to rebuild the definition by hand and report MISMATCH for arms with a reserve, a discount or a promotion rule"""
+    import hashlib
+    from antslab.campaign import Campaign
+    from antslab.contract import load_contract
+    from antslab.experiments import _StubClient, arm_definition_hash, load_experiments
+    from antslab.proposers import make_proposer
+    ct = ROOT / "contracts/tinyts_real.toml"
+    c = load_contract(ct)
+    arms = {e["arm"] for e in load_experiments(ROOT / "deploy/experiments.toml")} | {"portfolio", "portfolio_screen", "portfolio_lean"}
+    for arm in sorted(arms):
+        d = Campaign.definition_of(arm, make_proposer(arm, c, 1, _StubClient()), c)
+        assert arm_definition_hash(arm, ct, 1) == hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:12], arm
+
+
+def test_a_missing_optional_operator_does_not_change_the_definition(monkeypatch):
+    """optuna missing on a host must be a degraded start, not an arm definition the guard answers with exit 4 (RestartPreventExitStatus then leaves the arm down)"""
+    from antslab import portfolio
+    from antslab.campaign import Campaign
+    from antslab.contract import load_contract
+    from antslab.proposers import make_proposer
+    c = load_contract(ROOT / "contracts/tinyts_real.toml")
+    with_tpe = make_proposer("portfolio", c, 1, None)
+    if "tpe" not in with_tpe.ops:
+        pytest.skip("optuna is not installed here")
+    h_with = Campaign.definition_of("portfolio", with_tpe, c)
+
+    def boom(*a, **k):
+        raise ImportError("no optuna")
+    monkeypatch.setattr(portfolio, "TPEHistProposer", boom)
+    without = make_proposer("portfolio", c, 1, None)
+    assert "tpe" not in without.ops and without.unavailable == ["tpe"]
+    assert Campaign.definition_of("portfolio", without, c) == h_with
+
+
+def test_a_refused_start_registers_no_epoch(tmp_path):
+    contract = _contract(tmp_path)
+    wd = tmp_path / "wd"
+    env = {**os.environ, "ANTS_ALLOWED_ROLES": "dev"}
+    base = [sys.executable, "-m", "antslab.cli", "run", "--contract", str(contract), "--workdir", str(wd), "--seed", "1", "--max-evals", "4"]
+    assert subprocess.run(base + ["--arm", "evo"], capture_output=True, text=True, timeout=120, env=env).returncode == 0
+    led = Ledger(wd / "ledger.sqlite")
+    # pretend an earlier start recorded another definition for this arm
+    first = led.recent_events("daemon_started", 1)[0]["payload"]
+    led.event("daemon_started", {**first, "arm_def_hash": "000000000000"})
+    n = led.conn.execute("SELECT COUNT(*) FROM epochs").fetchone()[0]
+    led.close()
+    r = subprocess.run(base + ["--arm", "evo"], capture_output=True, text=True, timeout=120, env=env)
+    assert r.returncode == 4, r.stderr[-300:]
+    led = Ledger(wd / "ledger.sqlite")
+    assert led.conn.execute("SELECT COUNT(*) FROM epochs").fetchone()[0] == n
+    led.close()

@@ -143,26 +143,37 @@ class Campaign:
                 return hashlib.sha256(cand.read_bytes()).hexdigest()[:16]
         return ""
 
-    def arm_definition(self) -> dict:
-        """what makes this arm this arm, apart from the measuring machinery (that is the epoch): its operators, their guaranteed shares,
-        the stage budgets. If it changes inside one ledger, results before and after are not one experiment."""
-        ops = sorted(getattr(self.p, "ops", {}) or [getattr(self.p, "name", "?")])
-        d = {"arm": self.arm, "operators": ops, "floors": dict(sorted((getattr(self.p, "floors", {}) or {}).items())),
-             "promote_quantile": self.c.promote_quantile, "promote_by_cap": bool(self.c.raw.get("cascade", {}).get("promote_by_cap")),
-             "min_history": self.c.min_history, "batch": self.batch}
-        if getattr(self.p, "reserve", None):                      # likewise: a key appears only when the arm uses the feature, so older hashes stand
-            d["reserve"] = sorted([sorted(k), v] for k, v in self.p.reserve.items())
-        if getattr(self.p, "use_discount", False):
+    @staticmethod
+    def definition_of(arm: str, proposer, c: Contract, batch: int = DEFAULT_BATCH) -> dict:
+        """what makes an arm this arm, apart from the measuring machinery (that is the epoch): its operators, their guaranteed shares,
+        the stage budgets, its promotion rule. A pure function of the arm's proposer and contract, so a check (`ants experiments`) computes it
+        without opening a ledger and cannot drift from what a running campaign records. If it changes inside one ledger, results before and
+        after are not one experiment. The operators are the REQUESTED ones: an optional operator whose package is missing on this host
+        (`unavailable`) stays in the definition, so a restart on a host without it is a degraded run (recorded in daemon_started), not a new
+        definition that the guard would answer with exit 4 and a downed service."""
+        ops = sorted(set(getattr(proposer, "ops", {}) or [getattr(proposer, "name", "?")]) | set(getattr(proposer, "unavailable", []) or []))
+        d = {"arm": arm, "operators": ops, "floors": dict(sorted((getattr(proposer, "floors", {}) or {}).items())),
+             "promote_quantile": c.promote_quantile, "promote_by_cap": bool(c.raw.get("cascade", {}).get("promote_by_cap")),
+             "min_history": c.min_history, "batch": batch}
+        if getattr(proposer, "reserve", None):                    # a key appears only when the arm uses the feature, so older hashes stand
+            d["reserve"] = sorted([sorted(k), v] for k, v in proposer.reserve.items())
+        if getattr(proposer, "use_discount", False):
             d["use_discount"] = True
-        if self.promoter is not None:                             # only when present: the definition (and its hash) of every older arm is unchanged
-            d["promotion"] = self.promoter.definition()
+        promoter = getattr(proposer, "promoter", None)
+        if promoter is not None:                                  # only when present: the definition (and its hash) of every older arm is unchanged
+            d["promotion"] = promoter.definition()
         return d
+
+    def arm_definition(self) -> dict:
+        return Campaign.definition_of(self.arm, self.p, self.c, self.batch)
 
     def start_record(self, definition_changed: bool = False, prev_hash: str | None = None) -> dict:
         from .update import current_version
         d = self.arm_definition()
         rec = {"version": current_version(), "epoch": self.epoch, "arm": self.arm, "python": platform.python_version(), "arm_def": d,
                "arm_def_hash": hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:12]}
+        if getattr(self.p, "unavailable", None):                   # outside the hash on purpose: see definition_of
+            rec["unavailable"] = sorted(self.p.unavailable)
         if definition_changed:
             rec["definition_changed"] = True
             if prev_hash:

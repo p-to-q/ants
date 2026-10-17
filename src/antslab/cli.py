@@ -110,32 +110,31 @@ def _open(a):
     return wd, Ledger(wd / "ledger.sqlite"), load_contract(a.contract)
 
 
-def _definition_guard(led, camp, new_definition: bool) -> int | None:
+def _definition_guard(led, arm: str, cur: dict, new_definition: bool) -> int | None:
     """Check the ledger's last daemon_started arm_def_hash FOR THIS ARM against the current code.
     Returns exit code 4 on mismatch (unless new_definition is set), None to proceed normally."""
     import hashlib as _h, json as _j
     # filter daemon_started events to those belonging to this arm
     all_starts = led.recent_events("daemon_started", 50)
-    starts = [e for e in all_starts if e["payload"].get("arm") == camp.arm]
+    starts = [e for e in all_starts if e["payload"].get("arm") == arm]
     if not starts:
         return None  # fresh ledger or no prior start for this arm
     last = starts[-1]["payload"]
     prev_hash = last.get("arm_def_hash")
     if not prev_hash:
         return None  # very old daemon_started without a hash
-    cur = camp.arm_definition()
     cur_hash = _h.sha256(_j.dumps(cur, sort_keys=True).encode()).hexdigest()[:12]
     # the version field is excluded from the comparison: a patch release must not block a restart
     prev_def = last.get("arm_def", {})
     if prev_hash == cur_hash:
         return None  # same definition, proceed
     if new_definition:
-        print(f"ants: arm definition changed for arm {camp.arm!r} (previous {prev_hash}, current {cur_hash}); "
+        print(f"ants: arm definition changed for arm {arm!r} (previous {prev_hash}, current {cur_hash}); "
               f"proceeding with --new-definition", file=sys.stderr)
         return None  # caller will record definition_changed in the daemon_started event below
     # find differing keys
     diff_keys = sorted(k for k in set(list(prev_def) + list(cur)) if prev_def.get(k) != cur.get(k))
-    print(f"ants: the arm definition for {camp.arm!r} has changed since the last start in {led.path}.\n"
+    print(f"ants: the arm definition for {arm!r} has changed since the last start in {led.path}.\n"
           f"  previous hash: {prev_hash}\n  current hash:  {cur_hash}\n"
           f"  differing keys: {', '.join(diff_keys) or '(hash method changed)'}\n"
           f"  Pass --new-definition to start anyway (the change is recorded).\n"
@@ -166,15 +165,19 @@ def cmd_run(a):
                            budget=llm_budget, arm=a.arm)
     mem = (lambda arm: latest_memory(led, arm)) if a.arm in ("llm_dream", "portfolio_dream") else None
     p = make_proposer(a.arm, c, a.seed, client, mem)
-    camp = Campaign(led, c, wd, a.arm, p, a.seed, a.max_evals, a.max_cpu_s,
-                    dream_every=a.dream_every if a.arm in ("llm_dream", "portfolio_dream") else 0,
-                    dream_fn=(lambda: dream(led, c, a.arm, client)) if a.arm in ("llm_dream", "portfolio_dream") else None)
-    # --- definition guard: refuse when the arm definition changed unless --new-definition ---
-    rc = _definition_guard(led, camp, getattr(a, "new_definition", False))
+    # --- definition guard: refuse when the arm definition changed unless --new-definition. Before the Campaign exists: a refused start must not
+    #     register an epoch row in the ledger it refuses to touch. ---
+    cur_def = Campaign.definition_of(a.arm, p, c)
+    rc = _definition_guard(led, a.arm, cur_def, getattr(a, "new_definition", False))
     if rc is not None:
         lock.release()
         return rc
+    camp = Campaign(led, c, wd, a.arm, p, a.seed, a.max_evals, a.max_cpu_s,
+                    dream_every=a.dream_every if a.arm in ("llm_dream", "portfolio_dream") else 0,
+                    dream_fn=(lambda: dream(led, c, a.arm, client)) if a.arm in ("llm_dream", "portfolio_dream") else None)
     stop = {"v": False}
+    if client is not None:
+        client.set_stop(lambda: stop["v"])        # backoff and further attempts of a blocked model call end with the daemon
 
     def on_signal(*_):
         stop["v"] = True                  # a running trial notices within ~0.25 s (run_command polls the flag) ...
