@@ -2,7 +2,7 @@
 """The pre-registered analysis of a series of runs (docs/experiments/E43-learned-screen.md, section 4).
 
     python scripts/analyze_series.py BASE [--out report.md] [--csv runs.csv]
-           [--control portfolio] [--treatment portfolio_screen] [--budget 28800] [--cap 300]
+           [--control portfolio] [--treatment portfolio_screen] [--budget 50400] [--cap 300]
 
 BASE holds one workdir per run, named <arm>_s<seed> (what `ants seeds` / `ants series run` write). Ledgers are opened read-only. Run it once,
 when every run has finished. Needs numpy and scipy (analysis, not dependencies of ants).
@@ -115,7 +115,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("base"); ap.add_argument("--out"); ap.add_argument("--csv")
     ap.add_argument("--control", default="portfolio"); ap.add_argument("--treatment", default="portfolio_screen")
-    ap.add_argument("--budget", type=float, default=28800); ap.add_argument("--cap", type=int, default=300)
+    ap.add_argument("--budget", type=float, default=50400); ap.add_argument("--cap", type=int, default=300)
     ap.add_argument("--epoch", default="5da6eeee6527")
     a = ap.parse_args()
     base = Path(a.base)
@@ -170,7 +170,7 @@ def main():
             s = summary(x, y, rng)
             P(f"| {name} | {s['n']} | " + (f"{s['median_diff']:+.4f} | {s['ci'][0]:+.4f} to {s['ci'][1]:+.4f} | {s['wilcoxon_p']:.3f} |" if s["n"] >= 3 else "- | - | - |"))
         for c in CAPS:
-            for B in (7200, 14400, a.budget):
+            for B in (14400, 28800, a.budget):
                 row(f"value at {B:.0f} s, cap {c}", {s_: value_at(runs[(a.control, s_)], c, B) for s_ in seeds if (a.control, s_) in runs},
                     {s_: value_at(runs[(a.treatment, s_)], c, B) for s_ in seeds if (a.treatment, s_) in runs})
             row(f"area under best-so-far, cap {c}", {s_: auc(runs[(a.control, s_)], c, a.budget) for s_ in seeds if (a.control, s_) in runs},

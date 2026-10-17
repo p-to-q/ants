@@ -143,7 +143,7 @@ def unit(seed: int, trial_id: int) -> float:
 class ScreenPromoter:
     name = "screen"
 
-    def __init__(self, c, seed: int = 0, explore: float = 0.10, kappa: float = 0.5, min_rows: int = 150, refit_every: int = 100,
+    def __init__(self, c, seed: int = 0, explore: float = 0.10, kappa: float = 0.5, min_rows: int = 300, refit_every: int = 100,
                  window: int = 400, n_trees: int = 60):
         if not 0 <= explore < 1:
             raise ValueError("explore must be in [0, 1)")
