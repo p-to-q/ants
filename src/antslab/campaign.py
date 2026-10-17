@@ -82,6 +82,8 @@ def is_transient(e: BaseException) -> bool:
 
 
 class Campaign:
+    promoter = None            # the arm's own rule for the first promotion cut (screen.py); None = the contract's quantile rule
+
     def __init__(self, ledger: Ledger, c: Contract, workdir, arm: str, proposer, seed: int = 0,
                  budget_evals: int | None = None, budget_cpu_s: float | None = None,
                  python: str | None = None, batch: int = 4, breaker_n: int = 3, breaker_cooldown_s: float = 3600,
