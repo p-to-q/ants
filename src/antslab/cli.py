@@ -664,6 +664,15 @@ def cmd_bundle(a):
     return 1
 
 
+def cmd_preflight(a):
+    from .preflight import run_preflight
+    return run_preflight(
+        series_name=a.series, series_file=getattr(a, "series_file", None),
+        workdir=a.workdir, arm=a.arm, base=a.base,
+        contract=a.contract, llm_env=getattr(a, "llm_env", None),
+        as_json=a.json, strict=a.strict)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="ants")
     ap.add_argument("--version", action="version", version="ants " + _version())
@@ -753,6 +762,15 @@ def main(argv=None):
     bv = bp_sub.add_parser("verify")
     bv.add_argument("path", help="path to the bundle directory or .tar.gz")
     bp.set_defaults(fn=cmd_bundle)
+    # --- preflight ---
+    pf = sub.add_parser("preflight", help="read-only pre/post-deploy checks")
+    pf.add_argument("--series", default=None, help="series name (loads deploy/series/<name>.toml)")
+    pf.add_argument("--series-file", default=None, help="explicit path to series TOML")
+    pf.add_argument("--workdir", default=None); pf.add_argument("--arm", default=None)
+    pf.add_argument("--base", default=None); pf.add_argument("--contract", default=None)
+    pf.add_argument("--llm-env", default=None); pf.add_argument("--json", action="store_true")
+    pf.add_argument("--strict", action="store_true", help="exit 1 on WARN too")
+    pf.set_defaults(fn=cmd_preflight)
     s = sub.add_parser("ui", help="the terminal interface (what plain `ants` opens on a terminal)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")
