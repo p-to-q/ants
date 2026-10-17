@@ -724,6 +724,8 @@ def main(argv=None):
     s.add_argument("--contract", default=None); s.add_argument("--max-cpu-s", type=float, default=None)
     s.add_argument("--max-evals", type=int, default=None); s.add_argument("--workers", type=int, default=1)
     s.add_argument("--dry-run", action="store_true"); s.add_argument("--llm-env", default=None)
+    s.add_argument("--allow-with-arms", action="store_true", help="start although ants@<arm> services are running on this host")
+    s.add_argument("--allow-model-arms", action="store_true", help="allow arms that call a model (the daily cap is per ledger, so per seed)")
     s.add_argument("--json", action="store_true"); s.set_defaults(fn=cmd_seeds)
     # --- series ---
     sp = sub.add_parser("series", help="manage a pre-registered series of seed runs")
@@ -734,6 +736,7 @@ def main(argv=None):
         ss.add_argument("--file", default=None, help="explicit path to the series TOML file")
         ss.add_argument("--base", default=None, help="override base directory")
         if act == "run":
+            ss.add_argument("--allow-with-arms", action="store_true", help="start although ants@<arm> services are running on this host")
             ss.add_argument("--dry-run", action="store_true")
             ss.add_argument("--llm-env", default=None)
         if act == "status":

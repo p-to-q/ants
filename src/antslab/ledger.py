@@ -182,11 +182,11 @@ class Ledger:
         self.conn.executescript(SCHEMA)                                   # creates anything missing; never alters existing data
         if v >= SCHEMA_VERSION:
             return
-        if self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]:
-            self._safety_copy(v)
         self.conn.execute("BEGIN IMMEDIATE")                               # several processes may open an old file at once: one migrates, the rest re-check
         try:
             v = self.schema_version()
+            if v < SCHEMA_VERSION and self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]:
+                self._safety_copy(v)                                       # under the migration's own lock: only the opener that migrates writes or sets aside a copy
             for ver in range(v + 1, SCHEMA_VERSION + 1):
                 MIGRATIONS[ver](self)
                 self.conn.execute(f"PRAGMA user_version={ver}")
@@ -199,16 +199,25 @@ class Ledger:
         """a full copy next to the ledger before the first migration of its data (kept; delete it by hand once the new version has run)"""
         dest = Path(self.path + f".pre-migration-v{v}")
         if dest.exists():
-            # a copy from an EARLIER migration of this path (a backup was restored and is being migrated again) is not the rollback copy of
-            # this ledger any more: keep it under another name and make a fresh one
+            # Keep a copy that really is a ledger at schema version v (an earlier attempt that did not finish migrating, or the copy of an opener
+            # that has since migrated: that one is the rollback copy). Only a copy at ANOTHER version (a backup was restored and is being migrated
+            # again) is not this ledger's rollback copy: set it aside under another name. The file times say nothing: a live WAL ledger's main file
+            # moves at every checkpoint.
             try:
-                if dest.stat().st_mtime < Path(self.path).stat().st_mtime - 1:
-                    os.replace(dest, Path(f"{dest}.stale-{int(time.time())}"))
-                else:
-                    return
+                chk = sqlite3.connect(f"file:{dest}?mode=ro", uri=True)
+                try:
+                    keep = chk.execute("PRAGMA user_version").fetchone()[0] == v
+                finally:
+                    chk.close()
+            except sqlite3.Error:
+                keep = False
+            if keep:
+                return
+            try:
+                os.replace(dest, Path(f"{dest}.stale-{int(time.time())}"))
             except OSError:
                 return
-        part = Path(f"{dest}.partial.{os.getpid()}.{threading.get_ident()}")          # several openers may get here at once
+        part = Path(f"{dest}.partial.{os.getpid()}.{threading.get_ident()}")
         out = sqlite3.connect(part)
         try:
             self.conn.backup(out)

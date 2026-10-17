@@ -731,3 +731,49 @@ def test_the_lifetime_budget_counts_rows_from_before_the_arm_column(ledger):
     assert cl.chat_json([{"role": "user", "content": "hi"}])[0] is not None       # the 5th call is allowed
     obj, meta = cl.chat_json([{"role": "user", "content": "hi"}])
     assert obj is None and meta.get("capped") is True
+
+
+def _v1_ledger(path):
+    import sqlite3
+    from antslab.ledger import GENESIS, SCHEMA, sha256_text, canon
+    conn = sqlite3.connect(str(path), isolation_level=None)
+    conn.executescript(SCHEMA)
+    conn.execute("PRAGMA user_version=1")
+    ts = time.time()
+    payload = canon({"test": True})
+    conn.execute("INSERT INTO events(ts,kind,payload,prev_hash,hash) VALUES(?,?,?,?,?)",
+                 (ts, "test", payload, GENESIS, sha256_text(f"{GENESIS}|{ts!r}|test|{payload}")))
+    conn.close()
+
+
+def test_second_opener_never_replaces_the_true_v1_copy(tmp_path):
+    """opener A migrates and leaves the v1 rollback copy; opener B (which read version 1 earlier) must not set it aside or overwrite it,
+    even though the main file's mtime has since moved (a checkpoint): the decision is by the copy's recorded version, not by file times"""
+    import sqlite3
+    path = tmp_path / "ledger.sqlite"
+    _v1_ledger(path)
+    a = Ledger(str(path))
+    copy = tmp_path / "ledger.sqlite.pre-migration-v1"
+    assert copy.exists()
+    before = copy.read_bytes()
+    a.event("note", {"after": "migration"})
+    a.checkpoint()                                                    # the main file is now newer than the copy
+    os.utime(path, (time.time() + 10, time.time() + 10))
+    # opener B arrives at _safety_copy with a stale idea of the version
+    b = Ledger(str(path))
+    b._safety_copy(1)
+    assert copy.read_bytes() == before
+    assert not [x for x in tmp_path.iterdir() if ".stale-" in x.name]
+    assert sqlite3.connect(f"file:{copy}?mode=ro", uri=True).execute("PRAGMA user_version").fetchone()[0] == 1
+    a.close(); b.close()
+
+
+def test_a_copy_at_another_version_is_set_aside(tmp_path):
+    path = tmp_path / "ledger.sqlite"
+    _v1_ledger(path)
+    old = tmp_path / "ledger.sqlite.pre-migration-v1"
+    import sqlite3
+    c = sqlite3.connect(str(old)); c.execute("CREATE TABLE x(a)"); c.execute("PRAGMA user_version=2"); c.commit(); c.close()
+    led = Ledger(str(path)); led.close()
+    assert [x for x in tmp_path.iterdir() if ".pre-migration-v1.stale-" in x.name]
+    assert sqlite3.connect(f"file:{old}?mode=ro", uri=True).execute("PRAGMA user_version").fetchone()[0] == 1

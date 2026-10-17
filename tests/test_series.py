@@ -420,7 +420,8 @@ def test_bundle_multiple_workdirs(tmp_path):
 
 def test_series_service_unit_exists_and_prevents_exit_5():
     text = (ROOT / "deploy/ants-series@.service").read_text()
-    assert "RestartPreventExitStatus=5" in text
+    assert "RestartPreventExitStatus=3 4 5 6" in text
+    assert "OOMScoreAdjust=800" in text            # above the arms' 500: under memory pressure the series dies first
     assert "KillMode=mixed" in text
     assert "TimeoutStopSec=90" in text
     assert "CPUQuota=180%" in text
@@ -611,3 +612,68 @@ def test_a_second_runner_on_the_same_series_directory_exits_3(tmp_path):
     finally:
         held.close()
     assert series.run_series(ns) == 0                                       # released: a dry run goes through
+
+
+def test_seeds_refuse_model_arms_and_live_arms(tmp_path, monkeypatch, capsys):
+    from antslab import seeds
+    ns = lambda **k: type("A", (), {"arm": "portfolio", "seeds": "1", "base": str(tmp_path), "contract": None, "max_evals": 2, "max_cpu_s": None,
+                                    "workers": 1, "dry_run": False, "llm_env": None, **k})()
+    assert seeds.run_seeds(ns(arm="portfolio_llm")) == 1                                    # the cap is per ledger
+    assert "daily cap is per ledger" in capsys.readouterr().err
+    monkeypatch.setattr(seeds, "active_arm_units", lambda: ["ants@portfolio.service"])
+    contract = str(Path(__file__).resolve().parents[1] / "contracts/tinyts_real.toml")
+    assert seeds.run_seeds(ns(contract=contract)) == 6                                      # 6 = a person must stop the arms first
+    assert "ants@portfolio.service" in capsys.readouterr().err
+
+
+def test_bundle_refuses_overwrite_bad_names_and_uniquifies_same_basenames(tmp_path):
+    import json
+    import stat
+    from antslab import bundle
+    a, b = tmp_path / "x" / "pilot", tmp_path / "y" / "pilot"
+    for w in (a, b):
+        w.mkdir(parents=True)
+        _old_schema_ledger(w / "ledger.sqlite")
+    out = tmp_path / "out"
+    bundle.make_bundle("one", out, [a, b])
+    names = sorted(json.loads((out / "one" / "MANIFEST.json").read_text())["ledgers"])
+    assert len(names) == 2 and names[0] != names[1]                                   # neither overwrote the other
+    assert bundle.verify_bundle(out / "one") == 0
+    with pytest.raises(bundle.BundleError):
+        bundle.make_bundle("one", out, [a])                                           # a sealed bundle is never rewritten
+    for bad in ("../x", "a/b", "", ".hidden", "x" * 80):
+        with pytest.raises(bundle.BundleError):
+            bundle.make_bundle(bad, out, [a])
+    assert not (tmp_path / "x.tar.gz").exists()
+    assert stat.S_IMODE((out / "one" / "SEAL.md").stat().st_mode) == 0o600
+    assert stat.S_IMODE((out / "one.tar.gz").stat().st_mode) == 0o600
+
+
+def test_a_failed_make_leaves_nothing_that_blocks_the_retry(tmp_path):
+    from antslab import bundle
+    out = tmp_path / "out"
+    with pytest.raises(bundle.BundleError):
+        bundle.make_bundle("t", out, [tmp_path / "no_such_workdir"])
+    assert not (out / "t").exists()
+    wd = tmp_path / "wd" / "p"
+    wd.mkdir(parents=True)
+    _old_schema_ledger(wd / "ledger.sqlite")
+    bundle.make_bundle("t", out, [wd])
+
+
+def test_immutable_fallback_is_refused_when_a_write_ahead_log_is_unmerged(tmp_path, monkeypatch):
+    import sqlite3
+    from antslab import bundle
+    wd = tmp_path / "wd" / "p"
+    wd.mkdir(parents=True)
+    _old_schema_ledger(wd / "ledger.sqlite")
+    (wd / "ledger.sqlite-wal").write_bytes(b"x" * 64)
+    real = sqlite3.connect
+
+    def fake(target, *a, **k):
+        if isinstance(target, str) and "mode=ro" in target and "immutable=1" not in target:
+            raise sqlite3.OperationalError("unable to open database file")
+        return real(target, *a, **k)
+    monkeypatch.setattr(bundle.sqlite3, "connect", fake)
+    with pytest.raises(bundle.BundleError, match="write-ahead log"):
+        bundle._snapshot_readonly(wd / "ledger.sqlite", tmp_path / "snap.sqlite")

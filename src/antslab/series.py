@@ -195,6 +195,7 @@ def run_series(a) -> int:
         "workers": s["workers"],
         "dry_run": getattr(a, "dry_run", False),
         "llm_env": getattr(a, "llm_env", None),
+        "allow_with_arms": getattr(a, "allow_with_arms", False),
     })()
 
     if ".." in Path(str(base)).parts:

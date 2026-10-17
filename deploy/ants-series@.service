@@ -13,8 +13,9 @@ Group=ants
 WorkingDirectory=/opt/ants
 ExecStart=/opt/ants/.venv/bin/ants series run %i
 Restart=on-failure
-# exit 5 = epoch mismatch: the code changed; restarting would loop with the same refusal
-RestartPreventExitStatus=5
+# exit 3 = a workdir is already in use, 4 = an arm definition changed, 5 = epoch mismatch, 6 = arms are running on this host: each would
+# refuse again after 60 s, for ever. These need a person.
+RestartPreventExitStatus=3 4 5 6
 RestartSec=60
 # KillMode=mixed: SIGTERM to the main process first, then SIGKILL to remaining children after TimeoutStopSec.
 # The seed runner forwards SIGTERM to its children, which finish the trial in flight.
@@ -23,6 +24,10 @@ TimeoutStopSec=90
 # Two workers on a 2-vCPU server: up to 180% of one core (two busy children).
 CPUQuota=180%
 MemoryMax=1500M
+# Under memory pressure the kernel kills the series before an arm (ants@ has 500): a series can be restarted from its ledgers, and it must not
+# take a long-running arm down with it. `ants seeds` also refuses to start while any ants@<arm> is active.
+OOMPolicy=kill
+OOMScoreAdjust=800
 TasksMax=512
 # BLAS thread pinning: each evaluation child uses one thread, not all cores.
 Environment=OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MKL_NUM_THREADS=1

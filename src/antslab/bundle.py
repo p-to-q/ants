@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import sqlite3
 import tarfile
@@ -60,6 +61,11 @@ def _snapshot_readonly(ledger_path: Path, dest: Path) -> Path:
         if "locked" in str(e) or "busy" in str(e):
             raise BundleError(f"{ledger_path} is in use by a writer: stop it first ({e})") from e
         dest.unlink(missing_ok=True)
+        # immutable=1 ignores the write-ahead log: right for a ledger at rest, silently wrong for one whose writer left frames in -wal
+        wal = Path(str(ledger_path) + "-wal")
+        if wal.exists() and wal.stat().st_size > 0:
+            raise BundleError(f"{ledger_path} has an unmerged write-ahead log and cannot be opened read-only here: stop its writer (or open it "
+                              f"once with ants so the log is folded in), then seal it ({e})") from e
         try:
             attempt("&immutable=1")
         except sqlite3.OperationalError as e2:
@@ -135,15 +141,37 @@ def _inspect_ledger(path: Path) -> dict:
         raise BundleError(f"inspecting snapshot: {e}") from e
 
 
+_SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
 def make_bundle(name: str, out_dir: str | Path, workdirs: list[str | Path],
                 note_file: str | Path | None = None) -> dict:
-    """Create a sealed bundle from one or more workdirs."""
+    """Create a sealed bundle from one or more workdirs. A failure leaves nothing behind that would block the next attempt."""
+    created = []
+    try:
+        return _make_bundle(name, out_dir, workdirs, note_file, created)
+    except BaseException:
+        for pth in created:
+            shutil.rmtree(pth, ignore_errors=True) if pth.is_dir() else pth.unlink(missing_ok=True)
+        raise
+
+
+def _make_bundle(name, out_dir, workdirs, note_file, created: list) -> dict:
     from .update import current_version
 
+    if not _SAFE_NAME.match(str(name)):
+        raise BundleError(f"bundle name {name!r}: use letters, digits, '.', '_' and '-' only (no path), at most 64 characters")
     out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
     bundle_dir = out / name
+    if bundle_dir.exists() or (out / f"{name}.tar.gz").exists() or (out / f"{name}.tar.gz.sha256").exists():
+        raise BundleError(f"{bundle_dir} (or its .tar.gz) already exists: a sealed bundle is never rewritten; choose another --name")
     ledgers_dir = bundle_dir / "ledgers"
-    ledgers_dir.mkdir(parents=True, exist_ok=True)
+    ledgers_dir.mkdir(parents=True, exist_ok=False)
+    created.append(bundle_dir)
+    os.chmod(bundle_dir, 0o700)
+    os.chmod(ledgers_dir, 0o700)
+    bases = [Path(w).name for w in workdirs]
 
     manifest = {
         "bundle_format": 1,
@@ -159,6 +187,8 @@ def make_bundle(name: str, out_dir: str | Path, workdirs: list[str | Path],
         wd = Path(wd_path)
         ledger_path = wd / "ledger.sqlite"
         wd_name = wd.name
+        if bases.count(wd_name) > 1:                                  # two workdirs with one basename must not overwrite each other
+            wd_name = f"{wd_name}-{hashlib.sha256(str(wd.resolve()).encode()).hexdigest()[:8]}"
 
         # snapshot to a temp file, then gzip into the bundle
         with tempfile.TemporaryDirectory() as td:
@@ -213,11 +243,16 @@ def make_bundle(name: str, out_dir: str | Path, workdirs: list[str | Path],
         checksum_lines.append(f"{sha}  {rel}")
     (bundle_dir / "checksums.sha256").write_text("\n".join(checksum_lines) + "\n")
 
+    for f in bundle_dir.rglob("*"):                                    # SEAL.md says the bundle is private: so are its files
+        os.chmod(f, 0o700 if f.is_dir() else 0o600)
     # tar.gz with deterministic properties
     tar_path = out / f"{name}.tar.gz"
+    created.extend([tar_path, Path(str(tar_path) + ".sha256")])
     _make_tar(bundle_dir, tar_path, name)
+    os.chmod(tar_path, 0o600)
     tar_sha = _sha256(tar_path)
     Path(str(tar_path) + ".sha256").write_text(f"{tar_sha}  {tar_path.name}\n")
+    os.chmod(str(tar_path) + ".sha256", 0o600)
     print(f"bundle: {tar_path}")
     print(f"sha256: {tar_sha}")
 
@@ -378,6 +413,9 @@ def _verify_dir(bundle_dir: Path) -> int:
 
     # 3. verify each ledger
     for wd_name, info in manifest.get("ledgers", {}).items():
+        if not _SAFE_NAME.match(str(wd_name)):
+            problems.append(f"manifest names a ledger {wd_name!r}: not a plain file name")
+            continue
         gz_path = bundle_dir / "ledgers" / f"{wd_name}.sqlite.gz"
         if not gz_path.exists():
             problems.append(f"{wd_name}: gz file missing")

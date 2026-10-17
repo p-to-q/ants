@@ -70,3 +70,16 @@ A new design is a new arm name and a new workdir.  Sealed data from a finished o
 3. Change the contract, evaluator or data only knowingly: it starts a new epoch, and the roadmap says why.
 4. Never delete a workdir to fix a problem; move it to `archive/old-runs/`.
 5. Deploy only from a tagged, CI-green commit; the install records the package hash.
+
+## What the arm definition hash covers, and what it does not
+
+`arm_def_hash` (in every `daemon_started` event; checked at each start, exit 4 when it changed) covers the arm name, the **requested** operator
+names, the guaranteed shares (floors and the stepping-stone reserve), whether usage is discounted, the promotion rule (`promotion`, screen arms),
+the stage quantile and batch size. It does **not** cover: the seed (`--seed`), the bandit's `min_share`, `probe` and `stagnation_n`, the code of
+any operator, or the tools generation of the agent beyond the `tools_gen` key. A release that changes an operator's code keeps the hash; the
+epoch (evaluator, data, contract) is the part that is pinned by code fingerprint. Read `changes.md` for operator changes, and start a new workdir
+when a change would make earlier and later trials not one experiment.
+
+An optional operator whose package is missing on the host (`tpe` without `optuna`) stays in the definition: the arm starts without it (a
+degraded run, recorded as `unavailable` in `daemon_started`) rather than answering a missing package with exit 4 and a service that stays down.
+Install the package to get the operator back; the hash is the same either way.

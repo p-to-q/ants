@@ -224,3 +224,14 @@ Manual drills (documented, not scripted):
 - **full disk**: fill `/var/lib/ants` to the `pause` level (< 8 GB free) with `fallocate`; observe that the loop pauses; free the space; observe that it resumes within 60 s.
 - **network outage**: block the LLM endpoint with `iptables -A OUTPUT -d <ip> -j DROP`; observe that the arm stops producing model proposals and the parse rate in doctor degrades; unblock; observe recovery.
 - **model endpoint outage**: stop the LLM endpoint (or point to a non-existent one); same observations as network outage.
+
+## Series safety rules (the host has 2 CPUs and 2 GB)
+
+- `ants seeds` / `ants series run` refuse to start while any `ants@<arm>` service is active (exit 6; `--allow-with-arms` overrides). Stop the arms
+  first, as the deploy sequence says.
+- `ants-series@.service` has `OOMScoreAdjust=800` (arms: 500), so under memory pressure the series is killed before an arm, and it does not restart
+  after exit 3 (workdir in use), 4 (definition changed), 5 (epoch mismatch) or 6 (arms running): each would only refuse again.
+- Model arms are refused in a series unless `--allow-model-arms`: the daily model-call cap is per ledger, so N seeds would spend N times the cap.
+- `pull_backups.sh` fails when it finds and verifies no backup at all (the layout after a pull is `DIR/backups/<arm>/`).
+- A bundle is never rewritten (`ants bundle make` refuses an existing name), names are plain file names, two workdirs with one basename are
+  kept apart, files are mode 600, and a ledger with an unmerged write-ahead log is refused rather than read without it.

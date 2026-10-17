@@ -141,6 +141,22 @@ def _summary_row(arm: str, seed: int, wd: Path, state: str, contract_path: str) 
     return row
 
 
+MODEL_ARMS = ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent")
+
+
+def active_arm_units() -> list[str]:
+    """the ants@<arm> services that are running on this host (empty where there is no systemd): a series on a 2-vCPU host must not start
+    on top of live arms (the kernel would kill an arm first, and every run of both would slow down)"""
+    import shutil
+    if not shutil.which("systemctl"):
+        return []
+    try:
+        r = subprocess.run(["systemctl", "list-units", "ants@*", "--state=active", "--no-legend", "--plain"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [ln.split()[0] for ln in r.stdout.splitlines() if ln.strip()]
+
+
 def run_seeds(a) -> int:
     from .cli import _contract_path, _resolve
     arms = a.arm.split(",")
@@ -153,6 +169,13 @@ def run_seeds(a) -> int:
         if not VALID_ARM.match(arm):
             print(f"ants seeds: bad arm name {arm!r} (must match {VALID_ARM.pattern})", file=sys.stderr)
             return 1
+
+    # The daily model-call cap belongs to ONE ledger, so N seeds of a model arm spend N times the cap. No series needs that: refuse it unless asked.
+    model_arms = [x for x in arms if x in MODEL_ARMS]
+    if model_arms and not getattr(a, "allow_model_arms", False):
+        print(f"ants seeds: {', '.join(model_arms)} call a model, and the daily cap is per ledger (each seed would get the whole cap); "
+              f"pass --allow-model-arms if that is meant", file=sys.stderr)
+        return 1
 
     # resolve contract
     contract = a.contract
@@ -206,6 +229,12 @@ def run_seeds(a) -> int:
                 wd = base / _workdir_name(arm, seed)
                 print(f"  {arm} seed={seed} -> {wd}")
         return 0
+
+    live = [] if getattr(a, "allow_with_arms", False) else active_arm_units()
+    if live:
+        print(f"ants seeds: {', '.join(live)} are running on this host; a series would compete with them for 2 CPUs and memory "
+              f"(stop them, or pass --allow-with-arms)", file=sys.stderr)
+        return 6
 
     # build interleaved work list: s1 of every arm before s2 of any
     work: list[tuple[str, int]] = []
@@ -360,6 +389,10 @@ def run_seeds(a) -> int:
 
     if stop:
         return 1
+    codes = {int(str(v).split()[1]) for v in results.values() if str(v).startswith("exit ") and str(v).split()[1].lstrip("-").isdigit()}
+    for code in (4, 3):                       # a child that refused to start (4 definition changed, 3 workdir already in use) will refuse again:
+        if code in codes:                     # tell the unit not to restart us (RestartPreventExitStatus)
+            return code
     if any("exit" in str(v) and v != "done" for v in results.values()):
         return 1
     return 0
