@@ -134,3 +134,19 @@ def test_the_plain_portfolio_proposes_what_version_0_6_0_proposed():
     r["hist"].update()
     assert hashlib.sha256(json.dumps(sorted(r["hist"].first.keys())).encode()).hexdigest()[:16] == "6eaa7b38d3ac1602"
     assert round(r["best"][400], 6) == 0.232864
+
+
+def test_every_operator_allocation_is_logged_with_its_probabilities(make_contract, tmp_path):
+    """The decision log (roadmap step 35): the probability each operator had for each draw, the version of the rule, the counts drawn."""
+    from antslab.campaign import Campaign
+    from antslab.portfolio import build_portfolio
+    c = make_contract()
+    led = Ledger(tmp_path / "w" / "ledger.sqlite")
+    camp = Campaign(led, c, tmp_path / "w", "portfolio", build_portfolio(c, 1, with_tpe=False), 1, batch=4)
+    for _ in range(25):
+        camp.step()
+    ev = [e["payload"] for e in led.events("operator_alloc")]
+    assert ev and all(e["arm"] == "portfolio" and e["policy"].startswith("bandit:") for e in ev)
+    for e in ev:
+        assert abs(sum(e["probs"].values()) - 1.0) < 0.01 and sum(e["counts"].values()) == e["k"]
+    assert led.verify_chain()[0]

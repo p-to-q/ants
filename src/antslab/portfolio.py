@@ -393,7 +393,13 @@ class PortfolioProposer:
         div = [n for n in ("random", "aco", "qd", "sa") if n in names]
         for i in range(b if div else 0):
             counts[div[i % len(div)]] += 1
+        # what this decision was, for the decision log (propose() writes it): the probability of each operator for each draw, the burst, the draws
+        self.last_decision = {"policy": self.policy_tag(), "k": k, "probs": {n: round(probs[n], 4) for n in names}, "burst": b, "counts": dict(counts)}
         return counts
+
+    def policy_tag(self) -> str:
+        """The version of the allocation rule that made a decision (logged with it): a different rule is a different tag."""
+        return "bandit:" + ("discounted" if self.use_discount else "plain") + (":reserve" if self.reserve else "") + (":floors" if self.floors else "")
 
     def _filters(self, h, props):
         retired = h.retired()
@@ -414,7 +420,12 @@ class PortfolioProposer:
         for _ in range(4):                       # operators may under-deliver: re-allocate the shortfall by posterior
             if need <= 0 or not avail:
                 break
-            for n, m in self.allocation(h, need, avail).items():
+            alloc = self.allocation(h, need, avail)
+            try:                                  # the decision log (roadmap step 35): never a reason to stop the search
+                ledger.event("operator_alloc", {"arm": arm, **self.last_decision})
+            except Exception:
+                pass
+            for n, m in alloc.items():
                 self.stats["alloc"][n] = self.stats["alloc"].get(n, 0) + m
                 if m <= 0:
                     continue
