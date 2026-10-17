@@ -339,7 +339,9 @@ def panel_bars(o, x, w, base, ph, vmax, items, title, sub):
     o.append(t(x, TOP + 14, title, 14, INK, weight=600))
     o.append(t(x, TOP + 34, sub, 12, MUTE))
     pitch = w / len(items)
-    for i, (name, params, val, kind) in enumerate(items):
+    for i, item in enumerate(items):
+        name, params, val, kind = item[:4]
+        notes = item[4] if len(item) > 4 else []
         cx = x + pitch * (i + 0.5)
         if val is None:
             o.append(bar(cx, base, 44, ph * 0.5, kind))
@@ -350,17 +352,41 @@ def panel_bars(o, x, w, base, ph, vmax, items, title, sub):
             o.append(t(cx, base - hh - 12, f"{val:.1f}", 12.5, MINT_TEXT if kind == "ours" else "#454a46", "middle", 600 if kind == "ours" else 500))
         o.append(t(cx, base + 26, name, 12, INK, "middle", 500 if kind != "other" else 400))
         o.append(t(cx, base + 44, "" if params is None else f"{params:,}", 11.5, MUTE, "middle"))
+        for j, line in enumerate(notes):
+            o.append(t(cx, base + 66 + 15 * j, line, 11, MINT_TEXT, "middle", 600))
     o.append(f'<line x1="{x}" x2="{x + w}" y1="{base}" y2="{base}" stroke="{HAIR}"/>')
 
 
 def frontier():
     d = json.loads((A / "frontier.json").read_text())
     names = {"ridge_L720": "ridge 720", "ridge_L336": "ridge 336", "ridge_L96": "ridge 96", "dlinear_like": "DLinear-like", "fits_like": "FITS-like"}
-    ours = [(f"≤ {int(b['cap'])}", b["params"], 100 * (1 - b["rel_mse"]), "ours") for b in d["ants_demo"]["best_by_bin"]]
+    bins = d["ants_demo"]["best_by_bin"]
+    ours = [(f"≤ {int(b['cap'])}", b["params"], 100 * (1 - b["rel_mse"]), "ours") for b in bins]
     base_items = sorted([(names[k], v["params"], 100 * (1 - v["rel_mse"]), "other") for k, v in d["measured"].items()], key=lambda r: r[1])
+    # the comparisons worth seeing, derived from the data: equal skill at a fraction of the size, and the best one against the biggest reference
+    best_b = bins[-1]
+    big = max(d["measured"].items(), key=lambda kv: kv[1]["params"])
+    fits = d["measured"]["fits_like"]
+    twin = next((b for b in bins if abs(b["rel_mse"] - fits["rel_mse"]) < 0.0015), None)
+    ours = [list(o_) for o_ in ours]
+    base_items = [list(b_) for b_ in base_items]
+    if twin:
+        k = ours[bins.index(twin)]
+        k.append(["= FITS-like", f"at 1/{fits['params'] / twin['params']:.0f} the size"])
+        for b_ in base_items:
+            if b_[0] == "FITS-like":
+                b_.append([f"= ants ≤ {int(twin['cap'])}", f"at {fits['params'] / twin['params']:.0f}× the size"])
+    ours[-1].append([f"edges {names[big[0]]}", f"at 1/{big[1]['params'] / best_b['params']:.0f} the size"])
+    if len(bins) >= 2:
+        ours[-2].append([f"{100 * (1 - bins[-2]['rel_mse']):.1f} of {100 * (1 - best_b['rel_mse']):.1f}", f"with {bins[-2]['params']:,} params"])
+    for b_ in base_items:
+        if b_[0] == names[big[0]]:
+            b_.append([f"{big[1]['params'] // best_b['params']}× the size", "of ants ≤ 3000"])
+    ours = [tuple(o_) for o_ in ours]
+    base_items = [tuple(b_) for b_ in base_items]
     ph = 200
     base = TOP + 64 + ph
-    h = base + 72 + PAD - 24
+    h = base + 72 + PAD + 8
     o = head("Skill versus parameters", "Percent MSE reduction against seasonal naive on development data, at stage S2.")
     lw, gap = 372, 56
     deep = d["ants_demo"].get("deepest_stage_evaluations", d["ants_demo"]["finished_trials"])
@@ -372,18 +398,20 @@ def frontier():
 def scatter():
     d = json.loads((A / "frontier.json").read_text())
     H, L, R, T, B = 520, 80, 48, 160, 76
-    x0, x1, y0, y1 = math.log10(100), math.log10(1e6), 0.76, 1.03
+    x0, x1, y0, y1 = math.log10(50), math.log10(1e6), 0.76, 1.03
     X = lambda p: L + (math.log10(p) - x0) / (x1 - x0) * (W - L - R)
     Y = lambda v: T + (y1 - v) / (y1 - y0) * (H - T - B)
     o = head("Parameters versus error", "rel_mse against parameters on development data at stage S2; lower is better.")
     # the zone ants works in: at or under 3 000 parameters (the first design's shaded region, kept)
-    o.append(f'<rect x="{X(100):.1f}" y="{T-12}" width="{X(3000)-X(100):.1f}" height="{H-B-T+12}" rx="12" fill="{MINT_2}" fill-opacity="0.34"/>')
+    o.append(f'<rect x="{X(50):.1f}" y="{T-12}" width="{X(3000)-X(50):.1f}" height="{H-B-T+12}" rx="12" fill="{MINT_2}" fill-opacity="0.34"/>')
     for c, lab in ((100, "100"), (300, "300"), (1000, "1k"), (3000, "3k")):
         o.append(f'<line x1="{X(c):.1f}" x2="{X(c):.1f}" y1="{T}" y2="{H-B}" stroke="{MINT_3}" stroke-opacity="0.6" stroke-dasharray="{DASH}"/>')
         label(o, X(c), T - 22, lab, 11.5, MINT_TEXT, "middle", 600, halo=False)
-    label(o, X(100) + 14, T + 6, "parameter caps", 11.5, MINT_TEXT, "start", 600, halo=False)
+    label(o, X(50) + 14, T + 6, "parameter caps", 11.5, MINT_TEXT, "start", 600, halo=False)
     # references
-    for v in (0.8, 0.9):
+    o.append(f'<line x1="{L}" x2="{L}" y1="{T}" y2="{H-B}" stroke="{FILL}"/>')
+    label(o, L - 14, T - 22, "rel_mse", 11.5, MUTE, "end", 500, halo=False)
+    for v in (0.8, 0.85, 0.9, 0.95):
         o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="{HAIR}"/>')
         label(o, L - 14, Y(v) + 4, f"{v:.2f}", 11.5, MUTE, "end", halo=False)
     o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(1.0):.1f}" y2="{Y(1.0):.1f}" stroke="{INK}" stroke-dasharray="{DASH}"/>')
@@ -400,7 +428,7 @@ def scatter():
         if 100 <= p <= 1e6 and y0 <= v <= y1:
             o.append(f'<circle cx="{X(p):.1f}" cy="{Y(v):.1f}" r="2.2" fill="{MINT_3}" fill-opacity="0.28"/>')
     if cloud:
-        label(o, W - R, Y(0.965), f"dots: the {len(cloud):,} evaluations of the ants run", 11.5, MUTE, "end", 500, halo=False)
+        label(o, W - R, Y(1.0) + 22, f"dots: the {len(cloud):,} evaluations of the ants run", 11.5, MUTE, "end", 500, halo=False)
     # hand-built baselines and their best-so-far envelope
     names = {"ridge_L720": "ridge 720", "ridge_L336": "ridge 336", "ridge_L96": "ridge 96", "dlinear_like": "DLinear-like", "fits_like": "FITS-like"}
     pos = {"ridge_L720": ("end", -13, 5), "ridge_L336": ("end", -13, 5), "dlinear_like": ("end", -13, 5), "ridge_L96": ("middle", 0, -14), "fits_like": ("middle", 0, -14)}
@@ -434,12 +462,14 @@ def scatter():
     o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
     label(o, W - R, Y(0.915), f"{fp / pa:.0f}× fewer parameters than ridge 720 ({pa:,} against {fp:,})", 12, INK, "end", 500)
     label(o, W - R, Y(0.915) + 18, f"and error {'lower' if va < big['rel_mse'] else 'higher'} by {abs(big['rel_mse'] - va):.3f}; both are scored on the data the search used", 11.5, MUTE, "end", 400, halo=False)
-    lab = [("end", -13, -14), ("start", 12, -14), ("end", -13, 22)]
+    lab = [("start", 12, -14), ("start", 12, -14), ("end", -13, 22)]
     for i, (p, v, cap) in enumerate(pts):
         o.append(f'<rect x="{X(p)-6:.1f}" y="{Y(v)-6:.1f}" width="12" height="12" rx="2.5" fill="{MINT_3}" stroke="{INK}"/>')
         an, dx, dy = lab[min(i, 2)]
-        label(o, X(p) + dx, Y(v) + dy, f"{v:.2f}", 12, MINT_TEXT, an, 600)
-    label(o, X(pts[0][0]) - 13, Y(pts[0][1]) + 6, "ants", 12.5, INK, "end", 600)
+        if i == 0:
+            label2(o, X(p) + dx, Y(v) + dy, [("ants\u00a0\u00a0", INK, 600), (f"{v:.2f}", MINT_TEXT, 600)], 12.5, an)
+        else:
+            label(o, X(p) + dx, Y(v) + dy, f"{v:.2f}", 12, MINT_TEXT, an, 600)
     check_labels("scatter")
     (A / "scatter.svg").write_text(canvas(H, o, "Parameters versus error"))
 
