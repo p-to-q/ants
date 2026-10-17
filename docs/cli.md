@@ -82,7 +82,7 @@ ants run --contract contracts/tinyts_real.toml --workdir $PWD/runs/real --arm po
 | `--llm-env FILE` | `~/.config/ants/llm.env`, else `/etc/ants/llm.env` | endpoints for `llm*` / `portfolio_llm` arms; file must be mode 600 (`llm.load_endpoints` raises otherwise) |
 | `--dream-every N` | 100 | summarise every N evaluations; only `llm_dream`, `portfolio_dream` |
 
-Arms (`proposers.make_proposer`): `random`, `evo`, `evo_percap`, `qd`, `tpe` (needs `optuna`), `portfolio`, and the LLM arms
+Arms (`proposers.make_proposer`): `random`, `evo`, `evo_percap`, `qd`, `tpe` (needs `optuna`), `portfolio` (the nine-operator portfolio exactly as it has run since epoch 2; pinned, see [upgrading](upgrading.md)), `portfolio_lean` (the later design: noisy operators dropped, a reserved evo+qd pair, a discounted bandit), `portfolio_screen` (the plain portfolio with a learned screen between the first and second stage, [screen.py](modules/proposers.md)), and the LLM arms
 `llm`, `llm_dream`, `portfolio_llm`, `portfolio_dream`, `agent`, `portfolio_agent` (need a client). Unknown arm: `ValueError`. `agent` and `portfolio_agent` replace the one-shot LLM operator with one that reads the ledger through read-only tools before it proposes ([research note](research/meta-harness.md)); every tool call is a chained `agent_tool` event; LLM calls are capped per rolling day (`ANTS_LLM_MAX_CALLS_PER_DAY`, default 1500).
 
 Behaviour: one `ants run` per workdir (`flock` on `<workdir>/ants.lock`, released by the kernel even after kill -9; a second one exits 3, verified).
