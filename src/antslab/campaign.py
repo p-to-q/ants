@@ -157,11 +157,16 @@ class Campaign:
             d["promotion"] = self.promoter.definition()
         return d
 
-    def start_record(self) -> dict:
+    def start_record(self, definition_changed: bool = False, prev_hash: str | None = None) -> dict:
         from .update import current_version
         d = self.arm_definition()
-        return {"version": current_version(), "epoch": self.epoch, "arm": self.arm, "python": platform.python_version(), "arm_def": d,
-                "arm_def_hash": hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:12]}
+        rec = {"version": current_version(), "epoch": self.epoch, "arm": self.arm, "python": platform.python_version(), "arm_def": d,
+               "arm_def_hash": hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:12]}
+        if definition_changed:
+            rec["definition_changed"] = True
+            if prev_hash:
+                rec["previous_hash"] = prev_hash
+        return rec
 
     def _epoch(self) -> str:
         i = self._epoch_info()
@@ -424,7 +429,8 @@ class Campaign:
             except Exception:
                 pass
 
-    def run(self, max_steps: int | None = None, stop=lambda: False, sleep=None) -> str:
+    def run(self, max_steps: int | None = None, stop=lambda: False, sleep=None,
+            definition_changed: bool = False, prev_hash: str | None = None) -> str:
         if sleep is None:
             def sleep(seconds):                    # wakes every 0.5 s: a 60 s breaker nap must not outlive SIGTERM
                 end = time.monotonic() + seconds
@@ -438,7 +444,7 @@ class Campaign:
         self._stop, self._sleep = stop, sleep
         n, last, streak, unexpected = 0, "idle", 0, 0
         try:
-            self.l.event("daemon_started", self.start_record())             # which code, which epoch, which arm definition ran from here on
+            self.l.event("daemon_started", self.start_record(definition_changed=definition_changed, prev_hash=prev_hash))
         except Exception:
             pass
         sd_notify("READY=1")

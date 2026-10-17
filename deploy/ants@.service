@@ -20,8 +20,8 @@ WorkingDirectory=/opt/ants
 # needs them. They never enter the process environment (/proc/<pid>/environ, child processes, crash dumps).
 ExecStart=/opt/ants/.venv/bin/ants run --contract /opt/ants/contracts/tinyts.toml --workdir /var/lib/ants/%i --arm %i --seed 1 --llm-env /etc/ants/llm.env
 Restart=always
-# exit 3 = another instance holds this workdir: do not restart-loop
-RestartPreventExitStatus=3
+# exit 3 = another instance holds this workdir; exit 4 = arm definition changed (needs --new-definition): do not restart-loop
+RestartPreventExitStatus=3 4
 RestartSec=30
 TimeoutStopSec=60
 KillMode=control-group

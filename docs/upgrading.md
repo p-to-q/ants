@@ -26,6 +26,8 @@ The rule: **a new version of the code never costs an experiment.** What a run ha
 
 Two records make this checkable: every start of the loop writes a `daemon_started` event (ants version, epoch, python, the arm definition and its hash), and `ants epochs` shows per epoch the trial counts, the dates and the versions that ran in it. `ants doctor` warns when the arm definition changed inside a ledger.
 
+**Definition guard (exit code 4).** `ants run` compares the current code's arm definition hash against the ledger's last `daemon_started` event. If they differ, it refuses to start (exit 4, message with both hashes and the differing keys). Pass `--new-definition` to proceed; the start event records `"definition_changed": true` and the previous hash. A version change alone does not trigger the guard (the version field is excluded from the comparison). `ants@.service` sets `RestartPreventExitStatus=3 4`, so a refused start does not restart in a loop.  `ants doctor` reports the mismatch as WARN.
+
 ## Upgrading, step by step
 
 On a server (`deploy/remote_deploy.sh`):
