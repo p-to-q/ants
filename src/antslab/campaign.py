@@ -95,6 +95,7 @@ class Campaign:
         self.free_fn = free_fn or (lambda: free_gb(self.workdir))
         self.dream_every, self.dream_fn = dream_every, dream_fn
         self.n_proposed = ledger.conn.execute("SELECT COUNT(*) FROM trials WHERE gym=? AND arm=?", (c.gym, arm)).fetchone()[0]
+        self.promoter = getattr(proposer, "promoter", None)    # None = the contract's quantile rule decides every promotion
         self.epoch = self._epoch()
         ledger.register_epoch(self.epoch, self._epoch_info())
         self.hist = History(ledger, c, arm, epoch=self.epoch)
@@ -143,9 +144,16 @@ class Campaign:
         """what makes this arm this arm, apart from the measuring machinery (that is the epoch): its operators, their guaranteed shares,
         the stage budgets. If it changes inside one ledger, results before and after are not one experiment."""
         ops = sorted(getattr(self.p, "ops", {}) or [getattr(self.p, "name", "?")])
-        return {"arm": self.arm, "operators": ops, "floors": dict(sorted((getattr(self.p, "floors", {}) or {}).items())),
-                "promote_quantile": self.c.promote_quantile, "promote_by_cap": bool(self.c.raw.get("cascade", {}).get("promote_by_cap")),
-                "min_history": self.c.min_history, "batch": self.batch}
+        d = {"arm": self.arm, "operators": ops, "floors": dict(sorted((getattr(self.p, "floors", {}) or {}).items())),
+             "promote_quantile": self.c.promote_quantile, "promote_by_cap": bool(self.c.raw.get("cascade", {}).get("promote_by_cap")),
+             "min_history": self.c.min_history, "batch": self.batch}
+        if getattr(self.p, "reserve", None):                      # likewise: a key appears only when the arm uses the feature, so older hashes stand
+            d["reserve"] = sorted([sorted(k), v] for k, v in self.p.reserve.items())
+        if getattr(self.p, "use_discount", False):
+            d["use_discount"] = True
+        if self.promoter is not None:                             # only when present: the definition (and its hash) of every older arm is unchanged
+            d["promotion"] = self.promoter.definition()
+        return d
 
     def start_record(self) -> dict:
         from .update import current_version
@@ -246,6 +254,11 @@ class Campaign:
         if self.c.cap_metric and self.c.caps and metrics.get(self.c.cap_metric, 0) > max(self.c.caps):
             return False                                           # infeasible under the hard cap
         self.hist.update()
+        if self.promoter is not None and i == 0:                   # the arm's own rule for the first cut (screen.py); the quantile rule is its fallback
+            return self.promoter.decide(self, t, metrics, lambda: self._quantile_rule(t, metrics))
+        return self._quantile_rule(t, metrics)
+
+    def _quantile_rule(self, t: dict, metrics: dict) -> bool:
         si = self.c.stages.index(t["stage"])
         # contract [cascade] promote_by_cap = true: a spec competes with the specs of its own size cap, so the small caps are searched too
         # (a global cut sends almost only the largest models deeper: in the first eight hours of the real contract no ≤100 model reached s2)

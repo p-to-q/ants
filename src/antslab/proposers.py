@@ -292,6 +292,12 @@ class LLMProposer:
         self.pool.shutdown(wait=False, cancel_futures=True)
 
 
+# The portfolio exactly as it ran on the server since epoch 2 (all nine operators, a plain bandit, no reserved pair). build_portfolio's own
+# defaults moved on (portfolio_lean); an arm name keeps its definition for the life of a ledger (docs/upgrading.md), so the arms that
+# already have ledgers are pinned here, and tests/test_campaign.py checks the definition hash that the server recorded.
+LEGACY_PORTFOLIO = {"drop": (), "reserve": {}, "use_discount": False}
+
+
 def make_proposer(arm: str, c: Contract, seed: int, client=None, memory_fn=None, llm_share: float = 1.0):
     rng = random.Random(seed)
     if arm == "random":
@@ -306,12 +312,21 @@ def make_proposer(arm: str, c: Contract, seed: int, client=None, memory_fn=None,
         return QDProposer(c, rng)
     if arm == "tpe":
         return TPEProposer(c, rng, seed)
+    if arm == "portfolio_lean":                         # the later portfolio design: noisy operators dropped, a reserved evo+qd pair, a discounted bandit
+        from .portfolio import build_portfolio
+        return build_portfolio(c, seed, None, None, agent=False)
+    if arm == "portfolio_screen":                       # the plain portfolio (as run since epoch 2) with a learned screen between the first and second stage
+        from .portfolio import build_portfolio
+        from .screen import ScreenPromoter
+        p = build_portfolio(c, seed, None, None, agent=False, **LEGACY_PORTFOLIO)
+        p.promoter = ScreenPromoter(c, seed)
+        return p
     if arm in ("portfolio", "portfolio_llm", "portfolio_dream", "portfolio_agent"):
         from .portfolio import build_portfolio
         if arm != "portfolio" and client is None:
             raise ValueError("llm arms need a client")
         return build_portfolio(c, seed, client if arm != "portfolio" else None,
-                               memory_fn if arm == "portfolio_dream" else None, agent=(arm == "portfolio_agent"))
+                               memory_fn if arm == "portfolio_dream" else None, agent=(arm == "portfolio_agent"), **LEGACY_PORTFOLIO)
     if arm == "agent":
         if client is None:
             raise ValueError("llm arms need a client")
