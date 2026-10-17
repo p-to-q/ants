@@ -453,3 +453,12 @@ def test_the_hash_a_check_computes_is_the_hash_a_running_campaign_records(tmp_pa
     for arm in ("portfolio", "portfolio_screen", "portfolio_lean", "random", "evo"):
         camp = Campaign(Ledger(tmp_path / f"{arm}.sqlite"), c, tmp_path / arm, arm, make_proposer(arm, c, 1), 1)
         assert arm_definition_hash(arm, ct, 1) == camp.start_record()["arm_def_hash"], arm
+
+
+def test_disk_uses_the_contracts_thresholds_not_fixed_numbers(monkeypatch):
+    """The disk check once ignored the thresholds it was given and said OK at 7 GB where `ants run` pauses (pause 8)."""
+    from antslab import janitor, preflight
+    th = {"warn": 15, "clean": 12, "pause": 8, "hardstop": 6}
+    for free, want in ((20, "OK"), (13, "WARN"), (7, "FAIL"), (5, "FAIL")):
+        monkeypatch.setattr(janitor, "free_gb", lambda p, f=free: f)
+        assert preflight.check_disk("/x", th)[0][0] == want, free

@@ -149,11 +149,14 @@ def check_disk(path: str | Path, thresholds: dict | None = None) -> list[tuple[s
         free = free_gb(path)
     except Exception as e:
         return [("WARN", f"cannot read disk usage: {e}")]
-    if free < 2:
-        return [("FAIL", f"disk: {free:.1f} GB free under {path} (< 2 GB)")]
-    if free < 10:
-        return [("WARN", f"disk: {free:.1f} GB free under {path} (< 10 GB)")]
-    return [("OK", f"disk: {free:.1f} GB free under {path}")]
+    from .janitor import disk_level
+    lvl = disk_level(free, th)                                # the very rule `ants run` uses: preflight must not say OK where the search would pause
+    msg = f"disk: {free:.1f} GB free under {path} (level {lvl}; warn {th['warn']}, pause {th['pause']}, hard stop {th['hardstop']} GB)"
+    if lvl in ("pause", "hardstop"):
+        return [("FAIL", msg + ": the search would not run")]
+    if lvl in ("warn", "clean"):
+        return [("WARN", msg)]
+    return [("OK", msg)]
 
 
 def check_ledgers(ledger_paths: list[Path]) -> list[tuple[str, str]]:

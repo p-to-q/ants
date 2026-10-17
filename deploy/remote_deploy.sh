@@ -146,7 +146,7 @@ for e in d.get('experiment', []):
         *) [[ "$1" =~ ^[a-z0-9_.-]{1,40}$ ]] || { echo "bad argument: $1"; exit 1; }; VARGS+=("$1"); shift ;;
       esac
     done
-    REMOTE_CMD="sudo -n -u ants /opt/ants/.venv/bin/ants preflight --json ${VARGS[*]}"
+    REMOTE_CMD="sudo -n -u ants /opt/ants/.venv/bin/ants preflight --json ${VARGS[*]+"${VARGS[*]}"}"
     RAW=$("${SSH[@]}" "$REMOTE_CMD") || true
     if ! echo "$RAW" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
       echo "preflight did not return valid JSON:"; echo "$RAW"; exit 1
