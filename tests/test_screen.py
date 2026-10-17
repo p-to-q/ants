@@ -124,18 +124,26 @@ def test_arms_that_already_have_ledgers_keep_the_definition_the_server_recorded(
     assert "tpe" in d["operators"] and not {"aco", "sa", "sweep"} & set(d["operators"]) and d["use_discount"] is True and d["reserve"]
 
 
-def test_the_plain_portfolio_proposes_what_version_0_6_0_proposed():
-    """The sequence of specifications the pinned portfolio draws on the analytic benchmark, hashed. Computed with the sources of 0.6.0 and with this
-    tree: identical (2026-10-17). The Optuna operator is left out of the hash: its draws depend on the numpy and Optuna build (the same code gave another
-    sequence on the CI machine), the pure-Python operators do not. If this fails the arm changed; rename it (new arm) rather than update the number."""
-    import hashlib
+def test_the_pinned_portfolio_allocates_what_version_0_6_0_allocated():
+    """Five consecutive operator allocations of the pinned portfolio on a fixed (fake) history, pinned. Computed with the sources of 0.6.0 and with this
+    tree: identical (2026-10-17). It uses only Python's own `random`, so it is the same on every platform; a whole-search sequence is not (numpy and
+    the C library move the last digits and the search amplifies them: the same code drew different sequences on three CI machines), which is why no
+    full-sequence hash is pinned. If this fails the arm changed; rename it (new arm) rather than update the numbers."""
     from antslab import bench
     from antslab.portfolio import build_portfolio
     from antslab.proposers import LEGACY_PORTFOLIO, make_proposer
-    r = bench.drive(lambda cc, s: build_portfolio(cc, s, with_tpe=False, **LEGACY_PORTFOLIO), bench.make_contract(), 400, 3, noise=0.01, checkpoints=(400,))
-    r["hist"].update()
-    assert hashlib.sha256(json.dumps(sorted(r["hist"].first.keys())).encode()).hexdigest()[:16] == "576b7305b4cf5c83"
-    assert round(r["best"][400], 6) == 0.207857
+
+    class H:
+        order = list(range(100)); stagnant_for = 0
+        ops = {"random": {"n": 50, "succ": 5}, "evo": {"n": 120, "succ": 30}, "de": {"n": 80, "succ": 9}, "cem": {"n": 40, "succ": 3},
+               "qd": {"n": 30, "succ": 1}, "aco": {"n": 60, "succ": 4}, "sa": {"n": 20, "succ": 2}, "sweep": {"n": 10, "succ": 0}}
+        def delayed_credit(self): return {"evo": 0.2, "de": 0.1}
+    pf = build_portfolio(bench.make_contract(), 5, with_tpe=False, **LEGACY_PORTFOLIO)
+    got = [pf.allocation(H(), 40) for _ in range(5)]
+    want = [{"aco": 1, "cem": 2, "de": 5, "evo": 5, "qd": 6, "random": 2, "sa": 5, "sweep": 14}, {"aco": 1, "cem": 0, "de": 4, "evo": 8, "qd": 3, "random": 3, "sa": 5, "sweep": 16},
+            {"aco": 2, "cem": 4, "de": 5, "evo": 11, "qd": 1, "random": 1, "sa": 1, "sweep": 15}, {"aco": 2, "cem": 1, "de": 9, "evo": 7, "qd": 0, "random": 2, "sa": 6, "sweep": 13},
+            {"aco": 1, "cem": 1, "de": 4, "evo": 8, "qd": 0, "random": 8, "sa": 2, "sweep": 16}]
+    assert got == want
     p = make_proposer("portfolio", bench.make_contract(), 3)               # and the configuration itself, which does not depend on any build
     assert sorted(p.ops) == ["aco", "cem", "de", "evo", "qd", "random", "sa", "sweep", "tpe"] and not p.reserve and not p.use_discount and not p.floors
 
