@@ -168,3 +168,44 @@ On the server, as any user with ssh: `ants` opens the interface ([tui](tui.md));
 | disk | screen 6 | free space above 15 GB | warn and clean levels ([section 3](#3-disk-levels-pause-breaker)) |
 
 Decisions to take at a check-in: whether to add seeds (a second and third seed per arm, one after another, since two cores serve three arms), whether the stage timeouts and the promotion quantile still fit what the stages cost, and whether any arm has earned the cores of another.
+
+## 10. Experiment registry
+
+`deploy/experiments.toml`: one `[[experiment]]` per run.  `ants experiments` lists them and checks each against its ledger.
+
+| key | type | required | meaning |
+|---|---|---|---|
+| `name` | string (`[a-z0-9_]{1,40}`) | yes | workdir name under the base directory |
+| `arm` | string | yes | proposer arm key as in `proposers.make_proposer` |
+| `seed` | int | yes | `--seed` value |
+| `contract` | string | no | contract name or path (default `tinyts_real`) |
+| `question` | string | yes | free text: the question this run answers |
+| `status` | string | yes | `planned`, `running`, `finished`, `archived` |
+| `cpu_hours` | float | no | optional budget in CPU-hours |
+
+Loader: `src/antslab/experiments.py` (stdlib `tomllib`; rejects unknown keys, duplicate names, bad names, bad status).
+
+`deploy/remote_deploy.sh start --registry` reads `deploy/experiments.toml` and starts every experiment whose status is `running`.  The existing explicit `start ARM..` behaviour is unchanged.
+
+`ants experiments [--file F] [--base DIR] [--json]` lists the experiments and, for each, whether a ledger exists under `DIR/<name>/ledger.sqlite` and its last `daemon_started` arm_def_hash versus what the current code computes.
+
+## 11. Off-machine copies
+
+What is protected: the ledger (via verified backups and anchors), per-trial files and the backup directory.  What is NOT protected: a copy on the same disk as the original, which survives a corrupted file but not a lost disk.
+
+`deploy/pull_backups.sh DIR` copies `/var/lib/ants/*/backups` (and `anchors.jsonl`) off the server, verifies every pulled backup with the existing backup verification routine (`antslab.backup.verify_backup`), appends one line per run to `DIR/PULL.log` (UTC time, files pulled, verified ok/bad, newest backup age per arm), and exits non-zero if anything failed verification or the newest pulled backup of any arm is older than 36 h.  It also checks the chain head of the newest backup against the anchor file's last head and reports a mismatch as a FAIL line in PULL.log.
+
+Scheduling templates: `deploy/launchd/io.ants.pull-backups.plist` (macOS, daily at 04:00) and `deploy/ants-pull-backups.service` + `deploy/ants-pull-backups.timer` (Linux systemd, daily at 04:00 with 15 min jitter).  Edit the paths and environment variables before installing.
+
+`ants doctor`: if `ANTS_OFFSITE_DIR` is set, reports the age of the newest verified copy found there (WARN > 36 h, FAIL if the directory is empty).
+
+## 12. Soak and drills (roadmap step 28)
+
+`deploy/remote_deploy.sh soak` prints a dated table per arm: active since, NRestarts, watchdog events (journal), last backup age, chain ok, disk free.
+
+`deploy/remote_deploy.sh drill kill9 ARM` kills the main process of `ants@ARM` with SIGKILL, waits (max 120 s) for the service to be active again, runs the chain verification, and appends one line to `/var/lib/ants/DRILLS.log` (UTC, drill, arm, seconds to recover, chain ok).
+
+Manual drills (documented, not scripted):
+- **full disk**: fill `/var/lib/ants` to the `pause` level (< 8 GB free) with `fallocate`; observe that the loop pauses; free the space; observe that it resumes within 60 s.
+- **network outage**: block the LLM endpoint with `iptables -A OUTPUT -d <ip> -j DROP`; observe that the arm stops producing model proposals and the parse rate in doctor degrades; unblock; observe recovery.
+- **model endpoint outage**: stop the LLM endpoint (or point to a non-existent one); same observations as network outage.
