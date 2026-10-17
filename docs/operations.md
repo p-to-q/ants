@@ -26,7 +26,7 @@ rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw da
 
 | unit | key limits | note |
 |---|---|---|
-| `ants@<arm>.service` | `Type=notify`, `WatchdogSec=300`, `CPUQuota=66%`, `MemoryHigh=550M`, `MemoryMax=650M` (three instances fit the host), `OOMPolicy=kill`, `OOMScoreAdjust=500`, `TasksMax=256`, `Restart=always`, `RestartPreventExitStatus=3`, `RestartSec=30`, `StartLimitIntervalSec=0`, `TimeoutStopSec=60`, `KillMode=control-group` | one instance per arm; workdir `/var/lib/ants/<arm>`; runs `ants run --seed 1 --llm-env /etc/ants/llm.env` with **no** `--max-evals` (forever). Sandboxed: `ProtectSystem=strict`, writes only `/var/lib/ants`, no capabilities, `UMask=0077` |
+| `ants@<arm>.service` | `Type=notify`, `WatchdogSec=300`, `CPUQuota=66%`, `MemoryHigh=550M`, `MemoryMax=650M` (three instances fit the host), `OOMPolicy=kill`, `OOMScoreAdjust=500`, `TasksMax=256`, `Restart=always`, `RestartPreventExitStatus=3 4`, `RestartSec=30`, `StartLimitIntervalSec=0`, `TimeoutStopSec=60`, `KillMode=control-group` | one instance per arm; workdir `/var/lib/ants/<arm>`; runs `ants run --seed 1 --llm-env /etc/ants/llm.env` with **no** `--max-evals` (forever). Sandboxed: `ProtectSystem=strict`, writes only `/var/lib/ants`, no capabilities, `UMask=0077` |
 | `ants-janitor@<arm>.timer` -> `.service` | first run 10 min after boot, then every 30 min; `CPUQuota=50%`, `MemoryMax=300M`; `InaccessiblePaths=/etc/ants` | `ants janitor --archive-dir /var/lib/ants/archive/<arm>` |
 | `ants-health@<arm>.timer` -> `.service` | first run 20 min after boot, then every 15 min; `MemoryMax=200M`; no network | `ants doctor`; exit 2 puts the unit in `systemctl --failed` |
 | `ants-backup@<arm>.timer` -> `.service` | daily 03:15 (random delay up to 15 min, catches up after downtime); `MemoryMax=400M`, no network | `ants backup --dest /var/lib/ants/backups/<arm> --keep 14 --gzip` |
@@ -35,7 +35,7 @@ rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw da
 Deliberately absent (comment in the unit): `LimitFSIZE` (would kill the supervisor when `ledger.sqlite` grows past it; the runner gives each **child**
 256 MiB), `MemoryDenyWriteExecute`, `SystemCallFilter`, `ProcSubset`. Child processes get BLAS threads = 1, so the 150% quota is about one busy core plus headroom.
 
-Only one `ants run` may use a workdir: `flock` on `<workdir>/ants.lock` (`campaign.InstanceLock`). A second start prints `another ants run (pid N) already holds ...` and exits 3 (verified). `ants@.service` sets `RestartPreventExitStatus=3`, so the duplicate unit stays stopped instead of retrying.
+Only one `ants run` may use a workdir: `flock` on `<workdir>/ants.lock` (`campaign.InstanceLock`). A second start prints `another ants run (pid N) already holds ...` and exits 3 (verified). `ants@.service` sets `RestartPreventExitStatus=3 4` (3 = lock conflict, 4 = arm definition mismatch), so neither loops.
 
 ## 3. Disk levels, PAUSE, breaker
 
@@ -113,7 +113,7 @@ When an endpoint fails N consecutive times (default 5) the client quarantines it
 | doctor WARN `2 epoch(s) recorded` | code, contract or data manifest changed during the ledger's life (a redeploy rewrites the code hash) | expected after an upgrade; `History` ignores older epochs, so proposers restart from empty memory. Never compare numbers across epochs |
 | `PermissionError: ... must be chmod 600` | `llm.env` has group/other bits | `chmod 600`, owner `ants`. The installer warns about this |
 | LLM arm WARN parse rate <= 60% | model output not valid JSON for the grammar | rejected specs are counted, nothing breaks; consider `portfolio` without LLM |
-| second service on the same workdir | `ants.lock` held; the second `ants run` exits 3 and systemd does not restart it (`RestartPreventExitStatus=3`) | disable the duplicate unit |
+| second service on the same workdir | `ants.lock` held; the second `ants run` exits 3 and systemd does not restart it (`RestartPreventExitStatus=3 4`) | disable the duplicate unit |
 | `idle` forever | proposer returned nothing (space exhausted or all keys seen) | `ants top`; widen the space in a new contract (new epoch) |
 
 ## 7. Budget estimate
