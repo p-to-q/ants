@@ -61,12 +61,12 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib
-with open('$REG', 'rb') as f:
+with open(sys.argv[1], 'rb') as f:
     d = tomllib.load(f)
 for e in d.get('experiment', []):
     if e.get('status') == 'running':
         print(e['name'])
-")
+" "$REG")
       [ ${#ARMS[@]} -gt 0 ] || { echo "no running experiments in $REG"; exit 1; }
       echo "registry: starting ${ARMS[*]}"
     else
