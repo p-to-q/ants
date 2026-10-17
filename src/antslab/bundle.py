@@ -161,6 +161,14 @@ def _make_bundle(name, out_dir, workdirs, note_file, created: list) -> dict:
 
     if not _SAFE_NAME.match(str(name)):
         raise BundleError(f"bundle name {name!r}: use letters, digits, '.', '_' and '-' only (no path), at most 64 characters")
+    names = []
+    for w in workdirs:                      # verify refuses any other name: fail now, before anything is written
+        base = Path(w).name
+        n = base if [Path(x).name for x in workdirs].count(base) == 1 else f"{base}-{hashlib.sha256(str(Path(w).resolve()).encode()).hexdigest()[:8]}"
+        if not _SAFE_NAME.match(n):
+            raise BundleError(f"workdir name {base!r}: a bundle holds ledgers under plain names (letters, digits, '.', '_', '-'; at most 64 "
+                              f"characters, not starting with a dot); sealing it would produce a bundle `ants bundle verify` rejects")
+        names.append(n)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     bundle_dir = out / name
@@ -171,7 +179,6 @@ def _make_bundle(name, out_dir, workdirs, note_file, created: list) -> dict:
     created.append(bundle_dir)
     os.chmod(bundle_dir, 0o700)
     os.chmod(ledgers_dir, 0o700)
-    bases = [Path(w).name for w in workdirs]
 
     manifest = {
         "bundle_format": 1,
@@ -183,12 +190,10 @@ def _make_bundle(name, out_dir, workdirs, note_file, created: list) -> dict:
         "ledgers": {},
     }
 
-    for wd_path in workdirs:
+    for idx, wd_path in enumerate(workdirs):
         wd = Path(wd_path)
         ledger_path = wd / "ledger.sqlite"
-        wd_name = wd.name
-        if bases.count(wd_name) > 1:                                  # two workdirs with one basename must not overwrite each other
-            wd_name = f"{wd_name}-{hashlib.sha256(str(wd.resolve()).encode()).hexdigest()[:8]}"
+        wd_name = names[idx]                                          # checked above; two workdirs with one basename got different ones
 
         # snapshot to a temp file, then gzip into the bundle
         with tempfile.TemporaryDirectory() as td:

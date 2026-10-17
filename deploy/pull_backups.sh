@@ -30,8 +30,11 @@ WORST_AGE_H=0
 
 # The server keeps backups at /var/lib/ants/backups/<arm>/ (ants-backup@.service), so after the pull they are at DIR/backups/<arm>/. A
 # workdir-local DIR/<arm>/backups is read too (a backup made with a different --dest).
-for arm_dir in "$DIR"/backups/* "$DIR"/*/backups; do
+# Series backups are one level deeper: DIR/backups/series/<name>/<workdir>/ (series_backup.sh).
+for arm_dir in "$DIR"/backups/* "$DIR"/backups/series/*/* "$DIR"/*/backups; do
   [ -d "$arm_dir" ] || continue
+  [ "$arm_dir" = "$DIR/backups/series" ] && continue                      # a container of series, not a backup directory
+  case "$arm_dir" in "$DIR"/backups/series/*/*) ;; "$DIR"/backups/series/*) continue ;; esac   # nor is a series name
   if [ "$(basename "$arm_dir")" = "backups" ]; then arm="$(basename "$(dirname "$arm_dir")")"; else arm="$(basename "$arm_dir")"; fi
   # verify each sidecar
   for sidecar in "$arm_dir"/ledger-*.json; do

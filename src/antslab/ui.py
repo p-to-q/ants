@@ -194,15 +194,9 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
             if arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
                 client = _StubClient()
             try:
-                from .campaign import DEFAULT_BATCH
+                from .campaign import Campaign
                 p = make_proposer(arm, c, 0, client)
-                ops = sorted(getattr(p, "ops", {}) or [getattr(p, "name", "?")])
-                arm_def = {"arm": arm, "operators": ops,
-                           "floors": dict(sorted((getattr(p, "floors", {}) or {}).items())),
-                           "promote_quantile": c.promote_quantile,
-                           "promote_by_cap": bool(c.raw.get("cascade", {}).get("promote_by_cap")),
-                           "min_history": c.min_history, "batch": DEFAULT_BATCH}
-                cur_hash = _hlib.sha256(json.dumps(arm_def, sort_keys=True).encode()).hexdigest()[:12]
+                cur_hash = _hlib.sha256(json.dumps(Campaign.definition_of(arm, p, c), sort_keys=True).encode()).hexdigest()[:12]
                 if cur_hash != last_recorded:
                     out.append(("WARN", f"arm definition hash mismatch: ledger {last_recorded}, current code {cur_hash}; "
                                         "`ants run` will refuse unless --new-definition is passed (docs/upgrading.md)"))
@@ -210,6 +204,14 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
                 pass
         except Exception:
             pass
+    try:                                   # an operator the arm asked for but this host could not build: the hash does not show it, so say it here
+        row = led.conn.execute("SELECT ts, payload FROM events WHERE kind='daemon_started' ORDER BY seq DESC LIMIT 1").fetchone()
+        miss = (json.loads(row[1]).get("unavailable") if row else None) or []
+        if miss:
+            out.append(("WARN", f"operator {', '.join(miss)} unavailable since the start at {time.strftime('%Y-%m-%d %H:%M', time.localtime(row[0]))} "
+                                "(package missing on this host): the arm runs without it; install it and restart (docs/upgrading.md)"))
+    except Exception:
+        pass
     ep = _q1(led, "SELECT epoch FROM trials WHERE gym=? AND arm=? ORDER BY id DESC LIMIT 1", c.gym, arm)
     n_ep = _q1(led, "SELECT COUNT(*) FROM epochs")
     out.append(("OK" if n_ep <= 1 else "WARN", f"{n_ep} epoch(s) recorded; current {ep or '-'}" + ("" if n_ep <= 1 else " (evaluator, contract or data changed during this ledger's life)")))

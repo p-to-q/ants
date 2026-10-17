@@ -182,11 +182,11 @@ class Ledger:
         self.conn.executescript(SCHEMA)                                   # creates anything missing; never alters existing data
         if v >= SCHEMA_VERSION:
             return
+        if self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]:
+            self._safety_copy(v)                                           # BEFORE the write lock: copying a 250 MB ledger must not hold a running arm's writes (its busy_timeout is 30 s)
         self.conn.execute("BEGIN IMMEDIATE")                               # several processes may open an old file at once: one migrates, the rest re-check
         try:
             v = self.schema_version()
-            if v < SCHEMA_VERSION and self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]:
-                self._safety_copy(v)                                       # under the migration's own lock: only the opener that migrates writes or sets aside a copy
             for ver in range(v + 1, SCHEMA_VERSION + 1):
                 MIGRATIONS[ver](self)
                 self.conn.execute(f"PRAGMA user_version={ver}")

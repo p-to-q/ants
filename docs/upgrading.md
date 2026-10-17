@@ -83,3 +83,12 @@ when a change would make earlier and later trials not one experiment.
 An optional operator whose package is missing on the host (`tpe` without `optuna`) stays in the definition: the arm starts without it (a
 degraded run, recorded as `unavailable` in `daemon_started`) rather than answering a missing package with exit 4 and a service that stays down.
 Install the package to get the operator back; the hash is the same either way.
+
+## The rollback copy of a migrated ledger
+
+Before the first migration of a ledger that has events, ants writes `ledger.sqlite.pre-migration-vN` (N = the schema it migrates from) next to it,
+before it takes the write lock, so a running older arm is never held up by the copy. If two processes open the old file at once the first copy
+stays (it is judged by the schema version recorded inside it, not by file times). A copy at the canonical name that is at the right version is
+kept as "the rollback copy" even when it is older than a restore: after you restore a version-1 backup and migrate it again, the copy from the
+first migration is still the one named `.pre-migration-v1`. A copy at another version is set aside as `.stale-<time>`. Delete the copies by hand
+once the new version has run for a while; ants never deletes them.

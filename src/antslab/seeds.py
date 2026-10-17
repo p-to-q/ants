@@ -151,10 +151,17 @@ def active_arm_units() -> list[str]:
     if not shutil.which("systemctl"):
         return []
     try:
-        r = subprocess.run(["systemctl", "list-units", "ants@*", "--state=active", "--no-legend", "--plain"], capture_output=True, text=True, timeout=10)
+        r = subprocess.run(["systemctl", "list-units", "ants@*", "--all", "--no-legend", "--plain"], capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
-        return []
-    return [ln.split()[0] for ln in r.stdout.splitlines() if ln.strip()]
+        return ["(systemctl could not be asked: treated as running)"]            # fail closed: unknown is not "no arms"
+    if r.returncode != 0:
+        return ["(systemctl list-units failed: treated as running)"]
+    live = []
+    for ln in r.stdout.splitlines():
+        f = ln.split()
+        if len(f) >= 4 and (f[2] in ("active", "activating", "reloading", "deactivating") or f[3] == "auto-restart"):   # auto-restart: in its RestartSec window
+            live.append(f[0])
+    return live
 
 
 def run_seeds(a) -> int:

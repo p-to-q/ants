@@ -529,3 +529,41 @@ def test_a_refused_start_registers_no_epoch(tmp_path):
     led = Ledger(wd / "ledger.sqlite")
     assert led.conn.execute("SELECT COUNT(*) FROM epochs").fetchone()[0] == n
     led.close()
+
+
+def test_pull_backups_verifies_series_backups_too(tmp_path):
+    from antslab.backup import make_backup
+    d = _pull_layout(tmp_path, arms=("alpha",))
+    wd = tmp_path / "src" / "s1"
+    wd.mkdir(parents=True)
+    led = Ledger(wd / "ledger.sqlite"); led.event("note", {}); led.close()
+    make_backup(wd / "ledger.sqlite", d / "backups" / "series" / "e43a" / "portfolio_s1", keep=3, compress=True)
+    r = _run_pull(d)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "pulled=2 verified_ok=2 bad=0" in r.stdout
+
+
+def test_active_arm_units_fails_closed_and_sees_the_restart_window(monkeypatch):
+    from antslab import seeds
+    monkeypatch.setattr("shutil.which", lambda n: "/bin/systemctl")
+
+    class R:
+        def __init__(s, out, rc=0): s.stdout, s.returncode = out, rc
+    monkeypatch.setattr(seeds.subprocess, "run", lambda *a, **k: R("ants@a.service loaded activating auto-restart x\nants@b.service loaded inactive dead x\nants@c.service loaded active running x\n"))
+    assert seeds.active_arm_units() == ["ants@a.service", "ants@c.service"]
+    monkeypatch.setattr(seeds.subprocess, "run", lambda *a, **k: R("", 1))
+    assert seeds.active_arm_units()                                             # an error is "unknown": refuse
+    def boom(*a, **k): raise OSError("no")
+    monkeypatch.setattr(seeds.subprocess, "run", boom)
+    assert seeds.active_arm_units()
+
+
+def test_doctor_warns_when_an_operator_is_unavailable(tmp_path):
+    from antslab import ui
+    from antslab.contract import load_contract
+    c = load_contract(ROOT / "contracts/tinyts_real.toml")
+    led = Ledger(tmp_path / "l.sqlite")
+    led.event("daemon_started", {"arm": "portfolio", "arm_def_hash": "abc", "unavailable": ["tpe"]})
+    out = ui.doctor(led, c, "portfolio", tmp_path)
+    assert any(lvl == "WARN" and "tpe unavailable" in m for lvl, m in out)
+    led.close()

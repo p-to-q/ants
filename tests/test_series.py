@@ -677,3 +677,15 @@ def test_immutable_fallback_is_refused_when_a_write_ahead_log_is_unmerged(tmp_pa
     monkeypatch.setattr(bundle.sqlite3, "connect", fake)
     with pytest.raises(bundle.BundleError, match="write-ahead log"):
         bundle._snapshot_readonly(wd / "ledger.sqlite", tmp_path / "snap.sqlite")
+
+
+def test_make_refuses_a_workdir_name_verify_would_reject_before_writing_anything(tmp_path):
+    from antslab import bundle
+    out = tmp_path / "out"
+    for bad in ("my run", ".hidden", "naïve", "x" * 70):
+        wd = tmp_path / "wd" / bad
+        wd.mkdir(parents=True)
+        _old_schema_ledger(wd / "ledger.sqlite")
+        with pytest.raises(bundle.BundleError, match="plain names"):
+            bundle.make_bundle("b", out, [wd])
+        assert not out.exists() or not list(out.iterdir())
