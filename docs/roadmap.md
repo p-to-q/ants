@@ -375,13 +375,15 @@ Where ants *does* learn: the search policy (operator shares, lineage credit, phe
 
 ## Experiments, arms and seeds: what is managed and what is not yet
 
-| managed today | not yet (and the change) |
+| managed | not yet (and the change) |
 |---|---|
-| epochs are recorded per trial; `ants epochs`; results of different epochs are never pooled | **an experiment registry.** Arms are started by hand (`remote_deploy.sh start <arm>`); which arm means what, with which seed and for which question, lives in this document and in people's heads. Change: a `deploy/experiments.toml` (name, arm, seed, contract, the question it answers, status) that `remote_deploy.sh start` reads and `ants doctor` can check against the ledgers |
-| every start records version, epoch and the arm definition; a changed definition inside one ledger raises a warning | **seeds.** One seed per arm. Change: `ants run --seed` already exists; a runner that works through a seed list in order on the free core and writes each into its own workdir (`portfolio_s1`, `portfolio_s2`, …) |
-| a deploy backs up every ledger first, never touches `/var/lib/ants` | **retention.** Old runs are moved to `archive/old-runs` by hand (40 MB so far). Change: a documented keep-forever rule for ledgers and anchors, a size report in the interface, and a cold-copy step (`pull-backups` on a schedule from a machine that is not the server) |
-| backups are verified and listed; restores refuse to go back in time | **off-machine copies.** `pull-backups` exists and has not been run by anyone yet |
-| the arm name picks the workdir (`/var/lib/ants/<arm>`) | **naming.** The rule (never reuse a name for a different definition) is in [upgrading](upgrading.md); nothing enforces it except the doctor warning after the fact. Change: refuse to start an arm whose definition hash differs from the ledger's last `daemon_started`, unless `--new-definition` is given |
+| epochs are recorded per trial; `ants epochs`; results of different epochs are never pooled | |
+| `deploy/experiments.toml` records every experiment (name, arm, seed, contract, question, status); `ants experiments` checks each against its ledger; `remote_deploy.sh start --registry` starts the running ones | |
+| `ants run` refuses when the arm definition hash changed (exit 4, `--new-definition` overrides); the start event records the change; `ants doctor` reports it as WARN | |
+| `ants seeds` runs a pre-registered seed list across arms, interleaved, with `seeds.json` written before any run starts | |
+| `deploy/pull_backups.sh` copies backups off the server, verifies each, checks anchor heads, logs to `PULL.log`; launchd and systemd templates for daily scheduling; `ants doctor` reports the offsite age when `ANTS_OFFSITE_DIR` is set | |
+| `deploy/remote_deploy.sh soak` prints a reliability table; `drill kill9 ARM` exercises kill -9 recovery | manual drills for full disk, network outage, model endpoint outage (documented in ops) |
+| a deploy backs up every ledger first, never touches `/var/lib/ants` | **retention.** Old runs are moved to `archive/old-runs` by hand (40 MB so far). Change: a documented keep-forever rule for ledgers and anchors, a size report in the interface |
 
 Training results are kept in three places: the ledger (every trial, spec and metric, chained), the per-trial files, and the verified backups; the first epoch's runs are in `/var/lib/ants/archive/old-runs` untouched. What a harness change can do to them is in [upgrading](upgrading.md). Whether the new epoch is better than the old one is not known yet: the changes were made because the first epoch had not searched two of four caps and never ran the model operator, so the two epochs answer different questions; comparing their best values would compare protocols, not searches.
 
