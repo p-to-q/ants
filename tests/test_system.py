@@ -478,7 +478,8 @@ def test_migration_keeps_a_safety_copy_and_two_openers_do_not_race(tmp_path):
     led.close()
     with ThreadPoolExecutor(4) as ex:
         leds = list(ex.map(lambda _: Ledger(p), range(4)))
-    assert all(l.schema_version() == 1 for l in leds) and (tmp_path / "old.sqlite.pre-migration-v0").exists()
+    from antslab.ledger import SCHEMA_VERSION
+    assert all(l.schema_version() == SCHEMA_VERSION for l in leds) and (tmp_path / "old.sqlite.pre-migration-v0").exists()
     assert Ledger(tmp_path / "old.sqlite.pre-migration-v0").events("note")
 
 
