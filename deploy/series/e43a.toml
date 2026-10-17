@@ -1,0 +1,12 @@
+# E43: does a learned screen find good models in fewer CPU-hours?  Pre-registered in docs/experiments/E43-learned-screen.md.
+# The arms, seeds, budget and epoch are fixed before any run starts; the epoch is checked at every start (exit 5 on a difference).
+name = "e43a"
+question = "At a budget of 50 400 CPU-seconds, is the best deepest-stage rel_mse among models of at most 300 parameters lower for portfolio_screen than for portfolio?"
+protocol = "docs/experiments/E43-learned-screen.md"
+contract = "contracts/tinyts_real.toml"
+arms = ["portfolio", "portfolio_screen"]
+seeds = "1-8"
+max_cpu_s = 50400
+workers = 2
+epoch = "5da6eeee6527"
+status = "planned"
