@@ -123,5 +123,17 @@ for e in d.get('experiment', []):
           exit 1" ;;
       *) echo "unknown drill type: $DTYPE (available: kill9; see docs/operations.md for manual drills)"; exit 1 ;;
     esac ;;
+  series-start)
+    SNAME="${2:?series name required}"
+    [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }
+    "${SSH[@]}" "sudo -n systemctl enable --now ants-series@$SNAME.service ants-series-backup@$SNAME.timer && systemctl is-active ants-series@$SNAME" ;;
+  series-stop)
+    SNAME="${2:?series name required}"
+    [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }
+    "${SSH[@]}" "sudo -n systemctl disable --now ants-series@$SNAME.service ants-series-backup@$SNAME.timer" ;;
+  series-status)
+    SNAME="${2:?series name required}"
+    [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }
+    "${SSH[@]}" "systemctl status ants-series@$SNAME --no-pager; echo '---'; sudo -n -u ants /opt/ants/.venv/bin/ants series status $SNAME" ;;
   *) echo "unknown command"; exit 1 ;;
 esac

@@ -1,0 +1,55 @@
+# One instance per series:  systemctl enable --now ants-series@pilot_v2
+# Hardened for Ubuntu 24.04 (systemd 255). Check with:  systemd-analyze security ants-series@pilot_v2
+[Unit]
+Description=ants series runner (%i)
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=ants
+Group=ants
+WorkingDirectory=/opt/ants
+ExecStart=/opt/ants/.venv/bin/ants series run %i
+Restart=on-failure
+# exit 5 = epoch mismatch: the code changed; restarting would loop with the same refusal
+RestartPreventExitStatus=5
+RestartSec=60
+# KillMode=mixed: SIGTERM to the main process first, then SIGKILL to remaining children after TimeoutStopSec.
+# The seed runner forwards SIGTERM to its children, which finish the trial in flight.
+KillMode=mixed
+TimeoutStopSec=90
+# Two workers on a 2-vCPU server: up to 180% of one core (two busy children).
+CPUQuota=180%
+MemoryMax=1500M
+TasksMax=512
+# BLAS thread pinning: each evaluation child uses one thread, not all cores.
+Environment=OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MKL_NUM_THREADS=1
+
+# --- sandboxing: same directives as ants@.service, with the same reasons ---
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/ants
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

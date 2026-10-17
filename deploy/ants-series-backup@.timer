@@ -1,0 +1,11 @@
+# Daily series backup timer.  Instance = series name.
+[Unit]
+Description=daily backup of ants series (%i)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target
