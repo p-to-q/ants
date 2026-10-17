@@ -45,7 +45,7 @@ def t(x, y, s, size=13, fill=INK, anchor="start", weight=400, track=0):
 def t2(x, y, parts, size=12, anchor="start"):
     """one text element, several runs: [(text, fill, weight)]"""
     runs = "".join(f'<tspan fill="{f}" font-weight="{wt(w)}">{esc(s)}</tspan>' for s, f, w in parts)
-    return f'<text x="{x:.1f}" y="{y:.1f}" font-family="{SANS}" font-size="{size}" text-anchor="{anchor}" style="{NUM}">{runs}</text>'
+    return f'<text xml:space="preserve" x="{x:.1f}" y="{y:.1f}" font-family="{SANS}" font-size="{size}" text-anchor="{anchor}" style="{NUM}">{runs}</text>'
 
 
 LABELS = []        # text boxes of the figure being drawn: (x0, y0, x1, y1, text); checked for overlaps before the file is written
@@ -70,7 +70,7 @@ def label2(o, x, y, parts, size=12, anchor="start"):
     """label with several runs, [(text, fill, weight)]"""
     full = "".join(p[0] for p in parts)
     LABELS.append(box(x, y, full, size, anchor, 500) + (full,))
-    o.append(f'<text x="{x:.1f}" y="{y:.1f}" font-family="{SANS}" font-size="{size}" text-anchor="{anchor}" fill="none" stroke="{PAPER}" '
+    o.append(f'<text xml:space="preserve" x="{x:.1f}" y="{y:.1f}" font-family="{SANS}" font-size="{size}" text-anchor="{anchor}" fill="none" stroke="{PAPER}" '
              f'stroke-width="4" stroke-linejoin="round" style="{NUM}">{esc(full)}</text>')
     o.append(t2(x, y, parts, size, anchor))
 
@@ -356,16 +356,15 @@ def panel_bars(o, x, w, base, ph, vmax, items, title, sub):
 def frontier():
     d = json.loads((A / "frontier.json").read_text())
     names = {"ridge_L720": "ridge 720", "ridge_L336": "ridge 336", "ridge_L96": "ridge 96", "dlinear_like": "DLinear-like", "fits_like": "FITS-like"}
-    ours = [("ants ≤ 100", None, None, "ghost_ours")]
-    ours += [(f"≤ {int(b['cap'])}", b["params"], 100 * (1 - b["rel_mse"]), "ours") for b in d["ants_demo"]["best_by_bin"]]
-    ours[0] = ("≤ 100", None, None, "ghost_ours")
+    ours = [(f"≤ {int(b['cap'])}", b["params"], 100 * (1 - b["rel_mse"]), "ours") for b in d["ants_demo"]["best_by_bin"]]
     base_items = sorted([(names[k], v["params"], 100 * (1 - v["rel_mse"]), "other") for k, v in d["measured"].items()], key=lambda r: r[1])
     ph = 200
     base = TOP + 64 + ph
     h = base + 72 + PAD - 24
     o = head("Skill versus parameters", "Percent MSE reduction against seasonal naive on development data, at stage S2.")
     lw, gap = 372, 56
-    panel_bars(o, PAD, lw, base, ph, 24.0, ours, f"ants, {d['ants_demo']['finished_trials']} trials", "best model under each parameter cap")
+    deep = d["ants_demo"].get("deepest_stage_evaluations", d["ants_demo"]["finished_trials"])
+    panel_bars(o, PAD, lw, base, ph, 24.0, ours, f"ants, best of {deep:,} evaluations", "best model of at most N parameters")
     panel_bars(o, PAD + lw + gap, W - 2 * PAD - lw - gap, base, ph, 24.0, base_items, "Hand-built baselines", "fixed specs, not tuned")
     (A / "frontier.svg").write_text(canvas(h, o, "Skill versus parameters"))
 
@@ -395,10 +394,13 @@ def scatter():
         label(o, X(p), H - B + 26, lab, 11.5, MUTE, "middle", halo=False)
     o.append(f'<line x1="{L}" x2="{W-R}" y1="{H-B}" y2="{H-B}" stroke="{FILL}"/>')
     label(o, W - R, H - 22, "parameters, log scale", 11.5, MUTE, "end", 500, halo=False)
-    # campaign results that do not exist yet: hollow markers on the floor of the plot, as in the first design
-    for c in (100, 300, 1000, 3000):
-        o.append(f'<circle cx="{X(c):.1f}" cy="{Y(0.775):.1f}" r="5" fill="{PAPER}" stroke="{INK}" stroke-dasharray="{DASH}"/>')
-    label(o, X(3000) + 16, Y(0.775) + 4, "campaign: pending", 11.5, MUTE, "start", 500, halo=False)
+    # every deepest-stage evaluation of the ants run: the cloud the best models are picked from
+    cloud = d["ants_demo"].get("cloud", [])
+    for p, v in cloud:
+        if 100 <= p <= 1e6 and y0 <= v <= y1:
+            o.append(f'<circle cx="{X(p):.1f}" cy="{Y(v):.1f}" r="2.2" fill="{MINT_3}" fill-opacity="0.28"/>')
+    if cloud:
+        label(o, W - R, Y(0.965), f"dots: the {len(cloud):,} evaluations of the ants run", 11.5, MUTE, "end", 500, halo=False)
     # hand-built baselines and their best-so-far envelope
     names = {"ridge_L720": "ridge 720", "ridge_L336": "ridge 336", "ridge_L96": "ridge 96", "dlinear_like": "DLinear-like", "fits_like": "FITS-like"}
     pos = {"ridge_L720": ("end", -13, 5), "ridge_L336": ("end", -13, 5), "dlinear_like": ("end", -13, 5), "ridge_L96": ("middle", 0, -14), "fits_like": ("middle", 0, -14)}
@@ -415,7 +417,7 @@ def scatter():
         cx, cy = X(p), Y(v)
         o.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="5" fill="{INK}"/>')
         an, dx, dy = pos[k]
-        label2(o, cx + dx, cy + dy, [(names[k] + "  ", MUTE, 400), (f"{v:.2f}", INK, 600)], 12, an)
+        label2(o, cx + dx, cy + dy, [(names[k] + "\u00a0\u00a0", MUTE, 400), (f"{v:.2f}", INK, 600)], 12, an)
     # ants: best model under each cap as a step line that ends at the cap
     pts, best = [], 9
     for b in d["ants_demo"]["best_by_bin"]:
@@ -427,9 +429,11 @@ def scatter():
     path += f" L{X(pts[-1][2]):.1f},{Y(pts[-1][1]):.1f}"
     o.append(f'<path d="{path}" fill="none" stroke="{MINT_3}" stroke-width="2.4" stroke-linejoin="round"/>')
     pa, va, _ = pts[-1]
-    fp, fv = d["measured"]["fits_like"]["params"], d["measured"]["fits_like"]["rel_mse"]
-    o.append(f'<line x1="{X(pa):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
-    label(o, (X(3000) + X(fp)) / 2, Y(va) + 24, f"{fp / pa:.1f}× fewer parameters", 12, INK, "middle", 500)
+    big = max(d["measured"].values(), key=lambda m: m["params"])
+    fp = big["params"]
+    o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
+    label(o, W - R, Y(0.915), f"{fp / pa:.0f}× fewer parameters than ridge 720 ({pa:,} against {fp:,})", 12, INK, "end", 500)
+    label(o, W - R, Y(0.915) + 18, f"and error {'lower' if va < big['rel_mse'] else 'higher'} by {abs(big['rel_mse'] - va):.3f}; both are scored on the data the search used", 11.5, MUTE, "end", 400, halo=False)
     lab = [("end", -13, -14), ("start", 12, -14), ("end", -13, 22)]
     for i, (p, v, cap) in enumerate(pts):
         o.append(f'<rect x="{X(p)-6:.1f}" y="{Y(v)-6:.1f}" width="12" height="12" rx="2.5" fill="{MINT_3}" stroke="{INK}"/>')

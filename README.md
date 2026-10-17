@@ -88,17 +88,21 @@ The eight evaluation layers: [docs/evaluation](docs/evaluation/README.md).
 <p align="center"><img src="assets/frontier.svg" alt="Skill versus parameters" width="900"></p>
 
 Same protocol for every bar: stage S2 (four development datasets, rolling origin, closed-form models). Baselines are hand-built and
-untuned; ants is the best of 60 trials chosen on the same validation data, so this is **not a claim**. No sealed data was touched.
-Data: [frontier.json](assets/frontier.json). Regenerate the figures: `python assets/measure_frontier.py && python assets/make_figures.py`.
+untuned. The ants bars are the best of the 1,072 stage-S2 evaluations that the plain `portfolio` arm had finished on the server by 2026-10-17
+(epoch `5da6eeee6527`, 17,613 finished trials in all, no model operators), chosen on the same development data they are scored on, so this
+is **not a claim**: one run, one seed. The two arms with a model operator did better at 100 and 300 parameters and the same at 1 000 and 3 000
+([open question 2](docs/open.md)); they are not drawn here because their model access was throttled. No sealed data was touched.
+Data: [frontier.json](assets/frontier.json). Regenerate the figures: `python assets/measure_frontier.py [--ants-only --workdir DIR] && python assets/make_figures.py`.
 
-**What is and is not reproducible from this repository.** The figures are rebuilt exactly from `frontier.json`. The 60-trial ledger that `frontier.json` was read from is not shipped, and the raw time series are downloaded (pinned hashes, `ants data fetch`), not stored here, so the 60 searches cannot be re-run and checked from a clone. The later server results (about 0.78 to 0.80 under 3 000 parameters) are in no figure and no published ledger yet. A results bundle that fixes this is planned ([roadmap](docs/roadmap.md), step 24).
+**What is and is not reproducible from this repository.** The figures are rebuilt exactly from `frontier.json`, which records the SHA-256 and the chain head of the ledger snapshot it was read from (a verified server backup). That ledger is not shipped, and the raw time series are downloaded (pinned hashes, `ants data fetch`), not stored here, so the search cannot be re-run and checked from a clone. A results bundle that fixes this is planned ([roadmap](docs/roadmap.md), step 24).
 
 ## Benchmark
 
 <p align="center"><img src="assets/benchmark.svg" alt="TinyTS-Bench, pending" width="900"></p>
 
 **TinyTS-Bench** is specified before it is run: arms, seeds, stopping rule and what counts as a null result are in the
-[protocol](docs/benchmark.md).
+[protocol](docs/benchmark.md). Its bars are still empty on purpose. The full protocol is about 120,000 evaluations (about 350 core-hours), and the server's two cores
+are in use by the three running arms, so it will run on separate hardware once the arms' seed runs ([roadmap](docs/roadmap.md), steps 2, 4, 16 and 17) have set the budget; no number is drawn before then.
 
 ## Install
 
