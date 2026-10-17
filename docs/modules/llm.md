@@ -14,7 +14,7 @@ OpenAI-compatible multi-endpoint client.
 
 **Endpoint health (seeded from ledger)**
 - On client creation, each endpoint's ok/bad counts are seeded from the llm_calls of the last 24 hours, so the Thompson bandit does not relearn from scratch after a restart.
-- The window is configurable (default 24 h). A recovered endpoint is naturally retried because the bandit uses Beta(ok+1, bad+1): old failures decay in influence as new successes arrive.
+- Counts are seeded once at start and only grow within a process (there is no within-process decay or windowing). A recovered endpoint is retried because new successes raise ok and dilute the failure share in Beta(ok+1, bad+1).
 
 **Circuit breaker**
 - After N consecutive failures (default 5, `cb_consecutive`) an endpoint is quarantined for T (default 10 min, doubling up to 2 h on repeated trips, reset on success).
