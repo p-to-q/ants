@@ -125,15 +125,19 @@ def test_arms_that_already_have_ledgers_keep_the_definition_the_server_recorded(
 
 
 def test_the_plain_portfolio_proposes_what_version_0_6_0_proposed():
-    """The sequence of specifications the arm `portfolio` draws on the analytic benchmark, hashed. Computed with the sources of 0.6.0 and with this
-    tree: identical (2026-10-17). If this fails the arm changed; rename it (new arm) rather than update the number."""
+    """The sequence of specifications the pinned portfolio draws on the analytic benchmark, hashed. Computed with the sources of 0.6.0 and with this
+    tree: identical (2026-10-17). The Optuna operator is left out of the hash: its draws depend on the numpy and Optuna build (the same code gave another
+    sequence on the CI machine), the pure-Python operators do not. If this fails the arm changed; rename it (new arm) rather than update the number."""
     import hashlib
     from antslab import bench
-    from antslab.proposers import make_proposer
-    r = bench.drive(lambda cc, s: make_proposer("portfolio", cc, s), bench.make_contract(), 400, 3, noise=0.01, checkpoints=(400,))
+    from antslab.portfolio import build_portfolio
+    from antslab.proposers import LEGACY_PORTFOLIO, make_proposer
+    r = bench.drive(lambda cc, s: build_portfolio(cc, s, with_tpe=False, **LEGACY_PORTFOLIO), bench.make_contract(), 400, 3, noise=0.01, checkpoints=(400,))
     r["hist"].update()
-    assert hashlib.sha256(json.dumps(sorted(r["hist"].first.keys())).encode()).hexdigest()[:16] == "6eaa7b38d3ac1602"
-    assert round(r["best"][400], 6) == 0.232864
+    assert hashlib.sha256(json.dumps(sorted(r["hist"].first.keys())).encode()).hexdigest()[:16] == "576b7305b4cf5c83"
+    assert round(r["best"][400], 6) == 0.207857
+    p = make_proposer("portfolio", bench.make_contract(), 3)               # and the configuration itself, which does not depend on any build
+    assert sorted(p.ops) == ["aco", "cem", "de", "evo", "qd", "random", "sa", "sweep", "tpe"] and not p.reserve and not p.use_discount and not p.floors
 
 
 def test_every_operator_allocation_is_logged_with_its_probabilities(make_contract, tmp_path):
