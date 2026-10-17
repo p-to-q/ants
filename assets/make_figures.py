@@ -453,15 +453,17 @@ def scatter():
     o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="{DASH}"/>')
     # a small legend under the reference line, left-aligned with it: glyphs in a column, texts start at one x
     lx = W - R - 236                              # left edge of the block
-    tx = lx + 28                                  # both texts start here; the glyphs are small and of one scale (about 6 to 7 px)
+    cx = lx + 12                                  # the two glyphs are centred on this axis; both texts start at tx
+    tx = lx + 30
     ly = Y(1.0) + 22
-    for dx in (2.5, 8.5):                         # the cloud: two of its dots
-        o.append(f'<circle cx="{lx + dx:.1f}" cy="{ly - 4:.1f}" r="2.4" fill="{MINT_3}" fill-opacity="0.5"/>')
+    for dx in (-5, 5):                            # the cloud: two of its dots, with air between them
+        o.append(f'<circle cx="{cx + dx:.1f}" cy="{ly - 4:.1f}" r="2.3" fill="{MINT_3}" fill-opacity="0.5"/>')
     label(o, tx, ly, f"{len(cloud):,} evaluations of the ants run", 11.5, MUTE, "start", 500, halo=False)
     y2 = ly + 20
-    o.append(f'<rect x="{lx:.1f}" y="{y2 - 8.5:.1f}" width="7" height="7" rx="2" fill="{MINT_3}" stroke="{INK}" stroke-width="0.7"/>')
-    o.append(f'<line x1="{lx + 9:.1f}" x2="{lx + 15:.1f}" y1="{y2 - 5:.1f}" y2="{y2 - 5:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-dasharray="2 2"/>')
-    o.append(f'<circle cx="{lx + 19:.1f}" cy="{y2 - 5:.1f}" r="2.9" fill="{INK}"/>')
+    yc = y2 - 4.5
+    o.append(f'<rect x="{cx - 12:.1f}" y="{yc - 3:.1f}" width="6" height="6" rx="1.8" fill="{MINT_3}" stroke="{INK}" stroke-width="0.7"/>')
+    o.append(f'<line x1="{cx - 4.5:.1f}" x2="{cx + 4.5:.1f}" y1="{yc:.1f}" y2="{yc:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-dasharray="2 1.5"/>')
+    o.append(f'<circle cx="{cx + 8.8:.1f}" cy="{yc:.1f}" r="2.4" fill="{INK}"/>')
     label(o, tx, y2, f"{fp / pa:.0f}× fewer parameters than ridge 720", 11.5, INK, "start", 600, halo=False)
     lab = [("start", 12, -14), ("start", 12, -14), ("end", -13, 22)]
     for i, (p, v, cap) in enumerate(pts):
