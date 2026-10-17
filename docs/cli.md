@@ -40,6 +40,7 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 | 1 | `show`: reference not found; no contract found; other `SystemExit(str)` |
 | 2 | `status`: hash chain broken; `doctor`: any `FAIL`; `data verify`: raw files differ; argparse usage error |
 | 3 | `run`: another `ants run` already holds `<workdir>/ants.lock` (message names its pid) |
+| 4 | `run`: arm definition hash mismatch (pass `--new-definition` to override; see docs/upgrading.md) |
 
 ## Commands
 
@@ -68,6 +69,8 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 | `ui` / `home` | the terminal interface (plain `ants` on a terminal) / one screen printed and exit ([tui](tui.md)) | no |
 | `update` | look for a newer ants (npm registry, or GitHub releases with `[update] source = "github"`); `--apply` installs it with the method that installed ants (npm, git pull, or pip) | install only with `--apply` |
 | `sql` (alias `query`) | one read-only SELECT over the ledger, `--format table\|json\|jsonl\|csv`, `--schema` | no |
+| `experiments` | list experiments from `deploy/experiments.toml` and check their ledgers | no |
+| `seeds` | run multiple seeds of one or more arms, interleaved, with pre-registered seed list | workdirs, `seeds.json` |
 
 ### run
 
