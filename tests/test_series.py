@@ -29,7 +29,7 @@ def _contract(tmp_path, timeout=20):
 
 def test_load_series_valid():
     from antslab.series import load_series
-    s = load_series(ROOT / "deploy/series/stage_a.toml")
+    s = load_series(ROOT / "tests/fixtures/series_stage_a.toml")
     assert s["name"] == "stage_a"
     assert s["arms"] == ["portfolio", "portfolio_screen", "portfolio_lean"]
     assert s["seeds_parsed"] == list(range(1, 9))
@@ -489,8 +489,8 @@ def test_remote_deploy_series_commands_validate_name(tmp_path):
         assert r.returncode != 0, f"{cmd} should reject bad name"
 
 
-def test_series_toml_exists():
-    assert (ROOT / "deploy/series/stage_a.toml").exists()
+def test_series_fixture_toml_exists():
+    assert (ROOT / "tests/fixtures/series_stage_a.toml").exists()
 
 
 def test_shell_scripts_syntax():
