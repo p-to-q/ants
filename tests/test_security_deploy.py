@@ -242,7 +242,7 @@ def test_unit_files_referenced_by_the_installer_and_remote_deploy_exist():
     assert wanted >= {"ants@.service", "ants-janitor@.service", "ants-janitor@.timer", "ants-board.service", "ants-health@.service", "ants-health@.timer", "ants-backup@.service", "ants-backup@.timer"}
     for w in wanted:
         assert (DEPLOY / w).exists(), f"{w} is installed by install.sh but does not exist in deploy/"
-    assert all(p.name.startswith(("ants", "install", "remote_deploy", "PREFLIGHT")) for p in DEPLOY.iterdir()), "deploy files are named ants-*"
+    assert all(p.name.startswith(("ants", "install", "remote_deploy", "PREFLIGHT", "experiments", "pull_backups", "launchd")) for p in DEPLOY.iterdir()), "deploy files are named ants-* or a known ops file"
 
 
 @pytest.mark.parametrize("unit", UNITS)
