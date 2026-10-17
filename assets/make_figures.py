@@ -353,7 +353,7 @@ def panel_bars(o, x, w, base, ph, vmax, items, title, sub):
         o.append(t(cx, base + 26, name, 12, INK, "middle", 500 if kind != "other" else 400))
         o.append(t(cx, base + 44, "" if params is None else f"{params:,}", 11.5, MUTE, "middle"))
         for j, line in enumerate(notes):
-            o.append(t(cx, base + 66 + 15 * j, line, 11, MINT_TEXT, "middle", 600))
+            o.append(t(cx, base + 68 + 14 * j, line, 10.5, MUTE, "middle", 400))
     o.append(f'<line x1="{x}" x2="{x + w}" y1="{base}" y2="{base}" stroke="{HAIR}"/>')
 
 
@@ -372,13 +372,11 @@ def frontier():
     base_items = [list(b_) for b_ in base_items]
     if twin:
         k = ours[bins.index(twin)]
-        k.append(["= FITS-like", f"at 1/{fits['params'] / twin['params']:.0f} the size"])
+        k.append(["same as FITS-like,", f"1/{fits['params'] / twin['params']:.0f} the size"])
         for b_ in base_items:
             if b_[0] == "FITS-like":
-                b_.append([f"= ants ≤ {int(twin['cap'])}", f"at {fits['params'] / twin['params']:.0f}× the size"])
-    ours[-1].append([f"edges {names[big[0]]}", f"at 1/{big[1]['params'] / best_b['params']:.0f} the size"])
-    if len(bins) >= 2:
-        ours[-2].append([f"{100 * (1 - bins[-2]['rel_mse']):.1f} of {100 * (1 - best_b['rel_mse']):.1f}", f"with {bins[-2]['params']:,} params"])
+                b_.append([f"same as ants ≤ {int(twin['cap'])},", f"{fits['params'] // twin['params']}× the size"])
+    ours[-1].append([f"above {names[big[0]]},", f"1/{big[1]['params'] // best_b['params']} the size"])
     for b_ in base_items:
         if b_[0] == names[big[0]]:
             b_.append([f"{big[1]['params'] // best_b['params']}× the size", "of ants ≤ 3000"])
@@ -411,8 +409,8 @@ def scatter():
     # references
     o.append(f'<line x1="{L}" x2="{L}" y1="{T}" y2="{H-B}" stroke="{FILL}"/>')
     label(o, L - 14, T - 22, "rel_mse", 11.5, MUTE, "end", 500, halo=False)
-    for v in (0.8, 0.85, 0.9, 0.95):
-        o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="{HAIR}"/>')
+    for v in (0.8, 0.9):
+        o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="{INK}" stroke-opacity="0.16" stroke-dasharray="2 6"/>')
         label(o, L - 14, Y(v) + 4, f"{v:.2f}", 11.5, MUTE, "end", halo=False)
     o.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(1.0):.1f}" y2="{Y(1.0):.1f}" stroke="{INK}" stroke-dasharray="{DASH}"/>')
     label(o, L - 14, Y(1.0) + 4, "1.00", 11.5, MUTE, "end", halo=False)
@@ -428,10 +426,10 @@ def scatter():
         if 100 <= p <= 1e6 and y0 <= v <= y1:
             o.append(f'<circle cx="{X(p):.1f}" cy="{Y(v):.1f}" r="2.2" fill="{MINT_3}" fill-opacity="0.28"/>')
     if cloud:
-        label(o, W - R, Y(1.0) + 22, f"dots: the {len(cloud):,} evaluations of the ants run", 11.5, MUTE, "end", 500, halo=False)
+        label(o, W - R, Y(1.0) + 24, f"dots: the {len(cloud):,} evaluations of the ants run", 11.5, MUTE, "end", 500, halo=False)
     # hand-built baselines and their best-so-far envelope
     names = {"ridge_L720": "ridge 720", "ridge_L336": "ridge 336", "ridge_L96": "ridge 96", "dlinear_like": "DLinear-like", "fits_like": "FITS-like"}
-    pos = {"ridge_L720": ("end", -13, 5), "ridge_L336": ("end", -13, 5), "dlinear_like": ("end", -13, 5), "ridge_L96": ("middle", 0, -14), "fits_like": ("middle", 0, -14)}
+    pos = {"ridge_L720": ("middle", 0, 26), "ridge_L336": ("end", -13, 5), "dlinear_like": ("middle", 0, -15), "ridge_L96": ("middle", 0, -15), "fits_like": ("middle", 0, -15)}
     base = sorted(((v["params"], v["rel_mse"], k) for k, v in d["measured"].items()))
     env, best = [], 9
     for p, v, k in base:
@@ -459,9 +457,11 @@ def scatter():
     pa, va, _ = pts[-1]
     big = max(d["measured"].values(), key=lambda m: m["params"])
     fp = big["params"]
-    o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-width="1" stroke-dasharray="{DASH}"/>')
-    label(o, W - R, Y(0.915), f"{fp / pa:.0f}× fewer parameters than ridge 720 ({pa:,} against {fp:,})", 12, INK, "end", 500)
-    label(o, W - R, Y(0.915) + 18, f"and error {'lower' if va < big['rel_mse'] else 'higher'} by {abs(big['rel_mse'] - va):.3f}; both are scored on the data the search used", 11.5, MUTE, "end", 400, halo=False)
+    o.append(f'<line x1="{X(3000):.1f}" x2="{X(fp):.1f}" y1="{Y(va)+0.5:.1f}" y2="{Y(va)+0.5:.1f}" stroke="{INK}" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="{DASH}"/>')
+    ya = Y(0.948)
+    label(o, W - R, ya, f"{fp / pa:.0f}× fewer parameters than ridge 720", 12.5, INK, "end", 600, halo=False)
+    label(o, W - R, ya + 19, f"{pa:,} against {fp:,}; error {'lower' if va < big['rel_mse'] else 'higher'} by {abs(big['rel_mse'] - va):.3f}", 11.5, MUTE, "end", 400, halo=False)
+    label(o, W - R, ya + 37, "both scored on the data the search used", 11.5, MUTE, "end", 400, halo=False)
     lab = [("start", 12, -14), ("start", 12, -14), ("end", -13, 22)]
     for i, (p, v, cap) in enumerate(pts):
         o.append(f'<rect x="{X(p)-6:.1f}" y="{Y(v)-6:.1f}" width="12" height="12" rx="2.5" fill="{MINT_3}" stroke="{INK}"/>')
