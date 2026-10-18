@@ -10,7 +10,7 @@ from antslab import archive_index as ai
 from antslab.bundle import make_bundle
 from antslab.ledger import Ledger
 from antslab.series import compute_epoch
-from antslab.tui import app, render, views
+from antslab.tui import app, model, render, views
 
 
 @pytest.fixture
@@ -162,3 +162,27 @@ def test_missing_detail_explains_safe_next_action(frozen_round, tmp_path, monkey
     a.on_key(10, curses)
     assert a.screen == "pager"
     assert "No running experiment was changed" in a.pager_text
+
+
+def test_navigation_registry_covers_every_screen(tmp_path, make_contract):
+    make_contract()
+    a = app.App(str(tmp_path / "task.toml"))
+    for index, (name, _) in enumerate(views.SCREENS):
+        a.on_key(ord(str(index)), curses)
+        assert a.screen == name
+        a.cycle_screen(1)
+        assert a.screen == views.SCREENS[(index + 1) % len(views.SCREENS)][0]
+        a.cycle_screen(-1)
+        assert a.screen == name
+
+
+def test_series_discovery_does_not_resurrect_archived_work(tmp_path, monkeypatch):
+    root = tmp_path / "series"
+    live = root / "e43a/portfolio_s1"
+    archived = root / "e43a/archive/retired_s1"
+    for wd in (live, archived):
+        wd.mkdir(parents=True)
+        (wd / "ledger.sqlite").touch()
+    monkeypatch.setenv("ANTS_SERIES_DIR", str(root))
+    found = model.discover_workdirs()
+    assert live in found and archived not in found

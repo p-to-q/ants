@@ -5,7 +5,7 @@
 ```
 ants          the interface (a terminal), or the line shell (a pipe, a dumb terminal, ANTS_NO_TUI=1)
 ants ui       the interface, with --workdir / --contract / --arm
-ants home     print one screen and exit: --screen home|overview|board|trials|fleet|events|health|data|system --width N --color
+ants home     print one screen and exit: --screen home|overview|board|trials|fleet|events|health|data|system|afterlife --width N --color
 ```
 
 ## What you see first
@@ -36,6 +36,17 @@ Each search shows an animated glyph, a short plain-language phrase and the reaso
 The phrase always sits next to the numbers it came from and always says why. It cheers only for real events and never jokes about a failure. The rules are in `src/antslab/tui/vibe.py`, one test per row.
 
 ## Screens
+
+The final screen is **Afterlife** (`9`). It groups past work by research round,
+not trial. Its subtitle explains the page in complete prose. Arrow and Page keys
+select a round; Enter shows its evidence and parameters; Esc returns to the same
+selection. A cached receipt is not a live backup check. Operational snapshots
+omit results by default. See [the history/cache reference](modules/archive_index.md)
+for indexing, empty states, failures and scientific interpretation.
+
+Navigation, numeric shortcuts and the header share one screen registry. Running
+series are discovered one level below `/var/lib/ants/series` (override with
+`ANTS_SERIES_DIR`); archived workdirs are not recursively revived as live searches.
 
 | key | screen | what is drawn |
 |---|---|---|
