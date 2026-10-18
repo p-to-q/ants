@@ -1,5 +1,55 @@
 # Roadmap
 
+## Current execution and next development gates (2026-10-19)
+
+This dated section supersedes the older blanket restriction on starting any
+engineering before E43 is read. Isolated engineering and protocol writing may
+start now; **the active E43a experiment does not change**. Historical status
+tables below remain dated snapshots, not claims about the current deployment.
+Follow-up index: [#6](https://github.com/p-to-q/ants/issues/6).
+
+### What runs now, and when to review it
+
+E43a asks whether learned screening (`portfolio_screen`) reaches lower s2
+`rel_mse` at **at most 300 parameters**, with the same **50,400 CPU-seconds per
+run**, than `portfolio`. It does not test LLM proposals, Jev, warm starts or a
+new model family. The frozen protocol is [E43](experiments/E43-learned-screen.md)
+and `e43-prereg`; no arms, data, objectives, seeds or budgets are added mid-run.
+
+The first registered look follows **16 runs** (2 arms x 8 paired seeds), totaling
+224 CPU-hours. Started 2026-10-19 01:41 Asia/Shanghai. Two ideal CPUs imply a
+112-wall-hour floor; the installed 180% CPU quota implies approximately 124.4
+hours before additional overhead. Plan for **5-6 days**, with the first formal
+review around **October 24-25**, only after all runs finish and validity checks
+pass. This is a throughput estimate, not a calendar-based early stop.
+
+Recommended human check-ins: **every 12 hours**, health/progress only. Server
+maintenance/integrity checks already run every 30 minutes, backups daily. No
+thread reminders are created by this plan. Do not use intermediate scoreboards
+to tune, stop or extend the experiment. If the protocol calls for its second
+look (seeds 9-16), that is another 224 CPU-hours, approximately **10-12 days
+total**. A nonsignificant result does not establish equivalence or rule out a
+small benefit. The 16-run stage here is distinct from evaluator stages s0/s1/s2.
+
+### What to write and develop, in order
+
+| work | write/specify | begin development | integrate or run | acceptance gate |
+|---|---|---|---|---|
+| Shared activity token and startup robustness | now; PRs #4 and #5 | startup fix merged; animation code under test | next planned package; no further live UI patch this round | shared six frames, ASCII/reduced-motion/SSH tests; series/archive-only entry tests |
+| Reloadable model artifact exporter ([#8](https://github.com/p-to-q/ants/issues/8)) | now | next isolated engineering task, without waiting for E43a | optional explicit export on frozen candidates; not an evaluator change | weights/spec/preprocessing/provenance plus load-predict parity and total stored-parameter cap |
+| Health-only status ([#7](https://github.com/p-to-q/ants/issues/7)) and recovery coverage | now | independent small engineering work alongside the exporter | next planned package after read-only and failure-path tests | no interim accuracy in health output; restored config/history usable without data downloads |
+| Cross-round warm-start experiment | protocol draft now | after exporter/parity works | new series after the E43a formal review | same frozen old candidate bank for both arms; prior compute/lineage reported; independent validation |
+| Sparse LLM proposal comparison | endpoint/budget/fallback contract now | isolated integration tests may start now | independent registered series, not an extra active E43a worker | matched initial knowledge and CPU/API budgets, valid/duplicate/yield/cost logs; no evaluator authority |
+| Jev shadow judge | target, real API schema and calibration plan now | after real endpoint access and a leakage-safe resolved-label stream | shadow first on old immutable copies or a separate pilot; ranking requires a later protocol | temporal/held-out AUC, Brier and ECE; no filtering or final-claim authority; s0-top20 is not presumed deep-stage utility |
+
+Configuration inheritance and checkpoint transfer are separate deliverables.
+Repeatedly solving the same fixed ridge subproblem is not extra learning; a
+continuation must specify what changes (new legal training data, features,
+regularisation, a prior, distillation or an adapter). Old pilot evidence may
+inform training or design but cannot also serve as independent confirmation.
+Do not fill the occupied two-vCPU worker slots with these follow-ups, mix their
+outcomes into E43a, or rewrite its preregistration to match later results.
+
 What can change next, in order, what each step needs and which ones start a new epoch (a new measuring protocol: results before and after are not compared). Status is dated. Everything here is a plan; the evidence it rests on is the first eight hours of three searches on the server (2026-10-13), analysed from copies of their ledgers.
 
 ## What comes last: engineering, academic output, packaging (2026-10-17)
