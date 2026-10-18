@@ -79,12 +79,11 @@ def make_backup(ledger_path, dest, keep: int = 14, compress: bool = False, now: 
                     out.close()
             finally:
                 src.close()
-            led = Ledger(tmp)                                         # opens read-write; the copy is ours and still private
-            try:
+            led = Ledger.open_readonly(tmp)                           # read-only: the backup is the snapshot as it is (an older schema stays older: no migration, no
+            try:                                                      # .pre-migration copy beside it, and an old ants can still restore it)
                 info = led.check(full=True)
                 head = led.head()
                 seq = led.conn.execute("SELECT COALESCE(MAX(seq), 0) FROM events").fetchone()[0]
-                led.checkpoint()
             finally:
                 led.close()
         except (sqlite3.Error, LedgerTooNew) as e:
@@ -176,7 +175,7 @@ def verify_backup(dest, meta: dict) -> None:
         probe = Path(str(target) + ".probe")
         shutil.copyfile(target, probe)
         try:
-            led = Ledger(probe)
+            led = Ledger.open_readonly(probe)
             info = led.check(full=True)
             led.close()
         finally:

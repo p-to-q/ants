@@ -54,6 +54,32 @@ def data_check() -> tuple[str, str]:
         return "WARN", f"datasets: the catalog cannot be read by this user ({type(e).__name__}: {str(e)[:100]}); check which user runs ants and where its data lives"
 
 
+def offsite_check() -> tuple[str, str] | None:
+    """If ANTS_OFFSITE_DIR is set, report the age of the newest verified backup found there."""
+    offsite = os.environ.get("ANTS_OFFSITE_DIR")
+    if not offsite:
+        return None
+    offsite = Path(offsite)
+    if not offsite.is_dir():
+        return "FAIL", f"offsite directory {offsite} does not exist or is not a directory"
+    # look for backup sidecars anywhere under the directory
+    from .backup import list_backups
+    newest_age = None
+    found_any = False
+    for bk_dir in offsite.rglob("anchors.jsonl"):
+        parent = bk_dir.parent
+        bks = list_backups(parent)
+        if bks:
+            found_any = True
+            age = (time.time() - bks[0]["created"]) / 3600
+            if newest_age is None or age < newest_age:
+                newest_age = age
+    if not found_any:
+        return "FAIL", f"offsite directory {offsite} has no verified backups"
+    level = "OK" if newest_age <= BACKUP_STALE_H else "WARN"
+    return level, f"offsite newest backup {newest_age:.1f} h old (in {offsite})"
+
+
 def durability_checks(led, workdir) -> list[tuple[str, str]]:
     """(level, message) lines about the ledger file itself, appended to `ants doctor`"""
     out = [data_check()]
@@ -71,6 +97,9 @@ def durability_checks(led, workdir) -> list[tuple[str, str]]:
     else:
         age = (time.time() - bks[0]["created"]) / 3600
         out.append(("OK" if age <= BACKUP_STALE_H else "WARN", f"newest backup {age:.1f} h old ({bks[0]['file']}, {len(bks)} kept)"))
+    off = offsite_check()
+    if off is not None:
+        out.append(off)
     return out
 
 

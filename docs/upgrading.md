@@ -21,10 +21,12 @@ The rule: **a new version of the code never costs an experiment.** What a run ha
 | code outside the measuring machinery | interface, CLI, deploy scripts, documentation | none | upgrade; restart is optional |
 | code that the loop runs | proposers, campaign, ledger | none on past data; the arm may behave differently from now on | restart the arm; if its definition changed (operators, shares, budgets) the ledger records it and `ants doctor` warns, see below |
 | the measuring machinery | evaluator, metrics, data, **the contract** | a new epoch inside the same ledger: new trials carry the new epoch id, old ones keep theirs, and `best`, `top` and the interface read the current epoch only | nothing is lost; compare nothing across epochs; `ants epochs` lists them |
-| a ledger schema step | a new column | migrated in place once, after a full copy | upgrade the code first, then start; downgrading the code needs the copy (below) |
+| a ledger schema step | a new column (e.g. v2: `call_id`, `attempt`, `arm` on `llm_calls`) | migrated in place once, after a full copy (`ledger.sqlite.pre-migration-v1`) | upgrade the code first, then start; downgrading the code needs the copy (below). The pre-migration copy is kept and should not be deleted until the new version has run long enough to trust |
 | an arm's definition | the share of the model operators, a new operator | none, but past and future results are different experiments | start a **fresh workdir** (a new arm name) when the aim is a comparison; keep the old one |
 
 Two records make this checkable: every start of the loop writes a `daemon_started` event (ants version, epoch, python, the arm definition and its hash), and `ants epochs` shows per epoch the trial counts, the dates and the versions that ran in it. `ants doctor` warns when the arm definition changed inside a ledger.
+
+**Definition guard (exit code 4).** `ants run` compares the current code's arm definition hash against the ledger's last `daemon_started` event. If they differ, it refuses to start (exit 4, message with both hashes and the differing keys). Pass `--new-definition` to proceed; the start event records `"definition_changed": true` and the previous hash. A version change alone does not trigger the guard (the version field is excluded from the comparison). `ants@.service` sets `RestartPreventExitStatus=3 4`, so a refused start does not restart in a loop.  `ants doctor` reports the mismatch as WARN.
 
 ## Upgrading, step by step
 
@@ -57,6 +59,16 @@ Locally or from npm: `ants update` looks for a newer version (cached for a day),
 | a restore would forget events | `ants restore` refuses unless `--allow-different`; it also writes a `restored` event |
 | an experiment was started on the wrong arm definition | the workdir stays as it is; start a new one and compare there |
 
+## Sealed data from a previous epoch
+
+A new design is a new arm name and a new workdir.  Sealed data from a finished or abandoned epoch is read with `ants bundle verify` and, if the schema moved on, through a migrated COPY (never the original: `ants bundle make` snapshots read-only, and the bundle stays intact).  The bundle's MANIFEST.json records the schema version; if the current ants reports `LedgerTooNew`, the bundle was made by a newer version and the reader must be upgraded.
+
+## Pinned arm definitions (`pins.py`)
+
+`src/antslab/pins.py` records the arm_def_hash that the current code gives for each arm that has running ledgers on the server.  `ants preflight` FAILs when a pinned arm's hash no longer matches.  The fix is never to update the pin: create a new arm name instead (e.g. `portfolio_v2`) for the new definition, and keep the old workdir.
+
+To add a pin: compute the hash (`python -c "from antslab.experiments import arm_definition_hash; print(arm_definition_hash('arm', 'contracts/tinyts_real.toml', 1))"`), add the line to `PINNED_HASHES` in `pins.py`, and run the test (`test_preflight.py::test_pinned_hashes_match_code`).
+
 ## Rules for changing the harness without losing results
 
 1. Never edit an old migration; append one and bump `SCHEMA_VERSION`.
@@ -64,3 +76,25 @@ Locally or from npm: `ants update` looks for a newer version (cached for a day),
 3. Change the contract, evaluator or data only knowingly: it starts a new epoch, and the roadmap says why.
 4. Never delete a workdir to fix a problem; move it to `archive/old-runs/`.
 5. Deploy only from a tagged, CI-green commit; the install records the package hash.
+
+## What the arm definition hash covers, and what it does not
+
+`arm_def_hash` (in every `daemon_started` event; checked at each start, exit 4 when it changed) covers the arm name, the **requested** operator
+names, the guaranteed shares (floors and the stepping-stone reserve), whether usage is discounted, the promotion rule (`promotion`, screen arms),
+the stage quantile and batch size. It does **not** cover: the seed (`--seed`), the bandit's `min_share`, `probe` and `stagnation_n`, the code of
+any operator, or the tools generation of the agent beyond the `tools_gen` key. A release that changes an operator's code keeps the hash; the
+epoch (evaluator, data, contract) is the part that is pinned by code fingerprint. Read `changes.md` for operator changes, and start a new workdir
+when a change would make earlier and later trials not one experiment.
+
+An optional operator whose package is missing on the host (`tpe` without `optuna`) stays in the definition: the arm starts without it (a
+degraded run, recorded as `unavailable` in `daemon_started`) rather than answering a missing package with exit 4 and a service that stays down.
+Install the package to get the operator back; the hash is the same either way.
+
+## The rollback copy of a migrated ledger
+
+Before the first migration of a ledger that has events, ants writes `ledger.sqlite.pre-migration-vN` (N = the schema it migrates from) next to it,
+before it takes the write lock, so a running older arm is never held up by the copy. Existing copies are compared by schema version and event-chain
+endpoint, not file times. If a concurrent opener already migrated the live ledger, its valid old-schema snapshot remains the rollback copy even
+when new events have since arrived. If a restored ledger is still at the old schema but has a different event-chain endpoint, the prior copy is
+set aside as `.stale-<time>` and a fresh rollback snapshot is made. Delete copies by hand only once the new version has run for a while; ants
+never deletes them.

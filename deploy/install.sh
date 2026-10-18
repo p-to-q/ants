@@ -10,7 +10,7 @@ echo "== preflight"; nproc; free -m | sed -n 2p; df -h /var | tail -1
 FREE_GB=$(df -BG --output=avail /var | tail -1 | tr -dc 0-9); [ "$FREE_GB" -ge 15 ] || { echo "less than 15 GB free: refusing"; exit 1; }
 echo "== user and directories"
 id ants >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/ants --shell /usr/sbin/nologin ants
-install -d -o ants -g ants -m 750 /var/lib/ants /var/lib/ants/archive /var/lib/ants/board
+install -d -o ants -g ants -m 750 /var/lib/ants /var/lib/ants/archive /var/lib/ants/board /var/lib/ants/bundles /var/lib/ants/series
 install -d -o root -g ants -m 750 /etc/ants
 echo "== code"
 apt-get install -y --no-install-recommends python3.12-venv rsync libgomp1 >/dev/null
@@ -25,10 +25,18 @@ chown -R ants:ants /opt/ants
 sudo -u ants /opt/ants/.venv/bin/pip install -q --require-hashes -r /opt/ants/requirements/server.txt
 sudo -u ants /opt/ants/.venv/bin/pip install -q --no-deps -e /opt/ants
 echo "== units"
-for u in ants@.service ants-janitor@.service ants-janitor@.timer ants-health@.service ants-health@.timer ants-backup@.service ants-backup@.timer ants-board.service; do
+for u in ants@.service ants-janitor@.service ants-janitor@.timer ants-health@.service ants-health@.timer ants-backup@.service ants-backup@.timer ants-board.service ants-series@.service ants-series-backup@.service ants-series-backup@.timer; do
   install -m 644 "/opt/ants/deploy/$u" "/etc/systemd/system/$u"
 done
 systemctl daemon-reload
+echo "== series registries"
+if [ -d "$SRC/deploy/series" ]; then
+  install -d -o ants -g ants /opt/ants/deploy/series
+  for f in "$SRC"/deploy/series/*.toml; do
+    [ -e "$f" ] || continue
+    install -m 644 -o ants -g ants "$f" /opt/ants/deploy/series/
+  done
+fi
 # `ants` on the PATH: runs as the service user (see the file), so `ssh server`, then `ants`, opens the interface
 install -m 755 /opt/ants/deploy/ants-wrapper.sh /usr/local/bin/ants
 echo "== secrets file check"

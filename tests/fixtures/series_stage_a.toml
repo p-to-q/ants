@@ -1,0 +1,12 @@
+# Stage A: measure what exists.  Three arms x eight seeds, 28 800 CPU-seconds each.
+# Pre-registration: the arms, seeds, budget and epoch are fixed before any run starts.
+name = "stage_a"
+question = "Does reading the ledger (portfolio_agent) beat a summary of it (portfolio_llm) and plain search (portfolio) at equal CPU budget?"
+protocol = "docs/roadmap.md"
+contract = "contracts/tinyts_real.toml"
+arms = ["portfolio", "portfolio_screen", "portfolio_lean"]
+seeds = "1-8"
+max_cpu_s = 28800
+workers = 2
+epoch = "5da6eeee6527"
+status = "planned"

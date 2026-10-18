@@ -31,11 +31,24 @@ def test_second_instance_refuses_with_exit_3(tmp_path, procs):
 def test_lock_dies_with_the_process_and_is_not_inherited_by_gym_children(tmp_path, procs):
     """kill -9 the daemon while its gym child is still alive: a new instance must be able to start at once
     (flock is released by the kernel, and the child must not have inherited the lock fd)."""
-    contract, wd = write_contract(tmp_path), tmp_path / "wd"
+    # The child deliberately sleeps 30 s; give it a longer contract deadline so slow CI hosts do not timeout and kill it
+    # before the daemon is force-killed below.
+    contract, wd = write_contract(tmp_path, timeout=120), tmp_path / "wd"
     env = {**os.environ, "TOY_SLEEP": "30"}
     first = procs(run_cmd(contract, wd, max_evals=1000), env=env)
-    assert wait_for(lambda: descendants(first.pid), 30), "no gym child appeared"
-    kids = descendants(first.pid)
+
+    def running_gym_children():
+        # `descendants()` can observe the forked Python process before it has exec'd the gym module; killing the daemon in that
+        # fork/exec window makes the test platform-dependent (macOS may reap the not-yet-exec'd child with its parent).
+        pids = descendants(first.pid)
+        for pid in pids:
+            r = subprocess.run(["ps", "-ww", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, timeout=5)
+            if "antslab.gyms.toy" in r.stdout:
+                return [pid]
+        return False
+
+    kids = wait_for(running_gym_children, 30)
+    assert kids, "no gym child reached its running module"
     first.send_signal(signal.SIGKILL)
     first.wait()
     assert any(alive(k) for k in kids), "test premise: the orphaned gym child is still running"

@@ -128,7 +128,7 @@ class App:
             try:
                 return {"data": model.data_overview()}
             except Exception as e:
-                return {"error": f"{type(e).__name__}: {e}"}
+                return {"error": model.human_error(e, "The Data screen")}
         if screen == "system":
             return {"info": model.system_info(src, self.fleet_sources()[0])}
         return {}
@@ -292,16 +292,14 @@ class App:
             c.sel = min(max(v.rows - 1, 0), c.sel + 10)
         elif ch == K.KEY_PPAGE:
             c.sel = max(0, c.sel - 10)
+        elif self.screen == "board" and ch in (9, ord("."), ord(">"), ord("c")):        # the cap tabs have their own keys: ←/→ always move between screens
+            c.tab += 1; c.sel = 0
+        elif self.screen == "board" and ch in (getattr(K, "KEY_BTAB", -2), ord(","), ord("<"), ord("C")):
+            c.tab -= 1; c.sel = 0
         elif ch == K.KEY_RIGHT:
-            if self.screen == "board":
-                c.tab += 1; c.sel = 0
-            else:
-                self.cycle_screen(1)
+            self.cycle_screen(1)
         elif ch == K.KEY_LEFT:
-            if self.screen == "board":
-                c.tab -= 1; c.sel = 0
-            else:
-                self.cycle_screen(-1)
+            self.cycle_screen(-1)
         elif ch in (10, 13, K.KEY_ENTER):
             self.enter(v)
         elif ch == ord("s") and self.screen == "trials":

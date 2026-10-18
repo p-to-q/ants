@@ -220,7 +220,8 @@ def test_scanner_tar_mode_reads_what_is_really_inside(S, tmp_path):
 
 
 # --------------------------------------------------------------------------- systemd units and shell scripts
-UNITS = ["ants@.service", "ants-board.service", "ants-janitor@.service", "ants-health@.service", "ants-backup@.service"]
+UNITS = ["ants@.service", "ants-board.service", "ants-janitor@.service", "ants-health@.service", "ants-backup@.service",
+         "ants-series@.service", "ants-series-backup@.service"]
 KNOWN = set("""Description Wants After StartLimitIntervalSec StartLimitBurst Type User Group WorkingDirectory ExecStart Restart RestartSec RestartPreventExitStatus TimeoutStopSec
 KillMode CPUQuota MemoryHigh MemoryMax OOMPolicy OOMScoreAdjust TasksMax LimitFSIZE Environment NoNewPrivileges CapabilityBoundingSet
 AmbientCapabilities PrivateTmp PrivateDevices ProtectSystem ProtectHome ReadWritePaths InaccessiblePaths ProtectKernelTunables
@@ -242,7 +243,7 @@ def test_unit_files_referenced_by_the_installer_and_remote_deploy_exist():
     assert wanted >= {"ants@.service", "ants-janitor@.service", "ants-janitor@.timer", "ants-board.service", "ants-health@.service", "ants-health@.timer", "ants-backup@.service", "ants-backup@.timer"}
     for w in wanted:
         assert (DEPLOY / w).exists(), f"{w} is installed by install.sh but does not exist in deploy/"
-    assert all(p.name.startswith(("ants", "install", "remote_deploy", "PREFLIGHT")) for p in DEPLOY.iterdir()), "deploy files are named ants-*"
+    assert all(p.name.startswith(("ants", "install", "remote_deploy", "PREFLIGHT", "experiments", "pull_backups", "launchd", "series")) for p in DEPLOY.iterdir()), "deploy files are named ants-* or a known ops file"
 
 
 @pytest.mark.parametrize("unit", UNITS)

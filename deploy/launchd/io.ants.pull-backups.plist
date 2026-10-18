@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template: pull backups from the server once a day.
+  Install:  edit ProgramArguments to point at your deploy/pull_backups.sh and local directory,
+            set EnvironmentVariables (ANTS_HOST, ANTS_USER, ANTS_KEY), then:
+            cp deploy/launchd/io.ants.pull-backups.plist ~/Library/LaunchAgents/
+            launchctl load -w ~/Library/LaunchAgents/io.ants.pull-backups.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.ants.pull-backups</string>
+    <key>ProgramArguments</key>
+    <array>
+        <!-- EDIT: absolute path to deploy/pull_backups.sh -->
+        <string>/path/to/ants/deploy/pull_backups.sh</string>
+        <!-- EDIT: local directory for pulled backups -->
+        <string>/path/to/local/backups</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- EDIT: fill in your server connection details -->
+        <key>ANTS_HOST</key>
+        <string>your-server</string>
+        <key>ANTS_USER</key>
+        <string>your-user</string>
+        <key>ANTS_KEY</key>
+        <string>/path/to/ssh/key</string>
+    </dict>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/tmp/ants-pull-backups.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/ants-pull-backups.log</string>
+</dict>
+</plist>
