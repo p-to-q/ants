@@ -200,13 +200,24 @@ class Ledger:
         dest = Path(self.path + f".pre-migration-v{v}")
         if dest.exists():
             # Keep a copy that really is a ledger at schema version v (an earlier attempt that did not finish migrating, or the copy of an opener
-            # that has since migrated: that one is the rollback copy). Only a copy at ANOTHER version (a backup was restored and is being migrated
-            # again) is not this ledger's rollback copy: set it aside under another name. The file times say nothing: a live WAL ledger's main file
-            # moves at every checkpoint.
+            # that has since migrated: that one is the rollback copy). A restored ledger can have the same schema version but different contents,
+            # so compare its event-chain endpoint as well. File times are not reliable: a live WAL ledger's main file moves at every checkpoint.
             try:
                 chk = sqlite3.connect(f"file:{dest}?mode=ro", uri=True)
                 try:
-                    keep = chk.execute("PRAGMA user_version").fetchone()[0] == v
+                    def identity(conn):
+                        version = conn.execute("PRAGMA user_version").fetchone()[0]
+                        count, seq, digest = conn.execute(
+                            "SELECT COUNT(*), COALESCE(MAX(seq), 0), "
+                            "(SELECT hash FROM events ORDER BY seq DESC LIMIT 1) FROM events"
+                        ).fetchone()
+                        return version, count, seq, digest
+
+                    saved_identity = identity(chk)
+                    source_identity = identity(self.conn)
+                    # A concurrent opener can arrive here with a stale version read after another opener completed the migration. In that
+                    # case the old-schema copy is the rollback copy even though the live ledger has since accumulated new events.
+                    keep = saved_identity[0] == v and (source_identity[0] > v or saved_identity == source_identity)
                 finally:
                     chk.close()
             except sqlite3.Error:
