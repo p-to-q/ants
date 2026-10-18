@@ -801,7 +801,7 @@ def main(argv=None):
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None)
-    s.add_argument("--screen", default="home", choices=["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system", "afterlife"])
+    s.add_argument("--screen", default="home", choices=["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system", "past", "afterlife"])
     s.add_argument("--width", type=int, default=100); s.add_argument("--color", action="store_true"); s.set_defaults(fn=cmd_home)
     a = ap.parse_args(argv)
     if a.cmd is None:                                 # plain `ants`: set up on the first run, else the interactive shell

@@ -1,6 +1,6 @@
 # archive_index
 
-Afterlife is the last terminal page (`9`). Its job is to help an operator revisit
+Past is the last terminal page (`9`). Its job is to help an operator revisit
 a research round and locate its evidence, not rank unrelated experiments.
 
 ## Information and actions

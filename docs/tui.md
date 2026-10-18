@@ -5,7 +5,7 @@
 ```
 ants          the interface (a terminal), or the line shell (a pipe, a dumb terminal, ANTS_NO_TUI=1)
 ants ui       the interface, with --workdir / --contract / --arm
-ants home     print one screen and exit: --screen home|overview|board|trials|fleet|events|health|data|system|afterlife --width N --color
+ants home     print one screen and exit: --screen home|overview|board|trials|fleet|events|health|data|system|past --width N --color
 ```
 
 ## What you see first
@@ -37,7 +37,7 @@ The phrase always sits next to the numbers it came from and always says why. It 
 
 ## Screens
 
-The final screen is **Afterlife** (`9`). It groups past work by research round,
+The final screen is **Past** (`9`). It groups past work by research round,
 not trial. Its subtitle explains the page in complete prose. Arrow and Page keys
 select a round; Enter shows its evidence and parameters; Esc returns to the same
 selection. A cached receipt is not a live backup check. Operational snapshots

@@ -391,7 +391,7 @@ class App:
                     self.pager_text = views.afterlife_detail(read_round(catalog, rows[c.sel]), c.width)
                 except (OSError, ValueError, KeyError, TypeError) as exc:
                     self.pager_text = f"Cannot read archived summary: {exc}\n\nReturn with Esc. Check the cached file and its permissions, or rebuild\nthe cache from the verified bundle. No running experiment was changed."
-                self.pager_title = "Afterlife · sealed round detail (read-only)"
+                self.pager_title = "Past — preserved round details (read-only)"
                 self.goto("pager")
         elif self.screen == "board":
             lb = d.get("lb", {})
@@ -559,6 +559,7 @@ def run(contract=None, workdir=None, arm=None) -> int:
 
 def once(contract=None, workdir=None, arm=None, width: int = 100, screen: str = "home", color: bool | None = None, stream=None) -> str:
     """the same screen without a terminal: for pipes, `ants home --once`, tests and screenshots"""
+    screen = "afterlife" if screen == "past" else screen  # keep the original internal key compatible
     app = App(contract, workdir, arm)
     app.ctx.width, app.ctx.height = width, 40
     d = app.load(screen, {}, None) if screen not in ("pager",) else {}

@@ -114,7 +114,7 @@ def test_many_rounds_use_selection_window_and_render_without_a_ledger(tmp_path, 
         assert "Question 24" in text and "Question 0" not in text
         assert view.rows == 50 and max(map(len, text.splitlines())) <= width
     a.on_key(ord("9"), curses)
-    assert a.screen == "afterlife" and views.SCREENS[-1] == ("afterlife", "Afterlife")
+    assert a.screen == "afterlife" and views.SCREENS[-1] == ("afterlife", "Past")
     a.on_key(curses.KEY_LEFT, curses)
     assert a.screen == "system"
 
@@ -196,3 +196,6 @@ def test_history_and_catalog_do_not_require_a_live_contract(tmp_path, monkeypatc
     a.workdirs = []
     assert a.load("afterlife", {}, None)["catalog"]["rounds"] == []
     assert a.load("data", {}, None) == {"data": {"sets": []}}
+    text = app.once(screen="past", color=False)
+    assert text.startswith(" Past\n") and "graveyard" in text
+    assert "Afterlife" not in text

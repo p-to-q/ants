@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from . import anim, pixel, vibe
 
 SCREENS = [("home", "Home"), ("overview", "Overview"), ("board", "Leaderboard"), ("trials", "Trials"), ("fleet", "Arms"),
-           ("events", "Events"), ("health", "Health"), ("data", "Data"), ("system", "System"), ("afterlife", "Afterlife")]
+           ("events", "Events"), ("health", "Health"), ("data", "Data"), ("system", "System"), ("afterlife", "Past")]
 TAGLINE = "Autonomous Navigation of Tiny-model Space"
 ONE_LINE = "A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it."
 INTRO = ["It proposes tiny forecasting models, tests each one with a fixed evaluator that nothing the searchers write can reach,",
@@ -131,7 +131,7 @@ def menu_lines(width):
              ("3", "Trials", "every evaluation; open one"), ("4", "Arms", "compare the running searches at equal budget"),
              ("5", "Events", "the hash-chained record"), ("6", "Health", "doctor, integrity, backups"),
              ("7", "Data", "datasets and their roles"), ("8", "System", "version, service, model spend, backups"),
-             ("9", "Afterlife", "past experiments and retained evidence")]
+             ("9", "Past", "past experiments and retained evidence")]
     out = [rule(width, "Go to")]
     for k, name, what in items:
         out.append([S(f" {k} ", "key"), S(f"{name:<12}", "bold"), S(what, "dim")])
@@ -538,8 +538,8 @@ def afterlife_screen(d, ctx: Ctx) -> View:
     w = ctx.width
     def prose(text, style="dim"):
         return [[S(" " + part, style)] for part in textwrap.wrap(text, max(10, w - 2))]
-    lines = [[S(" Afterlife", "accent")]]
-    lines += prose("Experiments end, but their findings and evidence remain useful. Revisit past rounds here, inspect their results, and find the verified copies that preserve the work.")
+    lines = [[S(" Past", "accent")]]
+    lines += prose("A graveyard for past experiments, with their findings and evidence kept within reach. Revisit a round to see what ran, what it found and where the verified copies are recorded.")
     lines += [[S(f" {len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}. This view reads cached records only.", "dim")], []]
     if catalog.get("error"):
         lines += prose("The index could not be read. Check its format and permissions, or rebuild it from verified bundles. No running experiment was changed.", "warn")

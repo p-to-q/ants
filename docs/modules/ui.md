@@ -1,6 +1,6 @@
 # ui
 
-The last terminal page is **Afterlife** (`9`): cached, per-round history with
+The last terminal page is **Past** (`9`): cached, per-round history with
 read-only details and recorded backup locations. Its information hierarchy and
 failure behaviour are documented in [archive_index](archive_index.md).
 History and Data load independently of a live ledger or evaluation contract;
