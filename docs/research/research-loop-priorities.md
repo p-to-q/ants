@@ -19,6 +19,11 @@ more efficient. Research value can be a well-supported negative result.
 Today, the strongest automated loop is typed model-configuration search within
 one declared gym. A general agent that invents and independently verifies whole
 scientific programmes is not implemented. Keep that distinction visible.
+There are two deliverables: an efficient, auditable discovery system and a
+useful fitted model. The first needs search-policy references (random/classical
+search); the second needs strong same-task forecasting references and held-out
+results (13/14/27). Export, uptime and a nicer UI establish neither scientific
+claim by themselves.
 
 ## What was misordered, and the correction
 
