@@ -108,7 +108,7 @@ def fmt_v(v, nd=3):
 
 
 def spin(name, ctx):
-    return anim.frame(name, ctx.t, ctx.ascii_only, still=(ctx.t == 0)) if name else "●"
+    return anim.frame(name, ctx.t, ctx.ascii_only, still=True if ctx.t == 0 else None) if name else "●"
 
 
 def mood_line(m, ctx, prefix=" "):

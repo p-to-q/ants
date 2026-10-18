@@ -5,14 +5,13 @@ from __future__ import annotations
 
 import os
 
-SPINNERS = {
-    "loading": ("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", 0.08),             # dots
-    "running": ("⣾⣽⣻⢿⡿⣟⣯⣷", 0.08),                # dots2: a search is working
-    "model": (("∙∙∙", "●∙∙", "∙●∙", "∙∙●", "∙∙∙"), 0.125),     # waiting for a model call
-    "found": ("✶✸✹✺✹✷", 0.07),                    # a new best, shown for a few seconds
-    "alive": ("-\\|/", 0.13),
-}
-ASCII = {"loading": "|/-\\", "running": "|/-\\", "model": (".  ", ".. ", "...", " ..", "  .", "   "), "found": "*+x+", "alive": "-\\|/"}
+# Shared activity token: new loading/working indicators reuse this template.
+# Activity meaning belongs to the accompanying text and colour, not a different animation.
+ACTIVITY_FRAMES = ("·", "✻", "✽", "✶", "✳", "✢")
+ACTIVITY_INTERVAL = 0.16
+SPINNERS = {name: (ACTIVITY_FRAMES, ACTIVITY_INTERVAL)
+            for name in ("loading", "running", "model", "found", "alive")}
+ASCII = dict.fromkeys(SPINNERS, "|/-\\")
 STILL = {"loading": "…", "running": "●", "model": "…", "found": "★", "alive": "●"}
 
 
@@ -27,7 +26,7 @@ def slow_link() -> bool:
 def frame(name: str, t: float, ascii_only: bool = False, still: bool | None = None) -> str:
     """the glyph(s) of spinner `name` at clock time `t` seconds. Over ssh the interval is doubled (fewer cells change per second)."""
     if (reduced_motion() if still is None else still):
-        return STILL[name]
+        return ("*" if name == "found" else ".") if ascii_only else STILL[name]
     frames, every = SPINNERS[name]
     if ascii_only:
         frames = ASCII[name]
