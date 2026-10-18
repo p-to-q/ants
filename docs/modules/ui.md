@@ -1,5 +1,11 @@
 # ui
 
+All animated activity indicators share `tui.anim.ACTIVITY_FRAMES`:
+`· → ✻ → ✽ → ✶ → ✳ → ✢`, one frame per 160 ms (320 ms over SSH).
+Home rows, running-trial indicators, model waits, discovery bursts and the status
+bar use the same template. Text and colour retain activity meaning. ASCII-only
+terminals keep a shared ASCII fallback; reduced motion retains static state glyphs.
+
 The last terminal page is **Past** (`9`): cached, per-round history with
 read-only details and recorded backup locations. Its information hierarchy and
 failure behaviour are documented in [archive_index](archive_index.md).

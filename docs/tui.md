@@ -15,7 +15,7 @@ The home screen has the ant (its cursor pixels beat once every 1.6 s while the i
 Each search shows an animated glyph, a short plain-language phrase and the reason behind it, then the numbers:
 
 ```
- ⣾ portfolio       2469   239  101   42m    0.949·s0  0.965·s2  0.803·s2  0.794·s2  ▂▃▅▇▆▅▆█
+ ✻ portfolio       2469   239  101   42m    0.949·s0  0.965·s2  0.803·s2  0.794·s2  ▂▃▅▇▆▅▆█
      Going well  101 evaluations this hour, last new best 38 min ago
 ```
 
@@ -84,7 +84,7 @@ A trial opens to its levers, its metrics per stage with a bar, its error if any,
 
 ## Animation, and turning it down
 
-The key loop is the clock: about 7 frames a second, 2.5 over SSH. Frames are computed from the time, never counted, so a slow redraw cannot make an animation lag, and curses sends only the cells that changed. One spinner per activity: loading `⠋⠙⠹…`, a search running `⣾⣽⣻…`, waiting for a model `∙●∙`, a new best `✶✸✹…`, alive `-\|/` in the status bar.
+The key loop is the clock: about 7 redraws a second, 2.5 over SSH. Frames are computed from the time, never counted, so a slow redraw cannot make an animation lag, and curses sends only the cells that changed. All animated activity indicators share `· → ✻ → ✽ → ✶ → ✳ → ✢`: loading, running, waiting for a model, a new best and the status bar. The template advances every 160 ms, doubled over SSH; a slow redraw may skip a frame. Text and colour explain the state, rather than a different spinner shape.
 
 | to get | set |
 |---|---|

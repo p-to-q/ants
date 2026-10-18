@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-19 · One activity animation throughout the terminal
+Changed: all five activity animations share the requested `· ✻ ✽ ✶ ✳ ✢` sequence and interval, including Home, running trials, model waits, discovery bursts and the status bar; ASCII fallback, SSH slowdown and reduced-motion states remain supported.
+Why: activity indicators should use one recognizable template instead of unrelated spinner families.
+Forecloses: changing only one screen, a three-cell model spinner that shifts the layout, and future activity glyphs copied into views instead of using the shared token.
+
 ## 2026-10-19 · Existing series and history are not first-run installations
 Changed: bare `ants` shares the viewer's ledger discovery and recognizes a retained history index even after active ledgers move; regression tests cover series-only, archive-only, damaged-cache and truly empty state.
 Why: a deployed server without an onboarding config incorrectly offered installation despite already running a series.
