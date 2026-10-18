@@ -51,22 +51,48 @@ case "${1:-preflight}" in
     if [ "${1:-}" = "--registry" ]; then
       shift
       REG="${1:-deploy/experiments.toml}"
-      # read running experiments from the TOML registry (stdlib python on the dev machine)
+      # Read running experiments from the TOML registry on the deploy machine. Parsing TOML needs tomllib (Python 3.11+) or the
+      # tomli backport, and the `python3` of a stock machine can predate 3.11 (3.9 on macOS, 3.10 on Ubuntu 22.04). Probe for an
+      # interpreter that can parse TOML, then treat "cannot parse" as an ERROR: the previous process substitution
+      # (`done < <(python3 -c ...)`) discarded the parser's exit status, so a missing `tomli` was reported as
+      # "no running experiments in <registry>" - a wrong diagnosis that sends the operator after the wrong thing.
+      PY_TOML=""
+      for cand in "${ANTS_PYTHON:-}" .venv/bin/python python3.13 python3.12 python3.11 python3; do
+        [ -n "$cand" ] || continue
+        if [ ! -x "$cand" ] && ! command -v "$cand" >/dev/null 2>&1; then continue; fi
+        if "$cand" -c 'try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli
+' >/dev/null 2>&1; then
+          PY_TOML="$cand"; break
+        fi
+      done
+      [ -n "$PY_TOML" ] || { echo "registry: cannot parse $REG: no interpreter with tomllib (Python 3.11+) or tomli; set ANTS_PYTHON" >&2; exit 1; }
+      if ! REG_ARMS=$("$PY_TOML" - "$REG" <<'PY_TOML_SCRIPT'
+import sys
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
+try:
+    with open(sys.argv[1], "rb") as f:
+        registry = tomllib.load(f)
+except (OSError, tomllib.TOMLDecodeError) as error:
+    sys.exit(f"registry: cannot read {sys.argv[1]}: {error}")
+for experiment in registry.get("experiment", []):
+    if experiment.get("status") == "running":
+        print(experiment["name"])
+PY_TOML_SCRIPT
+      ); then
+        exit 1
+      fi
       ARMS=()
       while IFS= read -r name; do
-        ARMS+=("$name")
-      done < <(python3 -c "
-import sys
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
-with open(sys.argv[1], 'rb') as f:
-    d = tomllib.load(f)
-for e in d.get('experiment', []):
-    if e.get('status') == 'running':
-        print(e['name'])
-" "$REG")
+        if [ -n "$name" ]; then ARMS+=("$name"); fi
+      done <<< "$REG_ARMS"
       [ ${#ARMS[@]} -gt 0 ] || { echo "no running experiments in $REG"; exit 1; }
       echo "registry: starting ${ARMS[*]}"
     else

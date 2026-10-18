@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-19 · A registry that cannot be parsed is not an empty registry
+Changed: `deploy/remote_deploy.sh start --registry` probes for an interpreter that can parse TOML (`ANTS_PYTHON`, `.venv/bin/python`, `python3.13` … `python3`), reads the registry in a command substitution whose exit status is checked, and stops with `registry: cannot parse <file>: …` or `registry: cannot read <file>: <toml error>`; two regressions cover an unparseable registry and a host with no TOML-capable interpreter. Evaluators, contracts, budgets and the campaign are untouched.
+Why: the parse ran in a process substitution, whose exit status is discarded, so on a machine whose `python3` predates 3.11 without the `tomli` backport (3.9 on macOS, 3.10 on Ubuntu 22.04) a missing parser was reported as "no running experiments in <registry>": the operator was sent after the registry instead of the interpreter, and `start --registry` silently started nothing.
+Forecloses: mistaking a toolchain gap for an empty registry, and a `start --registry` that fails without naming what it could not read.
+
 ## 2026-10-19 · One activity animation throughout the terminal
 Changed: all five activity animations share the requested `· ✻ ✽ ✶ ✳ ✢` sequence and interval, including Home, running trials, model waits, discovery bursts and the status bar; ASCII fallback, SSH slowdown and reduced-motion states remain supported.
 Why: activity indicators should use one recognizable template instead of unrelated spinner families.

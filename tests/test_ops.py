@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -141,6 +142,57 @@ def test_remote_deploy_registry_with_special_path(tmp_path):
         capture_output=True, text=True, env=env, cwd=str(ROOT), timeout=30)
     assert result.returncode == 0, result.stderr
     assert "ants@a.service" in log.read_text()
+
+
+def test_remote_deploy_registry_parse_error_is_not_an_empty_registry(tmp_path):
+    """A registry the deploy machine cannot parse is an error that names the file, never "no running experiments".
+
+    Regression: the parse used to run in a process substitution, whose exit status is discarded, so a missing `tomli`
+    (every `python3` older than 3.11) was reported as an empty registry.
+    """
+    reg = tmp_path / "broken.toml"
+    reg.write_text('[[experiment]\nname = "a"\n')
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    (fake_bin / "ssh").write_text("#!/bin/sh\nexit 0\n")
+    (fake_bin / "ssh").chmod(0o755)
+    env = {**os.environ, "PATH": str(fake_bin) + ":" + os.environ["PATH"],
+           "ANTS_HOST": "x", "ANTS_USER": "x", "ANTS_KEY": "/dev/null"}
+    env.pop("ANTS_PYTHON", None)
+    result = subprocess.run(
+        ["bash", str(ROOT / "deploy/remote_deploy.sh"), "start", "--registry", str(reg)],
+        capture_output=True, text=True, env=env, cwd=str(ROOT), timeout=30)
+    out = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "no running experiments" not in out
+    assert "cannot read" in out and "broken.toml" in out
+
+
+def test_remote_deploy_registry_without_a_toml_interpreter_says_so(tmp_path):
+    """No interpreter with tomllib/tomli: stop with the reason and the override, not with a false empty registry.
+
+    Runs from a copy of `deploy/` so a developer `.venv` next to the script cannot stand in for the probe.
+    """
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    shutil.copytree(ROOT / "deploy", tree / "deploy")
+    reg = tmp_path / "reg.toml"
+    reg.write_text('[[experiment]]\nname="a"\narm="random"\nseed=1\nquestion="q"\nstatus="running"\n')
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    for name in ("ssh", "python3", "python3.11", "python3.12", "python3.13", "python"):     # ssh and every interpreter refuse
+        (fake_bin / name).write_text("#!/bin/sh\nexit 1\n")
+        (fake_bin / name).chmod(0o755)
+    env = {**os.environ, "PATH": str(fake_bin) + ":/usr/bin:/bin:/usr/sbin:/sbin",
+           "ANTS_HOST": "x", "ANTS_USER": "x", "ANTS_KEY": "/dev/null"}
+    env.pop("ANTS_PYTHON", None)
+    result = subprocess.run(
+        ["bash", str(tree / "deploy/remote_deploy.sh"), "start", "--registry", str(reg)],
+        capture_output=True, text=True, env=env, cwd=str(tree), timeout=30)
+    out = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "no running experiments" not in out
+    assert "tomllib" in out and "ANTS_PYTHON" in out
 
 
 # ===================== 2. DEFINITION GUARD =====================

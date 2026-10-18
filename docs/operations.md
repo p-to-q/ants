@@ -185,7 +185,7 @@ Decisions to take at a check-in: whether to add seeds (a second and third seed p
 
 Loader: `src/antslab/experiments.py` (stdlib `tomllib`; rejects unknown keys, duplicate names, bad names, bad status).
 
-`deploy/remote_deploy.sh start --registry` reads `deploy/experiments.toml` and starts every experiment whose status is `running`.  The existing explicit `start ARM..` behaviour is unchanged.
+`deploy/remote_deploy.sh start --registry` reads `deploy/experiments.toml` and starts every experiment whose status is `running`.  The existing explicit `start ARM..` behaviour is unchanged.  Parsing the registry needs a Python with `tomllib` (3.11+) or the `tomli` backport on the deploy machine; the script probes `ANTS_PYTHON`, `.venv/bin/python` and `python3.13` … `python3`, and stops with `registry: cannot parse <file>: …` (or `registry: cannot read <file>: <toml error>`) instead of reporting an empty registry.
 
 `ants experiments [--file F] [--base DIR] [--json]` lists the experiments and, for each, whether a ledger exists under `DIR/<name>/ledger.sqlite` and its last `daemon_started` arm_def_hash versus what the current code computes.
 
