@@ -3,6 +3,10 @@
 `archive index` builds an immutable round summary from a verified bundle;
 `archive list` reads its cache. The default snapshot kind omits result metrics.
 See [archive_index](archive_index.md) for flags and safety boundaries.
+Bare `ants` uses the viewer's workdir discovery for its first-run gate, including
+series directories. An existing history index also bypasses onboarding after
+live ledgers move away. A damaged index is shown as a repairable read-only error,
+not a reason to download datasets. The gate never opens or modifies a ledger.
 
 Command line (`ants`, entry `antslab.cli:main`). Flag-by-flag reference: [docs/cli.md](../cli.md).
 

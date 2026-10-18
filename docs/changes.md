@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-19 · Existing series and history are not first-run installations
+Changed: bare `ants` shares the viewer's ledger discovery and recognizes a retained history index even after active ledgers move; regression tests cover series-only, archive-only, damaged-cache and truly empty state.
+Why: a deployed server without an onboarding config incorrectly offered installation despite already running a series.
+Forecloses: misleading dataset-download prompts after upgrades or migrations, writing configuration just to read history, and treating a damaged cache as a new installation.
+
 ## 2026-10-19 · Past keeps previous research rounds readable
 Changed: a final read-only terminal page groups verified frozen bundles by round, with cached descriptive results, coverage, epoch, parameters and recorded backup locations; a bounded, atomic index is built explicitly; snapshots omit comparative metrics by default. Series workdirs are discovered one level below the series root.
 Why: a growing experiment history needs a useful overview without rescanning old ledgers or presenting operational checkpoints as scientific conclusions.

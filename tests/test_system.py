@@ -526,6 +526,40 @@ def test_bare_ants_does_not_offer_setup_where_a_ledger_already_exists(tmp_path, 
     assert cli._first_run_done() is True
 
 
+def test_bare_ants_recognizes_series_without_config_or_flat_ledgers(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ANTS_SERIES_DIR", str(tmp_path / "series"))
+    monkeypatch.setenv("ANTS_ARCHIVE_INDEX", str(tmp_path / "absent.json"))
+    for key in ("ANTS_WORKDIR", "ANTS_CONTRACT"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.chdir(tmp_path)
+    assert cli._first_run_done() is False
+    path = tmp_path / "series/e43a/portfolio_s1/ledger.sqlite"
+    Ledger(path).close()
+    before = {p: (p.stat().st_size, p.stat().st_mtime_ns) for p in path.parent.iterdir()}
+    assert cli._first_run_done() is True
+    assert before == {p: (p.stat().st_size, p.stat().st_mtime_ns) for p in path.parent.iterdir()}
+    assert not home.config_path().exists()
+
+
+@pytest.mark.parametrize("contents", ['{"format":1,"rounds":[]}', 'damaged index'])
+def test_archive_only_entry_does_not_offer_setup_after_ledgers_move(tmp_path, monkeypatch, contents):
+    from antslab.tui import model
+    monkeypatch.setenv("ANTS_HOME", str(tmp_path / "home"))
+    path = tmp_path / "archive/index.json"
+    monkeypatch.setenv("ANTS_ARCHIVE_INDEX", str(path))
+    for key in ("ANTS_WORKDIR", "ANTS_CONTRACT"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(model, "discover_workdirs", lambda: [])
+    assert cli._first_run_done() is False
+    path.parent.mkdir()
+    path.write_text(contents)
+    before = path.stat().st_mtime_ns
+    assert cli._first_run_done() is True
+    assert path.stat().st_mtime_ns == before and path.read_text() == contents
+    assert not home.config_path().exists()
+
+
 def test_a_gzip_backup_leaves_no_working_copy_behind(work):
     dest = work.parent / "bk"
     make_backup(work / "ledger.sqlite", dest, compress=True)

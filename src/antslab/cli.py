@@ -527,9 +527,19 @@ def _can_tui() -> bool:
 
 def _first_run_done() -> bool:
     from .home import config_path
-    from .home import home, ledgers_in
-    return (config_path().exists() or bool(os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT"))
-            or bool(ledgers_in("runs") or ledgers_in("/var/lib/ants") or ledgers_in(home() / "runs")))      # a ledger anywhere ants looks means it is set up
+    if config_path().exists() or os.environ.get("ANTS_WORKDIR") or os.environ.get("ANTS_CONTRACT"):
+        return True
+    # The entry gate and viewer must agree about series and migrated workdirs.
+    from .tui.model import discover_workdirs
+    if discover_workdirs():
+        return True
+    # An archive-only installation is still useful, including when its cache
+    # needs repair. Show the read-only error, never offer an unrelated download.
+    from .archive_index import index_path
+    try:
+        return index_path().is_file()
+    except OSError:
+        return False
 
 
 def _first_run(ap) -> int:
