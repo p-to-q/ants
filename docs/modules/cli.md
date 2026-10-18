@@ -1,5 +1,9 @@
 # cli
 
+`archive index` builds an immutable round summary from a verified bundle;
+`archive list` reads its cache. The default snapshot kind omits result metrics.
+See [archive_index](archive_index.md) for flags and safety boundaries.
+
 Command line (`ants`, entry `antslab.cli:main`). Flag-by-flag reference: [docs/cli.md](../cli.md).
 
 **Interface**

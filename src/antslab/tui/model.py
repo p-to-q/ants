@@ -28,6 +28,14 @@ def discover_workdirs(extra=()) -> list[Path]:
     from ..home import ledgers_in
     for base in (Path("/var/lib/ants"), home() / "runs", Path("runs")):
         cands += sorted(p.parent for p in ledgers_in(base))
+    # A registered series contains one independent workdir per arm/seed. Never
+    # recurse through archive/: the viewer must not revive old pilot contexts.
+    series_root = Path(os.environ.get("ANTS_SERIES_DIR", "/var/lib/ants/series"))
+    try:
+        for series in sorted(series_root.iterdir()):
+            cands += [p.parent for p in ledgers_in(series)]
+    except OSError:
+        pass
     out, seen = [], set()
     for p in cands:
         p = p.expanduser()

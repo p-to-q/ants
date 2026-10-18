@@ -1,5 +1,12 @@
 # ui
 
+The last terminal page is **Past** (`9`): cached, per-round history with
+read-only details and recorded backup locations. Its information hierarchy and
+failure behaviour are documented in [archive_index](archive_index.md).
+History and Data load independently of a live ledger or evaluation contract;
+contract resolution is deferred until a live Source is opened. A missing current
+experiment must not prevent access to preserved evidence or the data catalog.
+
 Human- and agent-facing views: plain dicts that the CLI prints as text or as `--json`. Read-only except `hint` (an event) and the `PAUSE` flag file.
 
 **Interface**

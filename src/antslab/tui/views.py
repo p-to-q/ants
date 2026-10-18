@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import math
 import time
+import textwrap
 from dataclasses import dataclass, field
 
 from . import anim, pixel, vibe
 
 SCREENS = [("home", "Home"), ("overview", "Overview"), ("board", "Leaderboard"), ("trials", "Trials"), ("fleet", "Arms"),
-           ("events", "Events"), ("health", "Health"), ("data", "Data"), ("system", "System")]
+           ("events", "Events"), ("health", "Health"), ("data", "Data"), ("system", "System"), ("afterlife", "Past")]
 TAGLINE = "Autonomous Navigation of Tiny-model Space"
 ONE_LINE = "A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it."
 INTRO = ["It proposes tiny forecasting models, tests each one with a fixed evaluator that nothing the searchers write can reach,",
@@ -21,7 +22,7 @@ INTRO = ["It proposes tiny forecasting models, tests each one with a fixed evalu
 STATES = [None, "done", "failed", "timeout", "crashed", "queued", "running"]
 STATE_GLYPH = {"done": ("✓", "ok"), "failed": ("✗", "bad"), "timeout": ("⏱", "warn"), "crashed": ("✗", "bad"), "queued": ("·", "dim"), "running": ("▸", "accent")}
 KEYS = {
-    "home": "0-8 or ←→ screens · [ ] next/prev search · p pause/resume · h hint · / command · ? help · q quit",
+    "home": "0-9 or ←→ screens · [ ] next/prev search · p pause/resume · h hint · / command · ? help · q quit",
     "overview": "←→ screens · r refresh · p pause/resume · h hint · [ ] search · space freeze · ? help",
     "board": "Tab/< > cap · ←→ screens · ↑↓ row · Enter open · p pause · h hint · [ ] search · ? help",
     "trials": "↑↓ row · Enter open · s state · t stage · g/G top/bottom · space freeze · ? help",
@@ -30,6 +31,7 @@ KEYS = {
     "health": "r refresh · ? help",
     "data": "r refresh · ? help",
     "system": "r refresh · ? help",
+    "afterlife": "↑↓ round · Enter evidence / parameters · ←→ screens · r refresh cache · ? help",
     "detail": "Esc back · ? help",
 }
 
@@ -128,7 +130,8 @@ def menu_lines(width):
     items = [("1", "Overview", "what is running now, the chart of the best so far"), ("2", "Leaderboard", "the best models per size cap"),
              ("3", "Trials", "every evaluation; open one"), ("4", "Arms", "compare the running searches at equal budget"),
              ("5", "Events", "the hash-chained record"), ("6", "Health", "doctor, integrity, backups"),
-             ("7", "Data", "datasets and their roles"), ("8", "System", "version, service, model spend, backups")]
+             ("7", "Data", "datasets and their roles"), ("8", "System", "version, service, model spend, backups"),
+             ("9", "Past", "past experiments and retained evidence")]
     out = [rule(width, "Go to")]
     for k, name, what in items:
         out.append([S(f" {k} ", "key"), S(f"{name:<12}", "bold"), S(what, "dim")])
@@ -528,6 +531,93 @@ def system_screen(d, ctx: Ctx) -> View:
     return View(lines)
 
 
+def afterlife_screen(d, ctx: Ctx) -> View:
+    from ..textsafe import clean_text
+    catalog = d.get("catalog", {})
+    rounds = catalog.get("rounds", [])
+    w = ctx.width
+    def prose(text, style="dim"):
+        return [[S(" " + part, style)] for part in textwrap.wrap(text, max(10, w - 2))]
+    lines = [[S(" Past", "accent")]]
+    lines += prose("A graveyard for past experiments, with their findings and evidence kept within reach. Revisit a round to see what ran, what it found and where the verified copies are recorded.")
+    lines += [[S(f" {len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}. This view reads cached records only.", "dim")], []]
+    if catalog.get("error"):
+        lines += prose("The index could not be read. Check its format and permissions, or rebuild it from verified bundles. No running experiment was changed.", "warn")
+        lines += prose(clean_text(catalog["error"], 200), "warn")
+    if not rounds:
+        if not catalog.get("error"):
+            lines += prose("No past rounds have been indexed yet. Once a round has been sealed and verified, its summary can be added here.")
+        lines += prose("Run `ants archive index --help` for the indexing command. The index is a cache; the sealed bundle remains the evidence.")
+        return View(lines)
+    selected = min(max(ctx.sel, 0), len(rounds) - 1)
+    count = min(7, max(2, ctx.height - 27))
+    start = (selected // count) * count
+    label_w = max(16, w - 43)
+    lines.append([S(f" {'date':<11}{'round / question':<{label_w}}{'kind':<11}receipt", "dim")])
+    row0 = len(lines) - start
+    for i in range(start, min(start + count, len(rounds))):
+        r = rounds[i]
+        label = clean_text(r.get("title", r.get("id", "?")), 120)
+        date = clean_text(str(r.get("created_utc", "?"))[:10], 11)
+        kind = clean_text(r.get("kind", "?"), 10)
+        lines.append([cursor(i, selected), S(f"{date:<11}", "dim"),
+                      S(f"{clip(label, label_w):<{label_w}}", "bold" if i == selected else "none"),
+                      S(f"{kind:<11}", "dim"), S("off-host*" if r.get("offsite_note") else "local*", "ok" if r.get("offsite_note") else "warn")])
+    lines.append([S(f" {start + 1}-{min(start + count, len(rounds))} / {len(rounds)} · ↑↓ PgUp/PgDn select", "dim")])
+    row = rounds[selected]
+    lines += [[], rule(w, clean_text(row.get("title", row["id"]), 100))]
+    if row.get("kind") == "snapshot":
+        lines += prose("This is an operational checkpoint. Research results are intentionally omitted while the experiment may still be running.")
+    else:
+        direction = "lower" if row.get("direction") == "min" else "higher"
+        lines.append([S(f" {clean_text(row.get('metric', '?'), 40)} · {row.get('stage', '?')} · cap ≤{row.get('focus_cap', '?')} · {direction} is better", "dim")])
+        lines.append([S(" Descriptive medians of per-run best values. n/N reports coverage.", "dim")])
+        preview = row.get("preview", [])
+        limit = min(6, max(1, ctx.height - 22))
+        for result in preview[:limit]:
+            lines.append([S(f" {clip(clean_text(result.get('arm', '?'), 40), 24):<24}", "none"),
+                          S(f" {fmt_v(result.get('median'), 5):>10}", "accent"),
+                          S(f"  {result.get('n', 0)}/{result.get('total', 0)}  epoch {clean_text(result.get('epoch', '?'), 12)}", "dim")])
+        if any(result.get("n", 0) < result.get("total", 0) for result in preview):
+            lines += prose("Some runs have no eligible result. Missing values are excluded, not treated as zero.", "warn")
+        if row.get("kind") == "pilot":
+            lines += prose("These pilot results are exploratory, not confirmatory.", "warn")
+        if len(preview) > limit:
+            lines.append([S(f" {len(preview) - limit} more arm summaries are available with Enter.", "dim")])
+    checked = row.get("verified_at")
+    when = time.strftime("%Y-%m-%d %H:%M", time.localtime(checked)) if isinstance(checked, (float, int)) else "not recorded"
+    lines += [[S(f" Verified {when}. Receipts are recorded, not checked live.", "dim")],
+              [S(" Off-host receipt: " + clean_text(row.get("offsite_note") or "not recorded", 160), "none")],
+              [S(" Enter opens the full results, parameters and recovery locations.", "dim")]]
+    return View(lines, len(rounds), row0)
+
+
+def afterlife_detail(summary: dict, width: int) -> str:
+    """Human-first evidence receipt, followed by the complete machine-readable record."""
+    import json
+    from ..textsafe import clean_text
+    snapshot = summary.get("kind") == "snapshot"
+    lines = [str(summary.get("title", summary.get("id", "Round"))), "",
+             "WHAT WAS PRESERVED",
+             f"Round: {summary.get('id')} ({summary.get('kind')})",
+             f"Task: {summary.get('task')} | runs: {len(summary.get('runs', []))}",
+             "Results omitted: operational checkpoint." if snapshot else summary.get("summary_policy", "Descriptive results only."),
+             "", "WHERE TO FIND THE EVIDENCE",
+             f"Bundle: {summary.get('bundle_location', 'not recorded')}",
+             f"SHA-256: {summary.get('bundle_sha256', 'not recorded')}",
+             f"Off-host receipt: {summary.get('offsite_note') or 'not recorded'}",
+             "Receipts record the last verification, not current file availability.",
+             "", "SAFE NEXT STEPS",
+             "Locate the bundle and verify it with `ants bundle verify PATH`.",
+             "For recovery, restore into a separate directory and check the chain before use.",
+             "Nothing on this page restores, deletes or changes a running experiment.",
+             "", "FULL RECORD (params, trial IDs, epochs, chain heads and cap results)"]
+    lines += json.dumps(summary, indent=2, ensure_ascii=True).splitlines()
+    return "\n".join(part for line in lines for part in
+                     (textwrap.wrap(clean_text(line, 10000), max(20, width - 4),
+                                    replace_whitespace=False, drop_whitespace=False) or [""]))
+
+
 def pager(text: str, ctx: Ctx, title: str = "") -> View:
     lines = [[S(f" {title}", "accent"), S("   ↑/↓ PgUp/PgDn scroll · Esc back", "dim")], []]
     for raw in text.splitlines() or [""]:
@@ -536,7 +626,7 @@ def pager(text: str, ctx: Ctx, title: str = "") -> View:
 
 
 HELP = [
-    ("1-8, 0", "go to a screen (0 = home)"), ("← →", "tabs (caps on the leaderboard) or previous/next screen"), ("↑ ↓  PgUp PgDn  g G", "move / scroll / top / bottom"),
+    ("1-9, 0", "go to a screen (0 = home)"), ("← →", "tabs (caps on the leaderboard) or previous/next screen"), ("↑ ↓  PgUp PgDn  g G", "move / scroll / top / bottom"),
     ("Enter", "open the selected trial, or switch to the selected search"), ("Esc  b", "back"), ("r", "refresh now (it refreshes by itself every 3 s)"),
     ("space", "freeze or unfreeze the refresh (the age tag turns yellow)"), ("[  ]", "previous / next search (a ledger and its arm)"),
     ("p", "pause or resume the search you are looking at (the PAUSE flag; the loop finishes its step and idles)"), ("h", "write a hint for the searchers (a suggestion; hints never change gates or budgets)"),
