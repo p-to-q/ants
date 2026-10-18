@@ -36,7 +36,9 @@ class Data:
 
 class App:
     def __init__(self, contract: str | None = None, workdir: str | None = None, arm: str | None = None):
-        self.contract = model.find_contract(contract)
+        # History and the data catalog do not depend on an active experiment.
+        # Resolve the evaluation contract only when opening a live Source.
+        self.contract = contract
         self.workdirs = model.discover_workdirs([workdir])
         if workdir and not self.workdirs:
             raise FileNotFoundError(f"no ledger in {workdir}")
@@ -71,6 +73,7 @@ class App:
             raise bad[1]
         if key not in self.sources:
             try:
+                self.contract = model.find_contract(self.contract)
                 self.sources[key] = model.Source(wd, self.contract, arm)
                 self.failed.pop(key, None)
             except Exception as e:
@@ -101,6 +104,11 @@ class App:
         if screen == "afterlife":
             from ..archive_index import read_index
             return {"catalog": read_index()}
+        if screen == "data":
+            try:
+                return {"data": model.data_overview()}
+            except Exception as e:
+                return {"error": model.human_error(e, "The Data screen")}
         if screen == "home" or screen == "fleet":
             srcs, errors = self.fleet_sources()
             out = {"fleet": model.fleet(srcs) + errors}
@@ -127,11 +135,6 @@ class App:
             return {"rows": src.events(200, filt.get("kind")), "per_minute": src.events_per_minute(time.time())}
         if screen == "health":
             return {"rows": src.health(), "extra": src.health_extra()}
-        if screen == "data":
-            try:
-                return {"data": model.data_overview()}
-            except Exception as e:
-                return {"error": model.human_error(e, "The Data screen")}
         if screen == "system":
             return {"info": model.system_info(src, self.fleet_sources()[0])}
         return {}

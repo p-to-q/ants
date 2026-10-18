@@ -186,3 +186,13 @@ def test_series_discovery_does_not_resurrect_archived_work(tmp_path, monkeypatch
     monkeypatch.setenv("ANTS_SERIES_DIR", str(root))
     found = model.discover_workdirs()
     assert live in found and archived not in found
+
+
+def test_history_and_catalog_do_not_require_a_live_contract(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTS_ARCHIVE_INDEX", str(tmp_path / "missing.json"))
+    monkeypatch.setattr(model, "find_contract", lambda *args: pytest.fail("history/catalog must not resolve a live contract"))
+    monkeypatch.setattr(model, "data_overview", lambda: {"sets": []})
+    a = app.App()
+    a.workdirs = []
+    assert a.load("afterlife", {}, None)["catalog"]["rounds"] == []
+    assert a.load("data", {}, None) == {"data": {"sets": []}}
