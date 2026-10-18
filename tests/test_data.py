@@ -1,3 +1,5 @@
+import tomllib
+
 import numpy as np
 import pytest
 from pathlib import Path
@@ -7,15 +9,35 @@ CAT = Path(__file__).resolve().parents[1] / "data" / "catalog.toml"
 pytestmark = pytest.mark.skipif(not (CAT.parent / "raw" / "etth1").exists(), reason="datasets not fetched (scripts/fetch_data.sh)")
 
 
+def _missing_catalogued_raw() -> list[str]:
+    """The raw paths the catalog names that this install does not have.
+
+    The module-level gate above only asks for `raw/etth1` (the dev tier). The tests below are not all dev-tier tests: the
+    manifest covers every dataset and two of them load electricity/traffic/solar/ili, so on the documented dev install
+    (`scripts/fetch_data.sh dev`, 17 MB) they failed with FileNotFoundError instead of skipping. Gate each group on what it
+    actually reads.
+    """
+    catalog = tomllib.loads(CAT.read_text())
+    return [m["raw"] for m in catalog.get("dataset", {}).values()
+            if m.get("format") != "synth" and m.get("raw") and not (CAT.parent / m["raw"]).exists()]
+
+
+_MISSING = _missing_catalogued_raw()
+needs_full = pytest.mark.skipif(bool(_MISSING), reason=(
+    f"needs every catalogued raw file ({len(_MISSING)} missing, e.g. {', '.join(_MISSING[:3])}): scripts/fetch_data.sh all"))
+
+
 @pytest.fixture(scope="module")
 def cat():
     return Catalog(CAT)
 
 
+@needs_full
 def test_manifest_is_intact(cat):
     assert cat.verify_manifest() == []
 
 
+@needs_full
 def test_canonical_shapes_and_split_boundaries(cat):
     exp = {"etth1": (14400, 7), "ettm1": (57600, 7), "electricity": (26304, 321), "traffic": (17544, 862),
            "exchange": (7588, 8), "solar": (52560, 137), "weather": (52696, 21), "ili": (966, 7)}
@@ -42,6 +64,7 @@ def test_weather_sentinels_faithful_vs_clean(cat):
     assert np.array_equal(f[ok], c[ok])                         # only the sentinels differ
 
 
+@needs_full
 def test_capped_window_sampling_is_deterministic_bounded_and_target_range_correct(cat):
     s = cat.load("traffic"); d = s.standardised()
     a = sample_windows(d, s.n_train + s.n_val, len(d), 336, 96, cap=3000, seed=1)

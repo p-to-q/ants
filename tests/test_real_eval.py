@@ -65,6 +65,8 @@ def test_pooled_pretraining_uses_only_other_dev_families(monkeypatch):
     assert "ETT" not in fam and fam <= {"Weather", "FX"} and all(cat.meta[n]["role"] == "dev" for n in used)
 
 
+@pytest.mark.skipif(not (Path(__file__).resolve().parents[1] / "data" / "raw" / "illness_mirror").exists(),
+                    reason="needs the standard tier (ili, airline): scripts/fetch_data.sh all")
 def test_short_series_and_oversized_horizons_are_handled_not_crashed():
     m = T.evaluate_catalog(SPEC, ["ili", "airline"], "val", None, 2000, 1000)
     assert np.isfinite(m["rel_mse"]) and m["n_tasks"] >= 1

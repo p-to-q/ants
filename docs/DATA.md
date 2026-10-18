@@ -34,6 +34,7 @@ weighted once. Sealed families are disjoint from dev/confirm families (tested). 
 5. Single-split validation is unreliable on some sets (ETTh1: validation MSE is about twice the test MSE and the model ranking flips), so selection uses several folds and several families.
 6. Never use `stress` or sealed data for tuning. Never look at test windows of a candidate before it is frozen.
 7. Adding a dataset: add a catalog entry and its raw hash to the manifest, rebuild with `ants data build`, run the tests; expect a new epoch for the real-data contract (no separate qualification script exists).
+8. Tests follow the install: `tests/test_data.py` and `tests/test_real_eval.py` skip, naming the missing files, until the tier they read is fetched — the dev tier keeps the rest of the suite green, the full tier (`scripts/fetch_data.sh all`) runs all of it.
 
 ## Unified processed format (`data/processed/<name>.npz`)
 `values` float32 (T, C) (storage precision; relative error about 6e-8) and `meta` (JSON): name, family, role, ref_period, horizons, split `[train, val, test]`,
