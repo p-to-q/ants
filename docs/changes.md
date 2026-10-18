@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-19 · Preflight keeps prefix-sharing arms separate (post-release operations fix)
+Changed: a seed workdir matches its arm only when the entire suffix after `_s` is numeric; adds regressions for plain and seeded `portfolio` / `portfolio_screen` workdirs and malformed suffixes. Evaluator files, contracts, data, budgets and pinned arm hashes are unchanged.
+Why: the first E43a deployment showed that `portfolio_screen_s1` was also assigned to `portfolio`, producing a false definition-mismatch failure despite correct ledger identities.
+Forecloses: treating a shared directory-name prefix as ownership of a ledger, or hiding a real mismatch by weakening definition checks. Published v0.6.2 tags and artifacts are not rewritten.
+
 ## 2026-10-19 · Deployment preflight and recoverable E43 operations (0.6.2)
 Changed: adds a read-only `ants preflight` for pinned server arms, ledgers, disk headroom and runtime prerequisites; centralizes arm-definition hashing so preflight, experiment checks and running campaigns agree; hardens deployment bundles, backup verification, migration safety (including distinguishing a restored ledger from an older same-schema rollback copy by its event-chain endpoint), optional-operator restarts and series execution; ensures preflight never acquires an arm's run lock; adds the E43a registry/runner and a working arm-aware post-deploy verification path.
 Why: deployment must establish what is running and what is preserved before changing a host; a recovery path is part of the experiment, not an afterthought.

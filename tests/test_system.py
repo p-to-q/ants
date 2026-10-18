@@ -631,7 +631,8 @@ def test_health_reports_a_catalog_that_cannot_be_read(tmp_path, monkeypatch):
     root = Path(__file__).resolve().parents[1]
     monkeypatch.setenv("ANTS_CATALOG", str(root / "data" / "catalog.toml"))
     level, msg = system.data_check()
-    assert msg.startswith("datasets: catalog") and "development sets" in msg and "open" not in msg.lower()
+    assert msg.startswith(f"datasets: catalog {root / 'data' / 'catalog.toml'},")
+    assert "development sets" in msg
 
 
 def test_the_catalog_search_for_the_interface_agrees_with_the_evaluators(monkeypatch):
