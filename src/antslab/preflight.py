@@ -336,7 +336,7 @@ def build_ledger_map(arms: list[str], ledger_paths: list[Path]) -> dict[str, lis
     for lp in ledger_paths:
         dirname = lp.parent.name
         for arm in arms:
-            if dirname == arm or dirname.startswith(arm + "_s"):
+            if dirname == arm or re.fullmatch(re.escape(arm) + r"_s[0-9]+", dirname):
                 m[arm].append(lp)
     return m
 

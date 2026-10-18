@@ -168,6 +168,35 @@ def test_check_arm_definitions_detects_ledger_mismatch(tmp_path):
     assert any(l == "FAIL" and "exit 4" in m for l, m in results)
 
 
+@pytest.mark.parametrize("suffix", ["", "_s1", "_s8"])
+def test_prefix_named_arms_are_checked_against_their_own_ledgers(tmp_path, suffix):
+    """A valid screen ledger must not trigger a definition mismatch for portfolio."""
+    from antslab.experiments import arm_definition_hash
+    from antslab.preflight import build_ledger_map, check_arm_definitions
+
+    arms = ["portfolio", "portfolio_screen"]
+    paths = []
+    for arm in arms:
+        wd = tmp_path / (arm + suffix)
+        wd.mkdir()
+        path = wd / "ledger.sqlite"
+        ledger = Ledger(path)
+        ledger.event("daemon_started", {"arm": arm, "arm_def_hash": arm_definition_hash(arm, REAL, 1)})
+        ledger.close()
+        paths.append(path)
+
+    results = check_arm_definitions(arms, REAL, 1, build_ledger_map(arms, paths))
+    assert not any(level == "FAIL" for level, _ in results), results
+
+
+def test_unrelated_non_numeric_suffixes_are_not_seed_workdirs():
+    from antslab.preflight import build_ledger_map
+
+    paths = [Path(name) / "ledger.sqlite" for name in
+             ("portfolio_screen_s1", "portfolio_sandbox", "portfolio_s1_extra")]
+    assert build_ledger_map(["portfolio"], paths) == {"portfolio": []}
+
+
 def test_check_data():
     """data_check should work in this tree."""
     from antslab.preflight import check_data
