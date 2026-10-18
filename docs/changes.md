@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-19 · A partial dataset install says which raw file is missing
+Changed: `ants data build` catches the missing raw file and prints `ants data build: <path> is not there: the catalog lists datasets this install does not have`, with `ants data build --present` and `scripts/fetch_data.sh all` as the two ways forward, and exits 2. `docs/DATA.md` names `--present` for a dev-tier install. `ants data verify --partial` was already there and is unchanged.
+Why: after the documented dev-tier install (`scripts/fetch_data.sh dev`, 17 MB), `ants data build` died inside numpy's loader with a `FileNotFoundError` traceback and no hint that the catalog lists `confirm`/`sealed` datasets as well; the failure looked like a bug in the parser instead of a partial install.
+Forecloses: a build that fails with a traceback on a documented, partial install, and a partial install that silently pretends to be complete.
+
 ## 2026-10-19 · A registry that cannot be parsed is not an empty registry
 Changed: `deploy/remote_deploy.sh start --registry` probes for an interpreter that can parse TOML (`ANTS_PYTHON`, `.venv/bin/python`, `python3.13` … `python3`), reads the registry in a command substitution whose exit status is checked, and stops with `registry: cannot parse <file>: …` or `registry: cannot read <file>: <toml error>`; two regressions cover an unparseable registry and a host with no TOML-capable interpreter. Evaluators, contracts, budgets and the campaign are untouched.
 Why: the parse ran in a process substitution, whose exit status is discarded, so on a machine whose `python3` predates 3.11 without the `tomli` backport (3.9 on macOS, 3.10 on Ubuntu 22.04) a missing parser was reported as "no running experiments in <registry>": the operator was sent after the registry instead of the interpreter, and `start --registry` silently started nothing.

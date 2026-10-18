@@ -1,4 +1,5 @@
 """The resident-system layer: service units, onboarding, backup and restore, read-only SQL, dataset fetching, systemd heartbeat."""
+import argparse
 import gzip
 import hashlib
 import io
@@ -204,6 +205,26 @@ def _sources(base: Path, text: str, pins: dict | None = None):
 
 
 SRC = '[[source]]\ntier="dev"\nid="a"\nurl="https://example.org/a.csv"\nfile="a.csv"\n'
+
+
+def test_data_build_names_the_missing_raw_file_instead_of_a_traceback(tmp_path, capsys):
+    """A partial install (dev tier only) meets a catalogued dataset it never fetched: exit 2, name the file, say what to run.
+
+    Reproduced after the documented `scripts/fetch_data.sh dev`: `ants data build` died inside numpy with a FileNotFoundError
+    traceback and no hint that the catalog also lists confirm/sealed datasets.
+    """
+    (tmp_path / "raw" / "a").mkdir(parents=True)
+    (tmp_path / "raw" / "a" / "a.csv").write_text("date,a\n" + "\n".join(f"{i},{i % 7}" for i in range(400)) + "\n")
+    (tmp_path / "catalog.toml").write_text(
+        '[dataset.rt_a]\nfamily="F"\nrole="dev"\nraw="raw/a/a.csv"\nformat="ett_csv"\nsplit=[0.6,0.2,0.2]\nref_period=7\n'
+        '[dataset.rt_b]\nfamily="G"\nrole="dev"\nraw="raw/b/b.csv"\nformat="ett_csv"\nsplit=[0.6,0.2,0.2]\nref_period=7\n')
+    args = argparse.Namespace(action="build", catalog=str(tmp_path / "catalog.toml"), names=None, present=False,
+                              partial=False, all=False, tier="dev")
+    assert cli.cmd_data(args) == 2
+    captured = capsys.readouterr()
+    assert "raw/b/b.csv" in captured.err and "is not there" in captured.err
+    assert "--present" in captured.err and "fetch_data.sh all" in captured.err
+    assert (tmp_path / "processed" / "rt_a.npz").exists(), "the dataset that is present must still be built"
 
 
 def test_fetch_verifies_against_the_pinned_manifest_and_resumes(tmp_path):

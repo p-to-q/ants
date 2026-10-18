@@ -314,7 +314,13 @@ def cmd_data(a):
         names = a.names.split(",") if a.names else None
         if a.present:                                   # only what has been downloaded (dev tier installs, partial tiers)
             names = [n for n in cat.names() if cat.meta[n]["format"] != "synth" and (cat.base / cat.meta[n]["raw"]).exists()]
-        rep = cat.build_processed(names)
+        try:
+            rep = cat.build_processed(names)
+        except FileNotFoundError as e:                  # the catalog lists a dataset this install never fetched
+            print(f"ants data build: {e.filename or e} is not there: the catalog lists datasets this install does not have.\n"
+                  f"  build the ones that are present:  ants data build --present\n"
+                  f"  fetch every dataset:              scripts/fetch_data.sh all", file=sys.stderr)
+            return 2
         print(f"built {len(rep)} datasets -> {cat.base}/processed")
         return 0
     return 1

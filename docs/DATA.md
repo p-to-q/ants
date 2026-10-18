@@ -38,7 +38,7 @@ weighted once. Sealed families are disjoint from dev/confirm families (tested). 
 ## Unified processed format (`data/processed/<name>.npz`)
 `values` float32 (T, C) (storage precision; relative error about 6e-8) and `meta` (JSON): name, family, role, ref_period, horizons, split `[train, val, test]`,
 source, licence, note, parser version, SHA-256 of every raw file (or the generator family/seed for synthetic data). `data/PROCESSED.json` holds the hash of each file.
-Build everything with `ants data build`; verify raw files with `ants data verify`; browse with `ants data list`.
+Build everything with `ants data build`; on a partial install (only the `dev` tier fetched) build what is present with `ants data build --present`, and the build names the missing raw file and exits 2 instead of raising.  Verify raw files with `ants data verify` (`--partial` for a dev-tier install); browse with `ants data list`.
 
 ## Known data-quality facts (found while building this)
 * **Weather** (Max Planck, Jena 2020, 52,696 x 21): value-identical to the community copy used by published benchmarks; it contains **81 sentinel values (-9999)** that the benchmark version keeps. `weather` is benchmark-faithful; `weather_clean` replaces them (stress).
