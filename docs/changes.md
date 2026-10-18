@@ -3,7 +3,7 @@
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
 ## 2026-10-19 · Deployment preflight and recoverable E43 operations (0.6.2)
-Changed: adds a read-only `ants preflight` for pinned server arms, ledgers, disk headroom and runtime prerequisites; centralizes arm-definition hashing so preflight, experiment checks and running campaigns agree; hardens deployment bundles, backup verification, migration safety (including distinguishing a restored ledger from an older same-schema rollback copy by its event-chain endpoint), optional-operator restarts and series execution; adds the E43a registry/runner and post-deploy verification path.
+Changed: adds a read-only `ants preflight` for pinned server arms, ledgers, disk headroom and runtime prerequisites; centralizes arm-definition hashing so preflight, experiment checks and running campaigns agree; hardens deployment bundles, backup verification, migration safety (including distinguishing a restored ledger from an older same-schema rollback copy by its event-chain endpoint), optional-operator restarts and series execution; ensures preflight never acquires an arm's run lock; adds the E43a registry/runner and a working arm-aware post-deploy verification path.
 Why: deployment must establish what is running and what is preserved before changing a host; a recovery path is part of the experiment, not an afterthought.
 Forecloses: installing over an unverified ledger, treating a missing optional operator as a new arm definition, starting a series against a different epoch, or calling a bundle verified before its contents and chain have been checked.
 

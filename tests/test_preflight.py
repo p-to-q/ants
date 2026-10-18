@@ -238,6 +238,22 @@ def test_check_ledgers_pause_file(tmp_path):
     assert any(l == "WARN" and "PAUSE" in m for l, m in results)
 
 
+def test_preflight_reports_lock_file_without_taking_the_lock(tmp_path, monkeypatch):
+    """A read-only preflight must not race a systemd restart by briefly taking ants.lock."""
+    from antslab.preflight import check_ledgers
+    wd = tmp_path / "arm-lock"
+    led = Ledger(wd / "ledger.sqlite")
+    led.event("test_event", {"x": 1})
+    led.close()
+    (wd / "ants.lock").write_text("12345\n")
+
+    def forbidden_flock(*args, **kwargs):
+        raise AssertionError("preflight must not acquire the run lock")
+    monkeypatch.setattr("fcntl.flock", forbidden_flock)
+    results = check_ledgers([wd / "ledger.sqlite"])
+    assert any("ants.lock file exists" in message and "12345" in message for _, message in results)
+
+
 def test_check_secrets_bad_mode(tmp_path):
     """A world-readable llm.env should WARN."""
     env_file = tmp_path / "llm.env"
@@ -423,6 +439,23 @@ def test_deploy_verify_runs_with_fake_ssh(tmp_path):
                        env=env, capture_output=True, text=True, cwd=str(ROOT))
     # no FAIL in the output, so should exit 0
     assert r.returncode == 0, f"stdout={r.stdout}\nstderr={r.stderr}"
+
+
+def test_deploy_verify_converts_arm_names_to_preflight_flags(tmp_path):
+    """Arm names are arguments to remote_deploy, not positional ants CLI arguments."""
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_log = tmp_path / "ssh.log"
+    fake_json = json.dumps([{"level": "OK", "message": "ants 0.6.2"}])
+    (fake_bin / "ssh").write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$FAKE_SSH_LOG\"\necho '{fake_json}'\n")
+    (fake_bin / "ssh").chmod(0o755)
+    env = {**os.environ, "PATH": str(fake_bin) + ":" + os.environ["PATH"],
+           "ANTS_HOST": "test", "ANTS_USER": "test", "ANTS_KEY": "/dev/null", "FAKE_SSH_LOG": str(fake_log)}
+    r = subprocess.run(["bash", str(ROOT / "deploy/remote_deploy.sh"), "verify", "portfolio", "portfolio_screen"],
+                       env=env, capture_output=True, text=True, cwd=str(ROOT))
+    assert r.returncode == 0, f"stdout={r.stdout}\nstderr={r.stderr}"
+    remote_cmd = fake_log.read_text()
+    assert "preflight --json --base /var/lib/ants --arm portfolio,portfolio_screen" in remote_cmd
 
 
 def test_deploy_verify_exits_nonzero_on_fail(tmp_path):

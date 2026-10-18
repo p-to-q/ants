@@ -230,21 +230,13 @@ def check_ledgers(ledger_paths: list[Path]) -> list[tuple[str, str]]:
         if pause_file.exists():
             out.append(("WARN", f"{tag}: PAUSE file present"))
 
-        # lock held by a live process
+        # Inspect the lock-file hint without taking the advisory lock: even a short LOCK_EX probe can win a restart race and make the daemon
+        # exit with AlreadyRunning (which systemd is explicitly configured not to restart).
         lock_file = workdir / "ants.lock"
         if lock_file.exists():
             try:
-                import fcntl
-                fd = os.open(lock_file, os.O_RDONLY)
-                try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    fcntl.flock(fd, fcntl.LOCK_UN)
-                    # lock was free
-                except BlockingIOError:
-                    pid = os.pread(fd, 32, 0).decode("ascii", "replace").strip()
-                    out.append(("INFO", f"{tag}: ants.lock held by pid {pid} (a running daemon)"))
-                finally:
-                    os.close(fd)
+                pid = lock_file.read_text(encoding="ascii", errors="replace")[:32].strip() or "unknown"
+                out.append(("INFO", f"{tag}: ants.lock file exists (recorded pid {pid}; preflight does not probe or acquire the lock)"))
             except Exception:
                 pass
     return out

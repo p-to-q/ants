@@ -210,7 +210,7 @@ Scheduling templates: `deploy/launchd/io.ants.pull-backups.plist` (macOS, daily 
 | arm definitions | pinned arms have the same hash as the server recorded; ledger starts match | does not detect changes inside a non-pinned arm |
 | data | the catalog is readable by this user; dev datasets exist; manifest verifies | never opens confirm or sealed datasets |
 | disk | free space under the workdir | does not predict growth |
-| ledgers | schema version, integrity, chain, backup age, PAUSE, lock | does not verify individual trial files |
+| ledgers | schema version, integrity, chain, backup age, PAUSE, lock-file presence (never acquires the lock) | does not verify individual trial files; lock-file PID is only a hint |
 | secrets | llm.env mode is not group/world readable | never reads or prints key values |
 | clock | wall clock not earlier than the newest event | does not detect a small forward skew |
 | systemd | the series unit is installed/enabled/active | only when systemctl is present |

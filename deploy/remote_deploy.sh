@@ -138,15 +138,23 @@ for e in d.get('experiment', []):
   verify)
     # Read-only: run `ants preflight --json` on the server for the given arms/series, print a table, exit non-zero on any FAIL.
     shift
-    VARGS=(); EXPECT_VER=""
+    VARGS=(); ARMS=(); EXPECT_VER=""
     while [ $# -gt 0 ]; do
       case "$1" in
         --series) shift; SNAME="$1"; [[ "$SNAME" =~ ^[a-z0-9_]{1,40}$ ]] || { echo "bad series name: $SNAME"; exit 1; }; VARGS+=("--series" "$SNAME"); shift ;;
         --expect-version) shift; EXPECT_VER="$1"; [[ "$EXPECT_VER" =~ ^[a-z0-9_.-]{1,40}$ ]] || { echo "bad version: $EXPECT_VER"; exit 1; }; shift ;;
-        *) [[ "$1" =~ ^[a-z0-9_.-]{1,40}$ ]] || { echo "bad argument: $1"; exit 1; }; VARGS+=("$1"); shift ;;
+        *) [[ "$1" =~ ^[a-z_]{1,32}$ ]] || { echo "bad arm name: $1"; exit 1; }; ARMS+=("$1"); shift ;;
       esac
     done
-    REMOTE_CMD="sudo -n -u ants /opt/ants/.venv/bin/ants preflight --json ${VARGS[*]+"${VARGS[*]}"}"
+    if [ ${#VARGS[@]} -gt 0 ] && [ ${#ARMS[@]} -gt 0 ]; then echo "pass either --series or arm names, not both"; exit 1; fi
+    REMOTE_CMD="sudo -n -u ants /opt/ants/.venv/bin/ants preflight --json"
+    if [ ${#ARMS[@]} -gt 0 ]; then
+      ARM_LIST=$(IFS=,; echo "${ARMS[*]}")
+      REMOTE_CMD+=" --base /var/lib/ants --arm $ARM_LIST"
+    else
+      REMOTE_CMD+=" --base /var/lib/ants"
+    fi
+    REMOTE_CMD+=" ${VARGS[*]+"${VARGS[*]}"}"
     RAW=$("${SSH[@]}" "$REMOTE_CMD") || true
     if ! echo "$RAW" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
       echo "preflight did not return valid JSON:"; echo "$RAW"; exit 1
