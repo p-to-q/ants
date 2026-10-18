@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-19 · Keep research priorities ahead of feature accumulation
+Changed: audited the new execution table against the original baseline/ablation/decision-evidence gates; moved those prerequisites ahead of optional learned controllers, limited export to selected finalists, separated configuration warm starts from checkpoint transfer and clarified the two different warm-start contrasts. Added a source-backed decision memo; no implementation, protocol, release or server state changed.
+Why: the previous additions read like a mandatory exporter-to-LLM-to-Jev feature sequence and needlessly blocked configuration reuse on serialization, despite the project's core goal being verified discovery efficiency under a budget.
+Forecloses: global-optimal-path claims, optional service integration as a success metric, free historical-compute claims, calibrated judgement mistaken for search utility, off-policy estimates without action support and new arms inside E43a.
+
 ## 2026-10-19 · One activity animation throughout the terminal
 Changed: all five activity animations share the requested `· ✻ ✽ ✶ ✳ ✢` sequence and interval, including Home, running trials, model waits, discovery bursts and the status bar; ASCII fallback, SSH slowdown and reduced-motion states remain supported.
 Why: activity indicators should use one recognizable template instead of unrelated spinner families.
