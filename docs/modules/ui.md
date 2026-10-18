@@ -1,5 +1,9 @@
 # ui
 
+The last terminal page is **Afterlife** (`9`): cached, per-round history with
+read-only details and recorded backup locations. Its information hierarchy and
+failure behaviour are documented in [archive_index](archive_index.md).
+
 Human- and agent-facing views: plain dicts that the CLI prints as text or as `--json`. Read-only except `hint` (an event) and the `PAUSE` flag file.
 
 **Interface**

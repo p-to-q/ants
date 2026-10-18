@@ -664,6 +664,21 @@ def cmd_bundle(a):
     return 1
 
 
+def cmd_archive(a):
+    from .archive_index import build_index, read_index
+    try:
+        if a.action == "index":
+            result = build_index(a.bundle, _contract_path(a.contract), a.cache,
+                                 a.title, a.kind, a.offsite_note, a.location)
+        else:
+            result = read_index(Path(a.cache) / "index.json" if a.cache else None)
+        print(json.dumps(result, indent=2))
+        return 1 if result.get("error") else 0
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"ants archive: {exc}", file=sys.stderr)
+        return 1
+
+
 def cmd_preflight(a):
     from .preflight import run_preflight
     return run_preflight(
@@ -762,6 +777,17 @@ def main(argv=None):
     bv = bp_sub.add_parser("verify")
     bv.add_argument("path", help="path to the bundle directory or .tar.gz")
     bp.set_defaults(fn=cmd_bundle)
+    ar = sub.add_parser("archive", help="index and browse verified, cached research rounds")
+    ars = ar.add_subparsers(dest="action", required=True)
+    ai = ars.add_parser("index", help="verify a sealed bundle and append its immutable summary")
+    ai.add_argument("--bundle", required=True); ai.add_argument("--contract", required=True)
+    ai.add_argument("--cache", required=True); ai.add_argument("--title", default="")
+    ai.add_argument("--kind", choices=["pilot", "completed", "aborted", "snapshot"], default="snapshot")
+    ai.add_argument("--offsite-note", default="", help="operator-recorded off-host verification receipt, not a live check")
+    ai.add_argument("--location", default="", help="display location of the original sealed bundle")
+    al = ars.add_parser("list", help="read the cached round index without opening ledgers")
+    al.add_argument("--cache", default=None)
+    ar.set_defaults(fn=cmd_archive)
     # --- preflight ---
     pf = sub.add_parser("preflight", help="read-only pre/post-deploy checks")
     pf.add_argument("--series", default=None, help="series name (loads deploy/series/<name>.toml)")
@@ -775,7 +801,7 @@ def main(argv=None):
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None)
-    s.add_argument("--screen", default="home", choices=["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system"])
+    s.add_argument("--screen", default="home", choices=["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system", "afterlife"])
     s.add_argument("--width", type=int, default=100); s.add_argument("--color", action="store_true"); s.set_defaults(fn=cmd_home)
     a = ap.parse_args(argv)
     if a.cmd is None:                                 # plain `ants`: set up on the first run, else the interactive shell

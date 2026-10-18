@@ -98,6 +98,9 @@ class App:
             return (self.screen, tuple(sorted(self.filt.items())), self.detail_id, self.wd_i, self.arm)
 
     def load(self, screen: str, filt: dict, detail_id: int | None) -> dict:
+        if screen == "afterlife":
+            from ..archive_index import read_index
+            return {"catalog": read_index()}
         if screen == "home" or screen == "fleet":
             srcs, errors = self.fleet_sources()
             out = {"fleet": model.fleet(srcs) + errors}
@@ -170,6 +173,8 @@ class App:
         elif self.stack:
             self.screen = self.stack.pop()
             self.ctx.sel = self.scroll = 0
+            if self.screen == "afterlife":
+                self.ctx.sel = getattr(self, "afterlife_selection", 0)
             self.refresh.set()
 
     def view(self) -> views.View:
@@ -191,7 +196,8 @@ class App:
         if isinstance(d.value, dict):
             c.prev_ranks = d.value.get("prev_ranks") or {}
         fn = {"home": views.home, "overview": views.overview, "board": views.board, "trials": views.trials, "detail": views.detail, "fleet": views.fleet_screen,
-              "events": views.events, "health": views.health, "data": views.data_screen, "system": views.system_screen}[self.screen]
+              "events": views.events, "health": views.health, "data": views.data_screen, "system": views.system_screen,
+              "afterlife": views.afterlife_screen}[self.screen]
         try:
             v = fn(d.value, c)
         except Exception as e:                              # a view bug must not take the terminal down
@@ -268,9 +274,9 @@ class App:
             self.frozen = not self.frozen
             self.say("refresh frozen (space to continue)" if self.frozen else "refresh continues")
             self.refresh.set()
-        elif ch == ord("p") and self.screen != "pager":
+        elif ch == ord("p") and self.screen not in ("pager", "afterlife"):
             self.toggle_pause()
-        elif ch == ord("h") and self.screen != "pager":
+        elif ch == ord("h") and self.screen not in ("pager", "afterlife"):
             return self.prompt(K, "hint ")
         elif ch == ord("]") or ch == ord("["):
             self.step_search(1 if ch == ord("]") else -1)
@@ -278,8 +284,8 @@ class App:
             c.sel = 0; self.scroll = 0
         elif ch == ord("G"):
             c.sel = max(v.rows - 1, 0); self.scroll = max(0, len(v.lines) - (c.height - 3))
-        elif ord("0") <= ch <= ord("8"):
-            order = ["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system"]
+        elif ord("0") <= ch <= ord("9"):
+            order = [name for name, _ in views.SCREENS]
             self.goto(order[ch - ord("0")])
         elif self.screen == "pager" and ch in (K.KEY_DOWN, K.KEY_UP, K.KEY_NPAGE, K.KEY_PPAGE, ord("j"), ord("k")):
             step = {K.KEY_DOWN: 1, ord("j"): 1, K.KEY_UP: -1, ord("k"): -1, K.KEY_NPAGE: 10, K.KEY_PPAGE: -10}[ch]
@@ -352,7 +358,7 @@ class App:
         self.say(f"now looking at {self.workdirs[self.wd_i].name}")
 
     def cycle_screen(self, d: int):
-        order = ["home", "overview", "board", "trials", "fleet", "events", "health", "data", "system"]
+        order = [name for name, _ in views.SCREENS]
         i = order.index(self.screen) if self.screen in order else 0
         self.goto(order[(i + d) % len(order)], push=False)
 
@@ -371,7 +377,20 @@ class App:
     def enter(self, v: views.View):
         c = self.ctx
         d = self.data.value or {}
-        if self.screen == "board":
+        if self.screen == "afterlife":
+            import json
+            from ..archive_index import read_round
+            catalog = d.get("catalog", {})
+            rows = catalog.get("rounds", [])
+            if c.sel < len(rows):
+                self.afterlife_selection = c.sel
+                try:
+                    self.pager_text = views.afterlife_detail(read_round(catalog, rows[c.sel]), c.width)
+                except (OSError, ValueError, KeyError, TypeError) as exc:
+                    self.pager_text = f"Cannot read archived summary: {exc}\n\nReturn with Esc. Check the cached file and its permissions, or rebuild\nthe cache from the verified bundle. No running experiment was changed."
+                self.pager_title = "Afterlife · sealed round detail (read-only)"
+                self.goto("pager")
+        elif self.screen == "board":
             lb = d.get("lb", {})
             caps = list(lb)
             if caps:

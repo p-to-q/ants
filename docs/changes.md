@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-19 · Afterlife keeps past research rounds readable
+Changed: a final read-only terminal page groups verified frozen bundles by round, with cached descriptive results, coverage, epoch, parameters and recorded backup locations; a bounded, atomic index is built explicitly; snapshots omit comparative metrics by default. Series workdirs are discovered one level below the series root.
+Why: a growing experiment history needs a useful overview without rescanning old ledgers or presenting operational checkpoints as scientific conclusions.
+Forecloses: cross-epoch rankings, best-seed cherry picking, silent missing-run imputation, live-backup claims from cached receipts, and restore or deletion actions hidden in a history page.
+
 ## 2026-10-19 · Preflight keeps prefix-sharing arms separate (post-release operations fix)
 Changed: a seed workdir matches its arm only when the entire suffix after `_s` is numeric; adds regressions for plain and seeded `portfolio` / `portfolio_screen` workdirs and malformed suffixes. Evaluator files, contracts, data, budgets and pinned arm hashes are unchanged.
 Why: the first E43a deployment showed that `portfolio_screen_s1` was also assigned to `portfolio`, producing a false definition-mismatch failure despite correct ledger identities.
