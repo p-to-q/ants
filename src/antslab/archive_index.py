@@ -190,12 +190,15 @@ def build_index(bundle: str | Path, contract_path: str | Path, cache: str | Path
         groups = {}
         for run in runs:
             groups.setdefault((run["arm"], run["epoch"]), []).append(run)
-        focus = next((cap for cap in contract.caps if cap == 300), contract.caps[0])
-        preview = []
-        for (arm, epoch), group in sorted(groups.items()):
-            values = [r["best"][str(focus)]["value"] for r in group if str(focus) in r["best"]]
-            preview.append({"arm": arm, "epoch": epoch, "n": len(values), "total": len(group),
-                            "median": statistics.median(values) if values else None})
+        if contract.caps:
+            focus = contract.caps[len(contract.caps) // 2]          # middle cap, not a hardcoded value
+            preview = []
+            for (arm, epoch), group in sorted(groups.items()):
+                values = [r["best"][str(focus)]["value"] for r in group if str(focus) in r["best"]]
+                preview.append({"arm": arm, "epoch": epoch, "n": len(values), "total": len(group),
+                                "median": statistics.median(values) if values else None})
+        else:
+            focus, preview = None, []
         summary = {"format": 1, "id": name, "title": title or name, "kind": kind,
                    "created_utc": manifest["created_utc"], "verified_at": time.time(),
                    "bundle_sha256": _sha256(frozen), "bundle_location": location or str(Path(bundle).resolve()),
