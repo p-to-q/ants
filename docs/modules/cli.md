@@ -11,7 +11,7 @@ not a reason to download datasets. The gate never opens or modifies a ledger.
 Command line (`ants`, entry `antslab.cli:main`). Flag-by-flag reference: [docs/cli.md](../cli.md).
 
 **Interface**
-- 16 commands. Daemon: `run`. Read/report: `status`, `top`, `best`, `show`, `log`, `doctor`, `export`, `board`, `serve`. Control: `hint`, `pause`, `resume`, `janitor`. Data: `data list|verify|build`. Interactive: `shell` (also plain `ants`).
+- Commands (see `docs/cli.md` for the authoritative table). Daemon: `run`. Read/report: `status`, `top`, `best`, `show`, `log`, `doctor`, `export`, `board`, `serve`. Control: `hint`, `pause`, `resume`, `janitor`. Data: `data list|verify|build`. Interactive: `shell` (also plain `ants`).
 - Common flags: `--contract`, `--workdir`, `--arm`, `--seed`, `--json`. Missing ones are resolved in this order: flag, `ANTS_CONTRACT` / `ANTS_WORKDIR` / `ANTS_ARM`, installed service, newest `runs/*/ledger.sqlite`, defaults (arm `portfolio`); the choice is printed to stderr unless `--json`.
 - `--contract` and `--workdir` are resolved to absolute paths in `run` and in every command that opens the ledger.
 - Exit codes: `run` 0 after a clean stop, **3** if another `ants run` holds `<workdir>/ants.lock` (the message names the holder pid); `status` 2 if the hash chain is broken; `doctor` 2 if any check is `FAIL`; `show` 1 if the trial is unknown; `data verify` 2 on drift; an unhandled error exits 1 (a traceback; the daemon does this after five consecutive non-transient step errors).

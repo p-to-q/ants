@@ -11,5 +11,5 @@ Hygiene for text that did not originate in our own code (LLM replies, HTTP bodie
 - Cleaning is for DISPLAY and AUDIT notes; data that is validated elsewhere (`Space.validate`) is never rewritten.
 
 **Notes / failure behaviour**
-- Importers today: `ui`, `board`, `llm`, `judge`, `contract`. Not applied: the `failure x N` lines of `dream`, `report` facts, `maintainer` messages, and the ledger event payloads themselves (stored as given; only the display paths clean them).
+- Importers today: `ui`, `board`, `llm`, `judge`, `contract`, `agent`, `workspace`, `tui/model`, `tui/views`. Not applied: the `failure x N` lines of `dream`, `report` facts, `maintainer` messages, and the ledger event payloads themselves (stored as given; only the display paths clean them).
 - `clean_text` shortens (with an ellipsis) rather than failing; `loads_strict` raises `ValueError` (`HostileJSON` for policy violations).

@@ -1,6 +1,6 @@
 # portfolio
 
-Operator portfolio and meta-controller: sweep, de, cem, aco, sa, qd, tpe, llm + `PortfolioProposer`.
+Operator portfolio and meta-controller: sweep, de, cem, aco, sa, qd, evo, evo_percap, tpe, llm + `PortfolioProposer`.
 
 **Interface**
 - Decomposition: discrete skeleton (swept, GA/ACO/QD/LLM) x continuous refinement per niche (DE, Gaussian EDA, TPE).
