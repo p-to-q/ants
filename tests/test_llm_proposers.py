@@ -150,6 +150,16 @@ def test_env_file_permissions_are_enforced(tmp_path):
     assert [(e.name, e.model) for e in load_endpoints(p)] == [("A", "m1"), ("B", "m2")]
 
 
+def test_endpoint_tag_with_underscores_is_not_truncated(tmp_path):
+    """Regression: k.split('_')[1] truncated tags containing underscores.
+    LLM_MY_TAG_BASE → tag should be MY_TAG, not MY."""
+    p = tmp_path / "llm.env"
+    p.write_text("LLM_MY_TAG_BASE=http://x\nLLM_MY_TAG_KEY=k\nLLM_MY_TAG_MODEL=m\n")
+    os.chmod(p, 0o600)
+    (ep,) = load_endpoints(p)
+    assert ep.name == "MY_TAG" and ep.model == "m"
+
+
 def test_generated_values_never_leave_declared_bounds(make_contract):
     """Regression: exp(log(hi)) can exceed hi by 1 ulp and crash a long run hours in."""
     from antslab.contract import Param
