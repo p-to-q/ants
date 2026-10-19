@@ -166,21 +166,6 @@ class Source:
                 "best_age_s": (now - improved) if improved else None,
                 "llm_fail_share": ((calls[0] - calls[1]) / calls[0]) if calls[0] >= 4 else None, "backup_age_h": backup_age}
 
-    def best_curve(self, points: int = 40) -> list[float]:
-        """best deepest-stage primary value over time (finish order), thinned to `points`: how the search is going at a glance (kept for callers)"""
-        last = self.c.stages[-1]
-        sign = self.hist.sign
-        vals = [(r[0], r[1]) for r in self.led.conn.execute(
-            "SELECT finished_at, json_extract(metrics, ?) FROM trials WHERE gym=? AND arm=? AND epoch IS COALESCE(?, epoch) AND stage=? AND state='done' AND metrics IS NOT NULL ORDER BY finished_at",
-            (f"$.{self.c.primary}", self.c.gym, self.arm, self.hist.epoch, last)) if r[1] is not None]
-        best, out = None, []
-        for _, v in vals:
-            best = v if best is None or sign * v < sign * best else best
-            out.append(best)
-        if len(out) > points:
-            step = len(out) / points
-            out = [out[int(i * step)] for i in range(points - 1)] + [out[-1]]
-        return out
 
     def leaderboard(self, top: int = 10) -> dict:
         return ui.leaderboard(self.hist, self.c, top)

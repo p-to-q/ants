@@ -19,7 +19,7 @@ import email.utils
 import json
 import os
 import random
-import re
+
 import ssl
 import threading
 import time
@@ -386,21 +386,18 @@ class LLMClient:
 
     def _attempt_one(self, ep: Endpoint, messages: list[dict], temperature: float) -> tuple[bool, str, int | None, dict | None]:
         """Make one HTTP attempt.  Returns (ok, note, tokens, obj)."""
-        try:
-            with ep.sem:
-                d = self._post(ep, {"model": ep.model, "messages": messages,
-                                    "max_tokens": self.max_tokens, "temperature": temperature})
-            msg = d["choices"][0]["message"]
-            u = d.get("usage")
-            n = u.get("completion_tokens") if isinstance(u, dict) else None
-            toks = n if isinstance(n, int) and not isinstance(n, bool) and 0 <= n < 1 << 31 else None
-            content = msg.get("content")
-            obj = extract_json(content if isinstance(content, str) else "")
-            ok = obj is not None
-            note = "" if ok else "no-json"
-            return ok, note, toks, obj
-        except Exception as e:
-            raise
+        with ep.sem:
+            d = self._post(ep, {"model": ep.model, "messages": messages,
+                                "max_tokens": self.max_tokens, "temperature": temperature})
+        msg = d["choices"][0]["message"]
+        u = d.get("usage")
+        n = u.get("completion_tokens") if isinstance(u, dict) else None
+        toks = n if isinstance(n, int) and not isinstance(n, bool) and 0 <= n < 1 << 31 else None
+        content = msg.get("content")
+        obj = extract_json(content if isinstance(content, str) else "")
+        ok = obj is not None
+        note = "" if ok else "no-json"
+        return ok, note, toks, obj
 
     def chat_json(self, messages: list[dict], temperature: float = 0.9):
         """Returns (obj|None, meta). Tries endpoints in bandit order; first parseable JSON wins. Never raises: whatever the
@@ -509,20 +506,6 @@ class LLMClient:
                 pass
         return total
 
-    def _capped(self) -> bool:
-        """not used by chat_json any more (see _reserve); kept for callers that only want to know"""
-        with self._lock:
-            try:
-                return bool(self.ledger and self.daily_calls and self.ledger.llm_calls_since(time.time() - 86400) + self._inflight >= self.daily_calls)
-            except Exception:
-                return False
-
-    def _budget_reached(self) -> bool:
-        with self._lock:
-            try:
-                return bool(self.ledger and self.budget and self._budget_used_locked() + self._inflight >= self.budget)
-            except Exception:
-                return False
 
     def stats(self) -> dict:
         out = {}

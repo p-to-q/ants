@@ -387,7 +387,7 @@ def fleet_screen(d, ctx: Ctx) -> View:
             lines.append([S(f" {clip(r['arm'], 18):<18}", "bold"), S(f"{r['n']:>6}", "dim")] + [S(f"{fmt_v(r['best'].get(c)):>10}", "none") for c in caps])
         lines.append([S(" lower is better; one seed per search, so only large gaps mean anything", "dim")])
     lines.append([]); lines.append([S(" Enter switches to that search", "dim")])
-    return View(lines, len(rows) * 2 and len(rows), 3)
+    return View(lines, len(rows), 3)
 
 
 KIND_STYLE = {"trial_finished": "dim", "agent_tool": "accent", "user_hint": "ok", "restored": "warn", "candidate_frozen": "warn"}

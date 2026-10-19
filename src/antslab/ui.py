@@ -184,7 +184,7 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
         last_recorded = hashes[-1]
         try:
             from .experiments import arm_definition_hash
-            from .cli import _contract_path
+
             # try to compute the current hash; this may fail if contract is not available
             # but doctor already has c, so we can build it from there
             import hashlib as _hlib
