@@ -270,8 +270,8 @@ class PerCapEvoProposer:
         for _ in range(k):
             bi = self.i % len(self.caps); self.i += 1
             lo, hi = (self.caps[bi - 1] if bi else 0), self.caps[bi]
-            pool = sorted((r for r in h.best.values() if lo < r["metrics"].get(cm, 0) <= hi and r["stage_idx"] == 0 or
-                           (lo < r["metrics"].get(cm, 0) <= hi)), key=lambda r: h.sign * r["value"])[:12]
+            pool = sorted((r for r in h.best.values() if lo < r["metrics"].get(cm, 0) <= hi),
+                          key=lambda r: h.sign * r["value"])[:12]
             for _try in range(120):
                 if len(pool) < 3 or self.rng.random() < 0.1:
                     s_, par = sp.sample(self.rng), None

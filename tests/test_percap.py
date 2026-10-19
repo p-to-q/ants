@@ -21,3 +21,23 @@ def test_percap_evo_covers_every_cap_bin_and_respects_bin_edges():
         bins[r["hist"].cap_bin(rec["metrics"])] += 1
     assert set(caps) <= set(bins)                              # a separate search happens in EVERY bin
     assert max(bins.values()) <= 0.5 * 120                     # and the budget is spread, not dumped in the largest bin
+
+def test_percap_pool_filter_has_no_dead_stage_condition(ledger, make_contract):
+    """Regression: the evo_percap parent pool filter had a dead condition
+    ``(lo < m <= hi and stage_idx == 0) or (lo < m <= hi)`` which is equivalent
+    to ``lo < m <= hi`` — the stage_idx check never excluded anything. The
+    simplified form includes best records at any stage, which is correct:
+    deeper-stage records are better validated and should be eligible parents."""
+    from antslab.history import History
+    from antslab.portfolio import PerCapEvoProposer
+    import random
+    c = make_contract()
+    h = History(ledger, c, "h")
+    for i in range(6):
+        ledger.enqueue("toy", "h", i, {"a": i / 6, "b": 5, "c": "u"}, "evo", spec_key=f"k{i}")
+        t = ledger.claim(60, arm="h")
+        ledger.finish(t["id"], 1, "done", {"val_mse": 1.0 + i * 0.1, "n_params": 50})
+    h.update()
+    pf = PerCapEvoProposer(c, random.Random(42))
+    out = pf.propose(ledger, "h", 6, set(), hist=h)
+    assert len(out) == 6                                        # enough parents in the bin → full batch
