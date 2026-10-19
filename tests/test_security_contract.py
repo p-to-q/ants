@@ -309,3 +309,20 @@ def test_error_messages_do_not_echo_attacker_text_unbounded(tmp_path):
         with pytest.raises(SpecError) as e:
             sp.validate(bad)
         assert len(str(e.value)) < 600 and "\x1b" not in str(e.value)
+
+def test_sealed_section_is_validated_at_load(tmp_path):
+    """[sealed] must be a table with datasets = 'catalog:sealed' or a non-empty list.
+    A malformed sealed section (e.g. sealed = 1) used to pass load_contract and then
+    crash sealed_set_id with AttributeError instead of the fail-closed SpecError."""
+    # sealed = 1 at root level → raw["sealed"] = 1 (not a table)
+    with pytest.raises(SpecError, match="sealed"):
+        load(tmp_path, BASE + "\nsealed = 1\n")
+    # [sealed] table with empty datasets string
+    with pytest.raises(SpecError, match="sealed.datasets"):
+        load(tmp_path, BASE + '\n[sealed]\ndatasets = ""\n')
+    # [sealed] table with empty list
+    with pytest.raises(SpecError, match="sealed.datasets"):
+        load(tmp_path, BASE + "\n[sealed]\ndatasets = []\n")
+    # valid forms
+    load(tmp_path, BASE + '\n[sealed]\ndatasets = "catalog:sealed"\n')
+    load(tmp_path, BASE + '\n[sealed]\ndatasets = ["a", "b"]\n')

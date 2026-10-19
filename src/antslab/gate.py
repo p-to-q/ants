@@ -29,7 +29,10 @@ def contract_hash(c: Contract) -> str:
 
 
 def sealed_set_id(c: Contract, catalog=None) -> str:
-    decl = c.raw.get("sealed", {}).get("datasets")
+    sealed = c.raw.get("sealed")
+    if not isinstance(sealed, dict):
+        return ""
+    decl = sealed.get("datasets")
     if decl is None:
         return ""
     if decl == "catalog:sealed":
