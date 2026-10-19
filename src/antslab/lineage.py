@@ -39,10 +39,19 @@ def stepping_stats(h, top_n: int = 5, leader_cut: float = 0.25) -> dict:
             non_leader += pct.get(a["id"], 0.0) > leader_cut
         if chain:
             drops.append(max(pct.get(a["id"], 0.0) for a in chain))
-    # lead change: was the skeleton of the final champion the leading skeleton halfway through the run?
     sp, n = h.c.space, len(h.order)
+    # board.build and landscape.diagnostics call this unconditionally; a fresh or
+    # all-infeasible arm has n == 0 or champs == []. Guard both before indexing.
+    if not champs:
+        return {"n_evals": n, "champions": 0, "mean_depth": 0,
+                "ancestors": 0, "non_leader_ancestor_frac": None,
+                "worst_ancestor_pct": None, "lead_changed": False}
     half = h.order[: max(1, n // 2)]
-    lead_half = min((r for r in half if r.get("feasible", True)), key=lambda r: h.sign * r["value"], default=half[0])
+    feasible_half = [r for r in half if r.get("feasible", True)]
+    # lead_half = best feasible record in the first half, or the first record if
+    # none are feasible (the run started infeasible). A conditional avoids
+    # evaluating half[0] as a min(..., default=) argument (immediate evaluation).
+    lead_half = min(feasible_half, key=lambda r: h.sign * r["value"]) if feasible_half else half[0]
     champ = champs[0]
     return {"n_evals": n, "champions": len(champs), "mean_depth": round(sum(depth) / max(1, len(depth)), 2),
             "ancestors": total,
