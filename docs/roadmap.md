@@ -8,6 +8,11 @@ start now; **the active E43a experiment does not change**. Historical status
 tables below remain dated snapshots, not claims about the current deployment.
 Follow-up index: [#6](https://github.com/p-to-q/ants/issues/6).
 
+Priority audit, same date: the additions below are subordinate to the original
+baseline/ablation/evidence gates (steps 16, 17, 22, 31, 35-37), not a replacement
+for them. [Decision memo](research/research-loop-priorities.md). This document
+changes planning only: no runtime, E43a protocol, release or server update.
+
 ### What runs now, and when to review it
 
 E43a asks whether learned screening (`portfolio_screen`) reaches lower s2
@@ -35,18 +40,33 @@ small benefit. The 16-run stage here is distinct from evaluator stages s0/s1/s2.
 
 | work | write/specify | begin development | integrate or run | acceptance gate |
 |---|---|---|---|---|
-| Shared activity token and startup robustness | now; PRs #4 and #5 | startup fix merged; animation code under test | next planned package; no further live UI patch this round | shared six frames, ASCII/reduced-motion/SSH tests; series/archive-only entry tests |
-| Reloadable model artifact exporter ([#8](https://github.com/p-to-q/ants/issues/8)) | now | next isolated engineering task, without waiting for E43a | optional explicit export on frozen candidates; not an evaluator change | weights/spec/preprocessing/provenance plus load-predict parity and total stored-parameter cap |
-| Health-only status ([#7](https://github.com/p-to-q/ants/issues/7)) and recovery coverage | now | independent small engineering work alongside the exporter | next planned package after read-only and failure-path tests | no interim accuracy in health output; restored config/history usable without data downloads |
-| Cross-round warm-start experiment | protocol draft now | after exporter/parity works | new series after the E43a formal review | same frozen old candidate bank for both arms; prior compute/lineage reported; independent validation |
-| Sparse LLM proposal comparison | endpoint/budget/fallback contract now | isolated integration tests may start now | independent registered series, not an extra active E43a worker | matched initial knowledge and CPU/API budgets, valid/duplicate/yield/cost logs; no evaluator authority |
-| Jev shadow judge | target, real API schema and calibration plan now | after real endpoint access and a leakage-safe resolved-label stream | shadow first on old immutable copies or a separate pilot; ranking requires a later protocol | temporal/held-out AUC, Brier and ECE; no filtering or final-claim authority; s0-top20 is not presumed deep-stage utility |
+| P0. Protect the active run; health-only status ([#7](https://github.com/p-to-q/ants/issues/7)) and recovery coverage | now | independent small engineering work; startup/animation PRs #4/#5 already merged | next planned package; no additional live changes this round | no intermediate research scores in health output; recovery retains identity/config/history without downloading data |
+| P1. Minimal scientific evidence and decision trace (24, 27, 31, 35-37) | now, including missing decision fields and cost definitions | report/validation tools on old immutable pilot copies; inspect existing logs before extending them | required before claiming a better policy; external generalization also needs freeze/confirm/sealed gates | frozen run/spec/data/policy identity, source hashes, per-seed endpoints, failures, times and valid uncertainty; no off-policy claim without support |
+| P1. Small finalist artifact exporter ([#8](https://github.com/p-to-q/ants/issues/8), 24/26) | now | parallel isolated engineering after the result manifest is defined | optional explicit export on frozen train-only finalists | weights/spec/preprocessing/provenance plus load-predict parity and total stored-parameter cap; not checkpoints for every trial, ONNX or a platform rewrite |
+| P2. Fair simple baselines and targeted ablation (4, 16, 17) | harness/protocol now | cheap toy/pilot harness checks now; small initial set, not every sampler | new registered series only when E43 releases its slots under its own rules | paired seeds and budgets; random at B and 2B, one carefully configured classical reference; then only ablations justified by a stated mechanism |
+| P3. Configuration warm starts, separate from weight transfer (19/41) | draft now | after a frozen candidate bank, compatibility checks and cost accounting exist; no weight exporter dependency | one new cold-vs-warm contrast; do not combine it with new LLM/judge mechanisms by default | old bank is the declared treatment; new and historical compute reported separately, reuse revalidated under the new identity; independent confirmation |
+| P3. Sparse LLM proposal comparison (2/3/30/39) | endpoint/budget/fallback contract now | isolated interface tests now; actual experiment needs baseline and logging readiness | bounded independent series, not an automatic next feature after E43 | same information access for LLM/non-LLM comparators, CPU/calls/tokens/latency/cost logs, accepted/duplicate/failed yield; benefit over the simple reference must justify complexity |
+| P4. Jev as an optional, competing utility predictor (22/35/36) | target and calibration plan now; no mandatory integration | only with real API access, point-in-time inputs, later resolved labels and a local-predictor baseline | isolated shadow study first; ranking is a separate later registered comparison | temporal/held-out AUC/Brier/ECE plus incremental budgeted search utility vs a local screen and simple rule; no automatic authority promotion or filtering |
+| P5. Persistent research agents and shared memory (30/32/33/41) | preserve hypotheses in roadmap, not implementation commitments | only a bounded one-agent study after the baseline/logging gates | add sharing or meta-control only if the simpler predecessor earns its place | independently verifiable findings, no final-claim/evaluator authority, measured incremental gain; negative results can close the branch |
+
+These priorities are dependencies, not a promise to run every proposed series.
+Engineering can proceed off-line while E43 runs; research comparisons use the
+next available slots only after their own protocol is frozen. A good E43 result
+supports the screen comparison, not the superiority of the whole portfolio,
+an LLM, Jev, autonomous science or a globally optimal search path.
 
 Configuration inheritance and checkpoint transfer are separate deliverables.
-Repeatedly solving the same fixed ridge subproblem is not extra learning; a
-continuation must specify what changes (new legal training data, features,
-regularisation, a prior, distillation or an adapter). Old pilot evidence may
-inform training or design but cannot also serve as independent confirmation.
+Cold-vs-warm compares no bank against a specified old bank; that information
+advantage is the treatment and its cost is disclosed. A different question,
+LLM-vs-no-LLM *given a warm start*, gives both sides the identical bank. Do not
+conflate those contrasts. Weight transfer additionally requires load-predict
+parity, compatible features/targets/time boundaries and honest frozen-parameter
+accounting; regeneration from a spec is labelled refitting, not a saved checkpoint.
+Repeatedly solving the same fixed ridge subproblem is not extra learning. Old
+pilot evidence may inform training or design but is not independent confirmation.
+Only selected frozen finalists need persistent model weights: preserve trial
+metadata/lineage/evidence, and keep bulky raw outputs subject to verified-archive
+retention. A 50 GB disk does not support unlimited raw artifacts.
 Do not fill the occupied two-vCPU worker slots with these follow-ups, mix their
 outcomes into E43a, or rewrite its preregistration to match later results.
 
