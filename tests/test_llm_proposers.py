@@ -209,6 +209,34 @@ def test_over_cap_records_are_stepping_stones_not_leaders(ledger, make_contract)
     assert any(rec["key"] == "k1" for rec in h.cells.values())  # but it is archived (stepping stone)
 
 
+def test_cells_cap_bin_isolates_feasible_from_infeasible(ledger, make_contract):
+    """cap_bin maps feasible records to a finite cap and infeasible records to inf,
+    so they never share a MAP-Elites cell. An infeasible record cannot displace a
+    feasible elite even with a better signed value — but it stays in its own cell
+    as a stepping stone for QD. This invariant is structural (cap_bin, not a flag
+    check) and must survive any future refactoring of the cell key."""
+    from antslab.history import History
+    c = make_contract()                       # caps [100, 300] on n_params
+    h = History(ledger, c, "h")
+    # Same spec skeleton (a=.1, b=5, c="u") → same niche. Only n_params differs.
+    # Feasible: n_params=50 → cap_bin=100, val_mse=1.0
+    ledger.enqueue("toy", "h", 0, {"a": .1, "b": 5, "c": "u"}, "evo", spec_key="f0")
+    t = ledger.claim(60, arm="h")
+    ledger.finish(t["id"], 1, "done", {"val_mse": 1.0, "n_params": 50})
+    # Infeasible: n_params=5000 → cap_bin=inf, val_mse=0.1 (better, but over cap)
+    ledger.enqueue("toy", "h", 1, {"a": .1, "b": 5, "c": "u"}, "evo", spec_key="i1")
+    t = ledger.claim(60, arm="h")
+    ledger.finish(t["id"], 1, "done", {"val_mse": 0.1, "n_params": 5000})
+    h.update()
+    feasible_cells = {cell for cell, rec in h.cells.items() if rec["key"] == "f0"}
+    infeasible_cells = {cell for cell, rec in h.cells.items() if rec["key"] == "i1"}
+    assert feasible_cells and infeasible_cells               # both archived
+    assert feasible_cells.isdisjoint(infeasible_cells)       # different cap_bin → different cell
+    for cell, rec in h.cells.items():
+        if rec["key"] == "f0":
+            assert rec["feasible"] is True                   # feasible elite not displaced
+
+
 def test_tls_context_verifies_and_failures_are_visible(ledger):
     """Regression: python.org builds have no CA bundle -> every HTTPS call failed silently. Never disable verification."""
     import ssl
