@@ -538,9 +538,9 @@ def afterlife_screen(d, ctx: Ctx) -> View:
     w = ctx.width
     def prose(text, style="dim"):
         return [[S(" " + part, style)] for part in textwrap.wrap(text, max(10, w - 2))]
-    lines = [[S(" Past", "accent")]]
-    lines += prose("A graveyard for past experiments, with their findings and evidence kept within reach. Revisit a round to see what ran, what it found and where the verified copies are recorded.")
-    lines += [[S(f" {len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}. This view reads cached records only.", "dim")], []]
+    lines = [[S(" Past", "accent")],
+             [S(f" {len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'} · cached records only", "dim")],
+             []]
     if catalog.get("error"):
         lines += prose("The index could not be read. Check its format and permissions, or rebuild it from verified bundles. No running experiment was changed.", "warn")
         lines += prose(clean_text(catalog["error"], 200), "warn")
