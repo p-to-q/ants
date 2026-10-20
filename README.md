@@ -51,7 +51,7 @@ The first domain is time-series forecasting with models of 100 to 3 000 paramete
 | 2026-10-13 | `ants best` now ranks by the deepest stage reached; the first-stage value no longer outranks a deeper one. |
 | 2026-10-13 | Cheap-stage fidelity measured: S0 keeps only half of the true top quartile; S1 and S2 agree almost exactly ([open questions](docs/open.md)). |
 | 2026-10-13 | TinyTS-Bench protocol written down before any run ([benchmark](docs/benchmark.md)). |
-| 2026-10-17 | Outside readings, the research memo, and four interface bugs (0.6.1): epoch-scoped reads, cumulative leaderboard, catalog permission resilience, and gaps named by outside readers added to the roadmap. |
+| 2026-10-17 | Outside readings, the research memo, and four interface bugs (0.6.1): epoch-scoped reads, cumulative leaderboard, catalog permission resilience, and the System page's model-call and backup-restore accounting. |
 | 2026-10-19 | Deployment preflight and recoverable E43 operations (0.6.2): `ants preflight`, arm-definition hashing, backup verification, and the E43a registry/runner. |
 
 ## Look
