@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-20 · Explicit JSON output for status and data
+Changed: status selects text or JSON explicitly; data list/verify/build/fetch accept --json. Tests isolate catalogs and ledgers and cover parser acceptance and failure exit codes.
+Why: agents need parseable output without guessing whether a command honors its flag; tests must not discover an operator's real workdir or data.
+Forecloses: implicit JSON-only status, undocumented human output in successful data JSON paths, and environment-dependent CLI tests. Operational exceptions are not yet a uniform JSON error envelope.
+
 ## 2026-10-19 · One activity animation throughout the terminal
 Changed: all five activity animations share the requested `· ✻ ✽ ✶ ✳ ✢` sequence and interval, including Home, running trials, model waits, discovery bursts and the status bar; ASCII fallback, SSH slowdown and reduced-motion states remain supported.
 Why: activity indicators should use one recognizable template instead of unrelated spinner families.

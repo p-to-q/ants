@@ -11,6 +11,7 @@ not a reason to download datasets. The gate never opens or modifies a ledger.
 Command line (`ants`, entry `antslab.cli:main`). Flag-by-flag reference: [docs/cli.md](../cli.md).
 
 **Interface**
+- `status` defaults to text; `status --json` preserves the machine-readable status object and exits 2 on a broken chain. `data list|verify|build|fetch --json` emits a JSON document; verify/fetch retain their failure exit codes. Build and fetch remain explicit mutating commands, not health probes.
 - 16 commands. Daemon: `run`. Read/report: `status`, `top`, `best`, `show`, `log`, `doctor`, `export`, `board`, `serve`. Control: `hint`, `pause`, `resume`, `janitor`. Data: `data list|verify|build`. Interactive: `shell` (also plain `ants`).
 - Common flags: `--contract`, `--workdir`, `--arm`, `--seed`, `--json`. Missing ones are resolved in this order: flag, `ANTS_CONTRACT` / `ANTS_WORKDIR` / `ANTS_ARM`, installed service, newest `runs/*/ledger.sqlite`, defaults (arm `portfolio`); the choice is printed to stderr unless `--json`.
 - `--contract` and `--workdir` are resolved to absolute paths in `run` and in every command that opens the ledger.
