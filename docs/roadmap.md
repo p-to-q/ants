@@ -1,5 +1,37 @@
 # Roadmap
 
+## Maintenance disposition and research gates (2026-10-20)
+
+This section narrows the active backlog; it does not introduce another adaptive
+search design, experiment or deployment. The design draft is parked. Optuna is
+the owner's intended framework; it is already present, not a reason to install
+another research stack during E43a.
+
+| gate | work retained | next decision / acceptance |
+|---|---|---|
+| Current maintenance | review existing PRs for correctness, isolated tests, compatibility and green CI; #38 fixes #28 | merge reviewed heads only; no release/server rollout; optional cleanup can be declined |
+| Integrity and reliability backlog | #14 missing-cap defense, #29 SQLite concurrency, #16 launcher recovery, #18 test-process containment, #36 retention policy | retain separate issues; this pass does not implement them; reproduce and define invariants before a later coding pass |
+| Coverage and long-run operation | #13 real-data CI; #15 initial lint gate (consolidates #31); #30 dependency parity; #32 action pinning; #17/#34 ingest/memory; #35 process scans; #37 event reads | retain bounded changes; preserve quantiles, escapee cleanup and identities; broad typing/coverage expansion remains optional |
+| Operational/evidence tools | #7 score-free health view, #8 selected-finalist export; manifests, prediction parity and replay evidence | isolate from active trials; no bulk checkpoint service or unlimited raw-log promise |
+| Read E43a at its registered look | finish all 16 stage-1 runs and validity checks, then apply the frozen analysis and continuation rule | decide screening only; no interim tuning or general-autonomy claim |
+| Next research series | follow E43's registered outcome-dependent route; establish random B/2B and a well-configured existing Optuna reference where the reference gap requires it | fix one question, identity, budget, seed rationale and endpoint; do not automatically launch every branch |
+
+The Optuna reference must handle epoch-scoped observations, conditional
+parameters, pending work and restart semantics. Sampler selection and stage
+promotion are different interventions; do not simultaneously add a new sampler,
+pruner, reward and warm start and attribute the gain to one. E43 definitions
+remain frozen. New controller development is deferred, not silently authorized
+by retaining its research question.
+
+Configuration reuse can later be tested independently of weight continuation.
+LLM proposals and Jev remain optional comparisons after baseline/evidence gates,
+not mandatory next-series components. Policy and data-role changes need their
+own identity and forward validation. Negative results can close a branch.
+
+#33 is closed as not planned: manual publishing is an explicit distribution
+policy, not permission to automate release or provision registry credentials.
+Current per-PR dispositions and receipts: [#6](https://github.com/p-to-q/ants/issues/6).
+
 ## Current execution and next development gates (2026-10-19)
 
 This dated section supersedes the older blanket restriction on starting any
