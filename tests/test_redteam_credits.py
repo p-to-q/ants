@@ -36,6 +36,38 @@ def test_the_same_candidate_gets_one_look_even_when_the_contract_allows_several(
     assert ledger.unseal_count("g") == 1
 
 
+@pytest.mark.parametrize("epoch", ["", "e1"])
+@pytest.mark.parametrize("delete_table_row", [False, True])
+def test_changing_sealed_set_cannot_refund_a_frozen_candidates_look(ledger, epoch, delete_table_row):
+    fh = ledger.freeze("g", {"x": 1}, "code0", {}, epoch=epoch)
+    ledger.record_unseal("g", fh, 3, {}, sealed_set="S")
+    ledger.record_sealed_result("g", fh, 1, None, "evaluation failed")
+    if delete_table_row:
+        ledger.conn.execute("DELETE FROM unseals")
+    head = ledger.head()
+    with pytest.raises(UnsealBudgetExceeded, match="already had its sealed look"):
+        ledger.record_unseal("g", fh, 3, {}, sealed_set="T")
+    assert ledger.head() == head
+    assert ledger.unseal_count("g") == 1
+    assert ledger.verify_chain() == (True, None)
+
+
+def test_changing_sealed_set_is_refused_after_reopening(tmp_path):
+    from antslab.ledger import Ledger
+    path = tmp_path / "ledger.sqlite"
+    led = Ledger(path)
+    fh = led.freeze("g", {"x": 1}, "c", {})
+    led.record_unseal("g", fh, 3, {}, sealed_set="S")
+    led.close()
+    led = Ledger(path)
+    try:
+        with pytest.raises(UnsealBudgetExceeded, match="already had its sealed look"):
+            led.record_unseal("g", fh, 3, {}, sealed_set="T")
+        assert led.unseal_count("g") == 1
+    finally:
+        led.close()
+
+
 def test_different_candidates_share_the_budget_of_the_same_sealed_set(ledger):
     a, b = ledger.freeze("g", {"x": 1}, "c", {}), ledger.freeze("g", {"x": 2}, "c", {})
     ledger.record_unseal("g", a, 1, {}, sealed_set="S")

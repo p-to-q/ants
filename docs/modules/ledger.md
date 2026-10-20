@@ -19,7 +19,7 @@ SQLite single source of truth: trials, artifacts, sealed-evaluation credits, LLM
 - Event `ts` (and `finished_at`) are never earlier than the newest event (`_stamp`): a clock stepped backwards cannot reorder history that `History` and the breaker tail by time.
 - `canon()` refuses NaN/Infinity (`allow_nan=False`).
 - `verify_chain` checks links, hashes and contiguous `seq`. `verify_tail` also links its first row to its predecessor.
-- Credits: one look per freeze hash; `unseal_limit` looks per (gym, epoch, sealed set); `unseal_lifetime` per (gym, sealed set) over all epochs; limits only ratchet down; looks are counted as the max of the `unseals` table and the hash-chained `sealed_evaluation` events; `record_sealed_result` writes exactly one result per look and none without a look. Rules are in [E7](../evaluation/E7-claim.md).
+- Credits: one look per freeze hash independently of sealed-set strings, including legacy freezes without an epoch; `unseal_limit` looks per (gym, epoch, sealed set); `unseal_lifetime` per (gym, sealed set) over all epochs; limits only ratchet down; looks are counted as the max of the `unseals` table and the hash-chained `sealed_evaluation` events; `record_sealed_result` writes exactly one result per look and none without a look. Rules are in [E7](../evaluation/E7-claim.md).
 - `freeze` refuses evidence whose trial is missing, from another gym, has a different spec, or comes from an epoch whose code fingerprint differs from the one being frozen.
 
 **Notes / failure behaviour**
