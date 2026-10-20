@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-20 · Narrow maintenance and research commitments
+Changed: separated existing-PR acceptance, retained integrity/reliability issues, evidence tools and outcome-dependent post-E43 research gates; consolidated duplicate lint tracking and kept publishing manual. Parked the adaptive-search draft.
+Why: a roadmap must distinguish current authorized maintenance from future implementation and scientific validation, rather than turn every suggestion into a required component.
+Forecloses: implementing deferred issues during PR triage, silent server updates, mandatory LLM/Jev integration and changing several mechanisms in one uninterpretable comparison.
+
 ## 2026-10-20 · One sealed look follows the frozen identity
 Changed: candidate-level sealed credit checks ignore sealed-set and epoch filters; set/epoch pool budgets and lifetime ratchets remain unchanged. Regression cases cover legacy and explicit epochs, failed evaluation, deleted mutable credit rows and reopening the ledger.
 Why: changing a sealed-set string previously bought another look for the same freeze hash (#28).
