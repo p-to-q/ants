@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-20 · One sealed look follows the frozen identity
+Changed: candidate-level sealed credit checks ignore sealed-set and epoch filters; set/epoch pool budgets and lifetime ratchets remain unchanged. Regression cases cover legacy and explicit epochs, failed evaluation, deleted mutable credit rows and reopening the ledger.
+Why: changing a sealed-set string previously bought another look for the same freeze hash (#28).
+Forecloses: sealed-set relabeling as a retry, refunding failed sealed evaluations, and confusing independent pool budgets with independent candidate identities.
+
 ## 2026-10-19 · Keep research priorities ahead of feature accumulation
 Changed: audited the new execution table against the original baseline/ablation/decision-evidence gates; moved those prerequisites ahead of optional learned controllers, limited export to selected finalists, separated configuration warm starts from checkpoint transfer and clarified the two different warm-start contrasts. Added a source-backed decision memo; no implementation, protocol, release or server state changed.
 Why: the previous additions read like a mandatory exporter-to-LLM-to-Jev feature sequence and needlessly blocked configuration reuse on serialization, despite the project's core goal being verified discovery efficiency under a budget.

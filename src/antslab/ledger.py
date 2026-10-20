@@ -646,7 +646,8 @@ class Ledger:
     def record_unseal(self, gym, freeze_hash, limit: int, result: dict, sealed_set: str = "",
                       lifetime: int | None = None) -> int:
         """Spend one sealed look BEFORE the evaluation runs. Raises GateError if the candidate was never frozen and
-        UnsealBudgetExceeded if (a) this frozen candidate already had its look, (b) `limit` looks are spent for the
+        UnsealBudgetExceeded if (a) this freeze hash already had its look, regardless of sealed set or epoch,
+        (b) `limit` looks are spent for the
         candidate's (gym, epoch, sealed_set), or (c) `lifetime` looks are spent for (gym, sealed_set) over all epochs.
         The limits ratchet: a later call may lower `limit` / `lifetime` for a sealed set but can never raise what an earlier
         recorded look already used, so editing the contract after the fact does not buy looks.
@@ -661,7 +662,7 @@ class Ledger:
             if f is None:
                 raise GateError("candidate was never frozen; refusing to spend a sealed look")
             epoch = f.get("epoch", "")
-            if self._looks(c, gym, epoch, sealed_set, freeze_hash) >= 1:
+            if self._looks(c, gym, freeze_hash=freeze_hash) >= 1:
                 raise UnsealBudgetExceeded(f"{gym}: this frozen candidate already had its sealed look")
             prior = [json.loads(r[0]) for r in c.execute("SELECT payload FROM events WHERE kind='sealed_evaluation'")]
             prior = [p for p in prior if p.get("gym") == gym and p.get("sealed_set", "") == sealed_set]

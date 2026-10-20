@@ -10,7 +10,7 @@
 6. **Replay pack:** specs, seeds, data hashes, code fingerprint, environment lock, ledger head, anchors.
 
 ## Sealed credits (`Ledger.record_unseal`, one BEGIN IMMEDIATE transaction)
-* A **look** is spent per frozen candidate: one look per freeze hash (a second look at the same candidate is only a re-roll).
+* A **look** is spent per frozen candidate: one look per freeze hash (a second look at the same candidate is only a re-roll). Changing the sealed-set string does not reset this identity check, including for a legacy freeze with no epoch. Separate sealed sets retain their pool budgets for different candidates, not extra looks for one freeze.
 * `[budget] unseal_limit` looks per **(gym, epoch, sealed set)**: different candidates frozen against the same sealed data share the budget (forking paths); a new epoch (evaluator, contract or data changed) starts a new per-epoch budget but not a new lifetime.
 * `[budget] unseal_lifetime` (default 3 x `unseal_limit`) looks per **(gym, sealed set)** over all epochs, so "peek, tweak the code, peek again" is capped. Limits ratchet: a later call may lower them, never raise what an earlier recorded look used (editing the contract buys nothing). Both are human policy; set `unseal_limit` to at least the number of parameter caps if every cap bin is to get a champion.
 * The **sealed set** is declared in the contract: `[sealed] datasets = "catalog:sealed"` (every dataset whose access role is sealed, including surrogates derived from sealed data) or an explicit list; without the section the whole gym is one set.
