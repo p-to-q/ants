@@ -6,6 +6,11 @@ Status values: `stable` (rely on it) · `experimental` (feedback wanted) · `int
 
 "Library" in Notes means: covered by tests, but not reachable from `ants run` or any CLI command.
 
+CLI output: `status` selects text/JSON; `data list|verify|build|fetch --json`
+has explicit output schemas and isolated parser/failure-code tests in
+`test_cli_hardening.py`. Build/fetch write data; general exception-to-JSON
+conversion is not implemented by this change.
+
 | Surface | Status | Evidence | Notes |
 |---|---|---|---|
 | Ledger (SQLite, hash chain, fencing token, epochs) | stable | `tests/test_ledger_gate.py`, `test_chaos_db.py`, `test_chaos_clock.py`, `test_redteam_chain.py`, kill -9 chaos test | chain anchors exist (`anchor`, `write_anchor`, `verify_against_anchor`) but nothing ships them off-box, so tail truncation and a consistent rewrite stay undetected in practice; the `trials` table is not audited against its events |

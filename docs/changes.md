@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-20 · Explicit JSON output for status and data
+Changed: status selects text or JSON explicitly; data list/verify/build/fetch accept --json. Tests isolate catalogs and ledgers and cover parser acceptance and failure exit codes.
+Why: agents need parseable output without guessing whether a command honors its flag; tests must not discover an operator's real workdir or data.
+Forecloses: implicit JSON-only status, undocumented human output in successful data JSON paths, and environment-dependent CLI tests. Operational exceptions are not yet a uniform JSON error envelope.
+
 ## 2026-10-20 · One sealed look follows the frozen identity
 Changed: candidate-level sealed credit checks ignore sealed-set and epoch filters; set/epoch pool budgets and lifetime ratchets remain unchanged. Regression cases cover legacy and explicit epochs, failed evaluation, deleted mutable credit rows and reopening the ledger.
 Why: changing a sealed-set string previously bought another look for the same freeze hash (#28).
