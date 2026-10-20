@@ -13,14 +13,12 @@ from antslab.series import compute_epoch
 from antslab.tui import app, model, render, views
 
 
-@pytest.fixture
-def frozen_round(tmp_path, make_contract):
-    make_contract()
-    contract = tmp_path / "task.toml"
-    epoch = compute_epoch(contract)
+def _freeze_round(task: Path) -> tuple[Path, Path]:
+    """Freeze three portfolio runs (two with deep-stage results, one cheap-stage only) under `task`."""
+    epoch = compute_epoch(task)
     workdirs = []
     for seed, values in ((1, [(200, .8), (9999, .001), (250, .9)]), (2, [(220, 1.0)]), (3, [])):
-        wd = tmp_path / f"portfolio_s{seed}"
+        wd = task.parent / f"portfolio_s{seed}"
         led = Ledger(wd / "ledger.sqlite")
         led.register_epoch(epoch, {})
         led.event("daemon_started", {"arm": "portfolio", "epoch": epoch})
@@ -35,8 +33,24 @@ def frozen_round(tmp_path, make_contract):
             led.finish(tid, claimed["attempt"], "done", {"n_params": 20, "val_mse": .01}, cpu_s=1)
         led.close()
         workdirs.append(wd)
-    make_bundle("round-one", tmp_path / "bundles", workdirs)
-    return tmp_path / "bundles/round-one.tar.gz", contract
+    make_bundle("round-one", task.parent / "bundles", workdirs)
+    return task.parent / "bundles/round-one.tar.gz", task
+
+
+@pytest.fixture
+def frozen_round(tmp_path, make_contract):
+    make_contract()
+    return _freeze_round(tmp_path / "task.toml")
+
+
+@pytest.fixture
+def uncapped_round(tmp_path, make_contract):
+    """A verified bundle whose contract omits cap_metric and caps entirely (no hard caps)."""
+    make_contract()
+    task = tmp_path / "task.toml"
+    lines = [line for line in task.read_text().splitlines() if not line.startswith(("cap_metric=", "caps=["))]
+    task.write_text("\n".join(lines) + "\n")
+    return _freeze_round(task)
 
 
 def test_summary_uses_deepest_stage_hard_caps_and_median_with_missing_count(frozen_round, tmp_path):
@@ -45,6 +59,7 @@ def test_summary_uses_deepest_stage_hard_caps_and_median_with_missing_count(froz
     row = ai.build_index(bundle, contract, tmp_path / "cache", "Pilot question", "pilot", "verified local copy")
     catalog = ai.read_index(tmp_path / "cache/index.json")
     detail = ai.read_round(catalog, catalog["rounds"][0])
+    assert row["focus_cap"] == 300  # current selection prefers 300 whenever it is an advertised cap
     assert row["preview"][0]["median"] == pytest.approx(.9)
     assert (row["preview"][0]["n"], row["preview"][0]["total"]) == (2, 3)
     assert detail["runs"][0]["best"]["300"]["n_params"] == 200
@@ -63,6 +78,26 @@ def test_live_checkpoint_omits_all_comparative_results(frozen_round, tmp_path):
     assert all(run["best"] == {} for run in detail["runs"])
     assert row["preview"][0]["median"] is None
     assert "intentionally omitted" in render.plain(views.afterlife_screen({"catalog": {"rounds": [row]}}, views.Ctx()).lines)
+
+
+def test_uncapped_contract_indexes_with_empty_preview_instead_of_crashing(uncapped_round, tmp_path):
+    bundle, contract = uncapped_round
+    row = ai.build_index(bundle, contract, tmp_path / "cache", kind="pilot")
+    detail = ai.read_round(ai.read_index(tmp_path / "cache/index.json"), row)
+    assert row["caps"] == []
+    assert row["focus_cap"] is None
+    assert row["preview"] == []
+    assert all(run["best"] == {} for run in detail["runs"])  # no cap bins exist, so nothing is ever best-per-cap
+
+
+def test_focus_cap_keeps_current_selection_when_300_is_not_advertised(tmp_path, make_contract):
+    make_contract()
+    task = tmp_path / "task.toml"
+    task.write_text(task.read_text().replace("caps=[100,300]", "caps=[100,200]"))
+    bundle, contract = _freeze_round(task)
+    row = ai.build_index(bundle, contract, tmp_path / "cache", kind="pilot")
+    assert row["focus_cap"] == 100  # without 300 the current selection falls back to the first cap
+    assert row["preview"][0]["median"] is None  # every recorded trial exceeds 100 parameters, so nothing is counted
 
 
 def test_wrong_epoch_refuses_to_write_a_mislabelled_summary(frozen_round, tmp_path):
