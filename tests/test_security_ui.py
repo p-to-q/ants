@@ -33,6 +33,44 @@ def test_clean_text_makes_controls_visible_and_bounds_length():
     assert "\x1b" not in textsafe.clean_text({"a": "\x1b"})
 
 
+# --------------------------------------------------------------------------- loads_strict
+def test_loads_strict_refuses_hostile_documents():
+    from antslab.textsafe import HostileJSON, loads_strict
+    # duplicate keys are a policy violation (json.loads would silently keep the last)
+    with pytest.raises(HostileJSON):
+        loads_strict('{"a": 1, "a": 2}')
+    # NaN / Infinity / huge float literals
+    with pytest.raises(HostileJSON):
+        loads_strict('{"a": NaN}')
+    with pytest.raises(HostileJSON):
+        loads_strict('{"a": Infinity}')
+    with pytest.raises(HostileJSON):
+        loads_strict('{"a": 1e999}')
+    # nesting deeper than 24 containers
+    deep = "[" * 30 + "1" + "]" * 30
+    with pytest.raises(HostileJSON):
+        loads_strict(deep)
+    # non-text input (int, list) never reaches the decoder
+    with pytest.raises(ValueError):
+        loads_strict(42)
+    with pytest.raises(ValueError):
+        loads_strict(["a"])
+    # trailing data after the first JSON document
+    with pytest.raises(ValueError, match="trailing"):
+        loads_strict('{"a": 1} {"b": 2}')
+    # valid documents still parse
+    assert loads_strict('{"a": 1}') == {"a": 1}
+    assert loads_strict('{"a": 1e10}') == {"a": 1e10}
+    assert loads_strict(b'{"a": 2}') == {"a": 2}                    # bytes are decoded first
+
+
+def test_depth_ok_boundary_is_24():
+    """depth_ok accepts exactly 24 containers and rejects 25 (the boundary is asserted, not assumed)."""
+    from antslab.textsafe import depth_ok
+    assert depth_ok(json.loads("[" * 24 + "1" + "]" * 24))
+    assert not depth_ok(json.loads("[" * 25 + "1" + "]" * 25))
+
+
 # --------------------------------------------------------------------------- CLI output
 def _all_strings(o):
     if isinstance(o, str):
