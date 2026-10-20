@@ -147,6 +147,12 @@ class History:
         cell = (sp.niche(rec["spec"]), self.cap_bin(rec["metrics"]))
         self.cell_visits[cell] = self.cell_visits.get(cell, 0) + 1
         cur = self.cells.get(cell)
+        # MAP-Elites archive: each (skeleton, cap-bin) cell keeps its best first-stage
+        # record. cap_bin maps feasible records to a finite cap and infeasible (over-cap)
+        # records to inf, so the two never share a cell — an infeasible record cannot
+        # displace a feasible elite. Infeasible records stay in their own cells as
+        # stepping stones: QD mutates from them to explore regions that may produce
+        # in-cap offspring, which is the intended quality-diversity behaviour.
         improved = cur is None or sv < self.sign * cur["value"]      # decided BEFORE the archive is updated
         if improved:
             self.cells[cell] = rec
