@@ -209,10 +209,16 @@ def cmd_run(a):
 def cmd_status(a):
     wd, led, c = _open(a)
     ok, bad = led.verify_chain()
-    print(json.dumps({"counts": led.counts(c.gym, a.arm), "free_gb": round(free_gb(wd), 1),
-                      "disk_level": disk_level(free_gb(wd), c.thresholds),
-                      "chain_ok": ok, "chain_bad_seq": bad, "head": led.head()[:16],
-                      "unseals": led.unseal_count(c.gym)}, indent=1))
+    info = {"counts": led.counts(c.gym, a.arm), "free_gb": round(free_gb(wd), 1),
+            "disk_level": disk_level(free_gb(wd), c.thresholds),
+            "chain_ok": ok, "chain_bad_seq": bad, "head": led.head()[:16],
+            "unseals": led.unseal_count(c.gym)}
+    if a.json:
+        print(json.dumps(info, indent=1))
+    else:
+        cnt = " ".join(f"{k}={v}" for k, v in sorted(info["counts"].items())) or "no trials"
+        chain = f"ok {info['head']}" if ok else f"BROKEN at seq {bad}"
+        print(f"chain {chain}  trials: {cnt}  disk: {info['free_gb']} GB free ({info['disk_level']})  unseals: {info['unseals']}")
     return 0 if ok else 2
 
 
@@ -291,8 +297,11 @@ def cmd_data(a):
             stage_data(package_root(), data_dir())
             base = data_dir()
         rep = fetch(base, a.tier)
-        print(f"{len(rep['fetched'])} fetched, {len(rep['have'])} already here, {len(rep['failed'])} failed, {len(rep['mismatch'])} rejected; "
-              f"{len(rep['unpinned'])} file(s) have no pinned hash yet")
+        if a.json:
+            print(json.dumps({k: len(rep[k]) for k in ("fetched", "have", "failed", "mismatch", "unpinned")}))
+        else:
+            print(f"{len(rep['fetched'])} fetched, {len(rep['have'])} already here, {len(rep['failed'])} failed, {len(rep['mismatch'])} rejected; "
+                  f"{len(rep['unpinned'])} file(s) have no pinned hash yet")
         return 0 if not (rep["failed"] or rep["mismatch"]) else 2
     cat = Catalog(a.catalog or locate_catalog())
     if a.action == "list":
@@ -302,20 +311,30 @@ def cmd_data(a):
             m = cat.meta[n]
             if not n.startswith("syn_") or a.all:
                 rows[m["role"]].append(f"{n}({m['family']})")
+        if a.json:
+            print(json.dumps({"roles": {role: rows[role] for role in ("dev", "confirm", "sealed", "stress")},
+                              "synthetic_entries": sum(1 for n in cat.names() if n.startswith("syn_"))}))
+            return 0
         for role in ("dev", "confirm", "sealed", "stress"):
             print(f"{role:8s} {len(rows[role]):3d}  " + ", ".join(rows[role][:40]) + (" ..." if len(rows[role]) > 40 else ""))
         print(f"synthetic entries: {sum(1 for n in cat.names() if n.startswith('syn_'))}")
         return 0
     if a.action == "verify":
         bad = cat.verify_manifest(only_existing=a.partial)
-        print("raw files intact" if not bad else "PROBLEMS:\n  " + "\n  ".join(bad))
+        if a.json:
+            print(json.dumps({"ok": not bad, "problems": bad}))
+        else:
+            print("raw files intact" if not bad else "PROBLEMS:\n  " + "\n  ".join(bad))
         return 0 if not bad else 2
     if a.action == "build":
         names = a.names.split(",") if a.names else None
         if a.present:                                   # only what has been downloaded (dev tier installs, partial tiers)
             names = [n for n in cat.names() if cat.meta[n]["format"] != "synth" and (cat.base / cat.meta[n]["raw"]).exists()]
         rep = cat.build_processed(names)
-        print(f"built {len(rep)} datasets -> {cat.base}/processed")
+        if a.json:
+            print(json.dumps({"built": len(rep), "out": str(cat.base / "processed")}))
+        else:
+            print(f"built {len(rep)} datasets -> {cat.base}/processed")
         return 0
     return 1
 
@@ -742,7 +761,7 @@ def main(argv=None):
             s.add_argument("--archive-dir"); s.add_argument("--dry-run", action="store_true")
             s.add_argument("--force-bytes", type=int, default=0)
     d = sub.add_parser("data"); d.add_argument("action", choices=["list", "verify", "build", "fetch"])
-    d.add_argument("--catalog", default=None); d.add_argument("--tier", default="dev", help="fetch: dev | standard | extended | all"); d.add_argument("--names"); d.add_argument("--present", action="store_true", help="build: every real dataset whose raw files exist"); d.add_argument("--all", action="store_true"); d.add_argument("--partial", action="store_true", help="verify only the files that exist (dev-tier installs)")
+    d.add_argument("--catalog", default=None); d.add_argument("--tier", default="dev", help="fetch: dev | standard | extended | all"); d.add_argument("--names"); d.add_argument("--present", action="store_true", help="build: every real dataset whose raw files exist"); d.add_argument("--all", action="store_true"); d.add_argument("--partial", action="store_true", help="verify only the files that exist (dev-tier installs)"); d.add_argument("--json", action="store_true", help="machine-readable output for other agents")
     d.set_defaults(fn=cmd_data)
     _system_parsers(sub)
     # --- experiments registry ---
