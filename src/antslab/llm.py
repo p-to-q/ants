@@ -204,7 +204,7 @@ def load_endpoints(env_path, models: dict | None = None, conc: int = 3) -> list[
             if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":        # KEY="abc" and KEY='abc' mean the same as KEY=abc (as in systemd / shell)
                 v = v[1:-1]
             env[k] = v
-    tags = sorted({k.split("_")[1] for k in env if k.startswith("LLM_") and k.endswith("_BASE")})
+    tags = sorted({k.removeprefix("LLM_").removesuffix("_BASE") for k in env if k.startswith("LLM_") and k.endswith("_BASE")})
     eps = []
     for tag in tags:
         model = (models or {}).get(tag) or env.get(f"LLM_{tag}_MODEL")
