@@ -7,6 +7,16 @@ Changed: status selects text or JSON explicitly; data list/verify/build/fetch ac
 Why: agents need parseable output without guessing whether a command honors its flag; tests must not discover an operator's real workdir or data.
 Forecloses: implicit JSON-only status, undocumented human output in successful data JSON paths, and environment-dependent CLI tests. Operational exceptions are not yet a uniform JSON error envelope.
 
+## 2026-10-20 · One sealed look follows the frozen identity
+Changed: candidate-level sealed credit checks ignore sealed-set and epoch filters; set/epoch pool budgets and lifetime ratchets remain unchanged. Regression cases cover legacy and explicit epochs, failed evaluation, deleted mutable credit rows and reopening the ledger.
+Why: changing a sealed-set string previously bought another look for the same freeze hash (#28).
+Forecloses: sealed-set relabeling as a retry, refunding failed sealed evaluations, and confusing independent pool budgets with independent candidate identities.
+
+## 2026-10-19 · Keep research priorities ahead of feature accumulation
+Changed: audited the new execution table against the original baseline/ablation/decision-evidence gates; moved those prerequisites ahead of optional learned controllers, limited export to selected finalists, separated configuration warm starts from checkpoint transfer and clarified the two different warm-start contrasts. Added a source-backed decision memo; no implementation, protocol, release or server state changed.
+Why: the previous additions read like a mandatory exporter-to-LLM-to-Jev feature sequence and needlessly blocked configuration reuse on serialization, despite the project's core goal being verified discovery efficiency under a budget.
+Forecloses: global-optimal-path claims, optional service integration as a success metric, free historical-compute claims, calibrated judgement mistaken for search utility, off-policy estimates without action support and new arms inside E43a.
+
 ## 2026-10-19 · One activity animation throughout the terminal
 Changed: all five activity animations share the requested `· ✻ ✽ ✶ ✳ ✢` sequence and interval, including Home, running trials, model waits, discovery bursts and the status bar; ASCII fallback, SSH slowdown and reduced-motion states remain supported.
 Why: activity indicators should use one recognizable template instead of unrelated spinner families.
