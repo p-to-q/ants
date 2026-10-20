@@ -19,6 +19,7 @@ from pathlib import Path
 from .contract import Contract, code_fingerprint
 from .ledger import GateError, Ledger, canon, sha256_text
 from .runner import run_command
+from .textsafe import clean_text
 
 SEALED_ROLES = "dev,confirm,sealed"        # what a final run may read: never stress data
 
@@ -29,19 +30,25 @@ def contract_hash(c: Contract) -> str:
 
 
 def sealed_set_id(c: Contract, catalog=None) -> str:
-    sealed = c.raw.get("sealed")
+    if "sealed" not in c.raw:
+        return ""                                   # no [sealed] declaration: the whole gym is one set
+    sealed = c.raw["sealed"]
+    # A contract built programmatically never went through load_contract, so the same rules are
+    # enforced here and fail closed: a malformed declaration must never yield a silent (empty) set
+    # identity, which would quietly make the whole gym one unbounded sealed set. (TOML has no null,
+    # so a None here can only be a programmatic mutation.)
     if not isinstance(sealed, dict):
-        return ""
+        raise GateError(f"[sealed] must be a table, got {clean_text(sealed, 60)!r}")
     decl = sealed.get("datasets")
     if decl is None:
-        return ""
+        raise GateError("[sealed] datasets is required when [sealed] is present")
     if decl == "catalog:sealed":
         from .data import Catalog, locate_catalog      # lazy: data needs numpy, the search loop must not
         cat = catalog or Catalog(locate_catalog())
         return sha256_text(canon([[n, cat.meta[n]] for n in sorted(cat.names_for("sealed"))]))[:16]
-    if isinstance(decl, list) and decl:
+    if isinstance(decl, list) and decl and all(isinstance(x, str) and x for x in decl):
         return sha256_text(canon(sorted(decl)))[:16]
-    raise GateError(f"[sealed] datasets must be 'catalog:sealed' or a non-empty list, got {decl!r}")
+    raise GateError(f"[sealed] datasets must be 'catalog:sealed' or a non-empty list of strings, got {clean_text(decl, 60)!r}")
 
 
 def seal(ledger: Ledger, c: Contract, workdir, freeze_hash: str, seed: int = 12345,
