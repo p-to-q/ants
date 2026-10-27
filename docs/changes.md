@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-27 · Accept agent-v2 tools through the real entry points
+Changed: ported v2 check/neighbors/effects/predict/scorecard and expectation records; completed CLI, definition/preflight and seed model-arm classification, with scoped same-stage diagnostics.
+Why: a tool implementation is unusable if its arm never receives a client, and differing evaluation stages cannot support a valid better/worse comparison.
+Forecloses: changing v1 arm identities, bypassing model-call guards, or treating tool tests and observational scorecards as evidence of research gain.
+
 ## 2026-10-27 · Accept standard metric displays and validation reports
 Changed: ported the local metrics implementation with missing-metric handling, read-only trial lookup and an actual CSV output file; added dev-only per-dataset/horizon validation reporting.
 Why: retained model results need interpretable errors and reproducible reporting, alongside the search's relative objective.

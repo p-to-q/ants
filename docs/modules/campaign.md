@@ -1,5 +1,9 @@
 # campaign
 
+New agent-v2 arms add `tools_gen=v2` to their definition; v1 and the pinned
+portfolio/screen definitions retain their existing hashes. Tool generation is
+not permission to change the evaluator or sealed-look accounting.
+
 The research loop for one arm: refill -> claim -> execute -> promote -> record, behind every safety gate.
 
 **Interface**

@@ -154,7 +154,7 @@ def cmd_run(a):
         return 3
     wd, led, c = _open(a)
     client = None
-    if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
+    if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent", "agent2", "portfolio_agent2"):
         from .llm import LLMClient, load_endpoints
         llm_budget = getattr(a, "llm_budget", None) or 0
         try:

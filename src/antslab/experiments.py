@@ -84,7 +84,7 @@ def arm_definition_hash(arm: str, contract_path: str | Path, seed: int) -> str:
     # which is determined by the arm name and contract, not by the client.  For arms that need
     # a client, we build a stub.
     client = None
-    if arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
+    if arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent", "agent2", "portfolio_agent2"):
         client = _StubClient()
     try:
         p = make_proposer(arm, c, seed, client)
