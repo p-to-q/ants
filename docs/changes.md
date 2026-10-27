@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-27 · E43 first look and registered continuation
+Changed: recorded the completed first look, uncertainty and reproducibility finding; added the already registered seeds 9–16 series file and a final-analysis/preservation runbook.
+Why: the first look triggers continuation under the frozen rule, while separate stage directories require explicit combined-input validation at the final look.
+Forecloses: silently adopting the screen, extending the old seed manifest, treating plans as deployment receipts, or changing experiment code between stages.
+
 ## 2026-10-20 · Explicit JSON output for status and data
 Changed: status selects text or JSON explicitly; data list/verify/build/fetch accept --json. Tests isolate catalogs and ledgers and cover parser acceptance and failure exit codes.
 Why: agents need parseable output without guessing whether a command honors its flag; tests must not discover an operator's real workdir or data.

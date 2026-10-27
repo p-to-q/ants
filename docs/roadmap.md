@@ -1,5 +1,35 @@
 # Roadmap
 
+## E43 first look and continuation decision (2026-10-27)
+
+Stage 1 finished October 24 at 10:53 Asia/Shanghai: all 16 runs reached budget,
+with matching epochs/arm hashes and verified ledger chains. The registered
+primary paired median is -0.0001834 (screen minus control), p=0.6875. There is
+no evidence of screening superiority at look 1; the negative median triggers
+the already registered seeds 9–16 continuation, not a new hypothesis.
+[Dated result, limitations and runbook](experiments/E43-look1-20261027.md).
+
+Use `deploy/series/e43b.toml` in a separate directory with the same installed
+0.6.2 experiment snapshot and two workers. Keep e43a records and its seed
+manifest intact. First record the local verified backup and the pilot replay
+divergence; the latter is a disclosed determinism finding under the protocol,
+not a claim that replay passed. A budget-crossing sensitivity leaves all 16
+primary endpoints and the continuation decision unchanged.
+
+The next formal look combines all 16 pairs after stage 2 completes, estimated
+another 5–6 days **from its recorded start**. Do not infer start from this plan.
+Operational readback now records start on October 27 at 11:07 Asia/Shanghai,
+with the seed-9 pair healthy and backup/maintenance jobs successful; the
+estimated final-review window is November 1–2. See the dated deployment receipt.
+No algorithm development is needed to run it. Prioritize health-only status
+(#7), explicit multi-stage input validation for final analysis, and diagnosing
+proposal reproducibility on copies. Keep safety fixes and selected-finalist
+export separate. After the final look, use the outcome-dependent protocol and
+simple baselines/Optuna reference before new controller or LLM/Jev comparisons.
+The 2026-10-20 maintenance restriction remains for package/runtime rollout;
+the registered continuation is a configuration-only operation on the frozen
+installed snapshot.
+
 ## Maintenance disposition and research gates (2026-10-20)
 
 This section narrows the active backlog; it does not introduce another adaptive
