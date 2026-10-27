@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-27 · Accept standard metric displays and validation reports
+Changed: ported the local metrics implementation with missing-metric handling, read-only trial lookup and an actual CSV output file; added dev-only per-dataset/horizon validation reporting.
+Why: retained model results need interpretable errors and reproducible reporting, alongside the search's relative objective.
+Forecloses: treating missing relative metrics as standardised ones, calling a refit a saved checkpoint, or claiming paper-comparable Tier A validation before its full protocol exists.
+
 ## 2026-10-27 · Accept health-only series status and resource planning
 Changed: ported the existing local series work onto current main; status omits score reads unless --values; resource plans validate workers, account for CPU oversubscription and state assumptions.
 Why: checking an active series should not expose interim rankings, and adding workers does not create CPUs.

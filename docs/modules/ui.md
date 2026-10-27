@@ -15,6 +15,11 @@ experiment must not prevent access to preserved evidence or the data catalog.
 
 Human- and agent-facing views: plain dicts that the CLI prints as text or as `--json`. Read-only except `hint` (an event) and the `PAUSE` flag file.
 
+Leaderboard entries additionally carry `val_mse` and `rel_mae`. CLI, terminal
+details and HTML show standardised MSE and relative MAE alongside the primary
+value. Missing metrics display `-`; standardised MSE is not silently relabelled
+as relative MSE. These are this evaluator's aggregates, not paper benchmark rows.
+
 **Interface**
 - `snapshot(led, c, arm, workdir, hist=None)` (stages by state, finish rates, disk, `chain_tail_ok` from `verify_tail`, best per cap, operator rates, research paths, LLM calls in the last hour, latest hints), `leaderboard(hist, c, top)`, `show(led, c, ref)` (trial id or spec-key prefix; spec, stage metrics, parent lineage), `log(led, n, kind)`, `hint(led, text)`, `doctor(led, c, arm, workdir)`, `render_top`, `render_show`, `PAUSE_FILE = "PAUSE"`.
 - `doctor` returns `(OK|WARN|FAIL, message)` rows. Checks: hash chain (full `verify_chain` below 300 000 events, else `verify_tail(5000)`); disk level (WARN at `warn`, FAIL at `clean` or below); staleness (no finish for 30 min while work is queued = FAIL; paused, or nothing finished yet = WARN); failure rate over the last 200 trials (WARN from 10%, FAIL from 40%); runners past their lease; artifacts not yet archived (WARN from 5000); LLM parse rate over 24 h (WARN below 60%); number of epochs recorded (WARN above 1). `ants doctor` exits 2 on any FAIL.

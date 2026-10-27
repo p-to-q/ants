@@ -373,7 +373,16 @@ def cmd_best(a):
     lb = ui.leaderboard(h, c, a.top)
     if a.cap:
         lb = {k: v for k, v in lb.items() if k == str(a.cap)}
-    _emit(a, lb, lambda d: "\n".join(f"cap <= {k}\n" + "\n".join(f"  {r['rank']}. {r['value']:.4f}  {r['n_params']} params  trial {r['trial']}  {r['operator']}  {r['spec'][:70]}" for r in v) for k, v in d.items()))
+    def _best_text(d):
+        lines = []
+        for k, v in d.items():
+            lines.append(f"cap <= {k}")
+            for r in v:
+                vmse = f"MSE={r['val_mse']:.4f}" if r.get("val_mse") is not None else "MSE=-"
+                rmae = f"rel_mae={r['rel_mae']:.4f}" if r.get("rel_mae") is not None else "rel_mae=-"
+                lines.append(f"  {r['rank']}. {vmse}  {rmae}  {r['n_params']} params  trial {r['trial']}  {r['operator']}  {c.primary}={r['value']:.4f}  {r['spec'][:50]}")
+        return "\n".join(lines)
+    _emit(a, lb, _best_text)
     return 0
 
 
@@ -831,6 +840,17 @@ def main(argv=None):
     pf.add_argument("--llm-env", default=None); pf.add_argument("--json", action="store_true")
     pf.add_argument("--strict", action="store_true", help="exit 1 on WARN too")
     pf.set_defaults(fn=cmd_preflight)
+    # --- tier-a report ---
+    tp = sub.add_parser("tier-a", help="Tier A validation report: per-dataset, per-horizon MSE/MAE on z-scored values (report only, never feeds the search)")
+    tp.add_argument("--workdir", default=None); tp.add_argument("--contract", default=None); tp.add_argument("--arm", default=None)
+    tp.add_argument("--trial", type=int, nargs="*", help="trial id(s) to load specs from the ledger")
+    tp.add_argument("--spec", nargs="*", help="path(s) to spec JSON files")
+    tp.add_argument("--split", default="val", help="only 'val' is allowed (test refused)")
+    tp.add_argument("--lookback", type=int, default=None, help="override lookback for all specs")
+    tp.add_argument("--out", default=None, help="write report to this file")
+    tp.add_argument("--csv", default=None, help="write CSV to this file (also selects CSV format for stdout)")
+    tp.add_argument("--json", action="store_true")
+    tp.set_defaults(fn=lambda a: __import__("antslab.tiera", fromlist=["cmd_tier_a"]).cmd_tier_a(a))
     s = sub.add_parser("ui", help="the terminal interface (what plain `ants` opens on a terminal)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")

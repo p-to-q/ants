@@ -62,6 +62,7 @@ def leaderboard(h: History, c, top: int = 5, cumulative: bool = True) -> dict:
             acc = sorted(acc + rs, key=key)
             rs = acc
         out[str(b)] = [{"rank": i, "value": round(r["value"], 5), "stage": c.stages[r["stage_idx"]], "n_params": r["metrics"].get(c.cap_metric),
+                        "val_mse": r["metrics"].get("val_mse"), "rel_mae": r["metrics"].get("rel_mae"), "primary": c.primary,
                         "trial": r["id"], "key": r["key"], "operator": _c(((h.first.get(r["key"]) or r)["source"]).split(":")[0], 40), "spec": _diff(c, r["spec"])}
                        for i, r in enumerate(rs[:top], 1)]
     return out
@@ -262,10 +263,11 @@ def render_show(d: dict) -> str:
     L = [f"trial {d['trial']}  ({_c(d['state'], 20)}, arm {_c(d['arm'], 60)}, epoch {_c(d['epoch'], 40)}, proposed by {_c(d['source'], 60)})",
          f"spec key {_c(d['spec_key'], 40)}", f"non-default levers: {_c(d['non_default'], 140)}"]
     if d["stages"]:
-        L.append("\nstage   " + "rel_mse   rel_mae   params   fit_s")
+        L.append("\nstage   " + "MSE(std)  rel_mae   params   fit_s   rel_mse(ours)")
         for st, m in sorted(d["stages"].items()):
-            L.append(f"  {_c(st, 5):5s} {_num(m.get('rel_mse', m.get('val_mse')), '.4f', 8)}  {_num(m.get('rel_mae'), '.4f', 8)}  "
-                     f"{_num(m.get('n_params'), 'g', 6)}  {_num(m.get('fit_s'), '.1f', 6)}")
+            L.append(f"  {_c(st, 5):5s} {_num(m.get('val_mse'), '.4f', 8)}  {_num(m.get('rel_mae'), '.4f', 8)}  "
+                     f"{_num(m.get('n_params'), 'g', 6)}  {_num(m.get('fit_s'), '.1f', 6)}  "
+                     f"{_num(m.get('rel_mse'), '.4f', 8)}")
         deep = {k: v for st, m in d["stages"].items() for k, v in m.items() if k in ("robustness_index", "seasonal_fidelity", "horizon_decay")}
         if deep:
             L.append("secondary: " + ", ".join(f"{k}={_num(v, '.3f')}" for k, v in deep.items()))
