@@ -309,3 +309,60 @@ def test_error_messages_do_not_echo_attacker_text_unbounded(tmp_path):
         with pytest.raises(SpecError) as e:
             sp.validate(bad)
         assert len(str(e.value)) < 600 and "\x1b" not in str(e.value)
+
+
+def test_sealed_section_is_validated_at_load(tmp_path):
+    """[sealed] must be a table with datasets = 'catalog:sealed' or a non-empty list of strings.
+    A malformed sealed section (e.g. sealed = 1) used to pass load_contract and then crash
+    sealed_set_id with AttributeError instead of the fail-closed SpecError."""
+    # Root-level keys must be prepended BEFORE the first [table] header: appended after [space.c],
+    # tomllib assigns sealed = 1 to space.c (rejected there as an unknown key) and the root-level
+    # sealed check never runs -- the case would keep passing while testing the wrong failure.
+    with pytest.raises(SpecError, match="sealed: must be a table"):
+        load(tmp_path, "sealed = 1\n" + BASE)
+    with pytest.raises(SpecError, match="sealed: must be a table"):
+        load(tmp_path, 'sealed = ["a"]\n' + BASE)
+    # missing datasets: [sealed] present but empty
+    with pytest.raises(SpecError, match="sealed.datasets"):
+        load(tmp_path, BASE + "\n[sealed]\n")
+    # invalid types for datasets
+    with pytest.raises(SpecError, match="sealed.datasets"):
+        load(tmp_path, BASE + '\n[sealed]\ndatasets = ""\n')
+    with pytest.raises(SpecError, match="sealed.datasets"):
+        load(tmp_path, BASE + "\n[sealed]\ndatasets = []\n")
+    with pytest.raises(SpecError, match="sealed.datasets"):
+        load(tmp_path, BASE + "\n[sealed]\ndatasets = 3\n")
+    with pytest.raises(SpecError, match="sealed.datasets"):
+        load(tmp_path, BASE + '\n[sealed]\ndatasets = ["a", 1]\n')
+    with pytest.raises(SpecError, match="sealed.datasets"):
+        load(tmp_path, BASE + '\n[sealed]\ndatasets = [""]\n')
+    # valid forms: [sealed] table, root-level inline table, and both dataset spellings
+    load(tmp_path, BASE + '\n[sealed]\ndatasets = "catalog:sealed"\n')
+    load(tmp_path, BASE + '\n[sealed]\ndatasets = ["a", "b"]\n')
+    load(tmp_path, 'sealed = { datasets = ["a", "b"] }\n' + BASE)
+
+
+def test_sealed_set_id_fails_closed_for_programmatic_contracts(tmp_path):
+    """Direct sealed_set_id calls on a contract whose raw dict was mutated programmatically
+    (no TOML re-load, so no load-time validation) must fail closed on malformed declarations:
+    they never silently yield an empty sealed-set identity."""
+    from antslab.gate import GateError, sealed_set_id
+
+    c = load(tmp_path, BASE)
+    assert sealed_set_id(c) == ""                       # no [sealed] declaration: the whole gym is one set
+    # valid forms
+    c.raw["sealed"] = {"datasets": ["alpha", "beta"]}
+    sid = sealed_set_id(c)
+    assert sid != "" and len(sid) == 16
+    c.raw["sealed"] = {"datasets": ["beta", "alpha"]}
+    assert sealed_set_id(c) == sid                      # order-independent identity
+    # malformed declarations (missing datasets / wrong type for [sealed] itself)
+    for bad in (None, {}, 1, "x", ["not", "a", "table"], [""]):
+        c.raw["sealed"] = bad
+        with pytest.raises(GateError, match=r"\[sealed\]"):
+            sealed_set_id(c)
+    # invalid datasets values (the same rules load_contract enforces)
+    for bad in (None, "", 3, [], ["a", 1], [""], [None]):
+        c.raw["sealed"] = {"datasets": bad}
+        with pytest.raises(GateError, match=r"\[sealed\] datasets"):
+            sealed_set_id(c)
