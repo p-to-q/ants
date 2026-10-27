@@ -55,6 +55,7 @@ def build(ledger, c, arms: list[str], out_dir, top: int = 5) -> dict:
             rows = []
             for rank, r in enumerate(rs[:top], 1):
                 rows.append({"rank": rank, "value": round(r["value"], 5), "n_params": r["metrics"].get(c.cap_metric),
+                             "val_mse": r["metrics"].get("val_mse"), "rel_mae": r["metrics"].get("rel_mae"),
                              "bytes": r["metrics"].get("bytes"), "operator": r["source"].split(":")[0],
                              "path": "/".join(map(str, c.space.niche(r["spec"]))), "path_label": niche_lab.get(c.space.niche(r["spec"]), "?"),
                              "lineage_depth": len(ancestry(h, r["key"])) - 1, "spec": _diff(c, r["spec"]), "trial": r["id"]})
@@ -137,11 +138,15 @@ def render(d: dict) -> str:
         if a["belts"]:
             parts.append("".join(f"<span class=belt><b>{e(k)}</b> {e(json.dumps(v))}</span>" for k, v in a["belts"].items()))
         for cap, rows in a["board"].items():
-            parts.append(f"<h3 class=mut style='font-size:13px;margin:14px 0 4px'>cap ≤ {e(cap)} parameters</h3><table><tr><th>#<th class=num>{e(d['primary'])}"
-                         "<th class=num>params<th>operator<th>path<th class=num>depth<th>spec (non-default levers)")
+            parts.append(f"<h3 class=mut style='font-size:13px;margin:14px 0 4px'>cap ≤ {e(cap)} parameters</h3><table><tr><th>#"
+                         "<th class=num>MSE (std.)<th class=num>rel_mae<th class=num>params<th>operator<th>path<th class=num>depth"
+                         f"<th>spec<th class=num>{e(d['primary'])}" + (" (ours)" if d['primary'] == 'rel_mse' else ""))
             for r in rows:
-                parts.append(f"<tr><td>{n(r['rank'])}<td class=num>{n(r['value'])}<td class=num>{n(r['n_params'])}<td>{e(r['operator'])}"
-                             f"<td>{e(r['path'])} <span class='tag {e(r['path_label'])}'>{e(r['path_label'])}</span><td class=num>{n(r['lineage_depth'])}<td><code>{e(r['spec'])}</code>")
+                vmse = n(r['val_mse'], '.4f') if r.get('val_mse') is not None else "-"
+                rmae = n(r['rel_mae'], '.4f') if r.get('rel_mae') is not None else "-"
+                parts.append(f"<tr><td>{n(r['rank'])}<td class=num>{vmse}<td class=num>{rmae}<td class=num>{n(r['n_params'])}<td>{e(r['operator'])}"
+                             f"<td>{e(r['path'])} <span class='tag {e(r['path_label'])}'>{e(r['path_label'])}</span><td class=num>{n(r['lineage_depth'])}"
+                             f"<td><code>{e(r['spec'])}</code><td class=num>{n(r['value'])}")
             parts.append("</table>")
         parts.append("<h3 class=mut style='font-size:13px;margin:14px 0 4px'>research paths: level, velocity, acceleration</h3><table><tr><th>path<th class=num>n<th class=num>best<th class=num>velocity<th class=num>acceleration<th>label")
         for q in a["niches"]:

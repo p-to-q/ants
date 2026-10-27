@@ -64,3 +64,4 @@ Two, fixed now. **Look 1** when the 16 runs of stage 1 have finished: the primar
 ## 8. Deviations
 
 - 2026-10-17, before tagging: draft 2 replaces draft 1 after the statistical review (power statement, two looks, exact intervals, censoring).
+- 2026-10-27, look 1 after all stage-1 runs completed: [dated result and continuation record](E43-look1-20261027.md). Primary paired median -0.0001834173, reported exact Wilcoxon p=0.6875; section 6 selects the registered seeds 9–16 continuation. Pilot/control accepted-proposal replay diverges at position 7 and is retained as a determinism finding under section 5. Including the budget-crossing trial versus the installed script's <=B filter changes none of the 16 primary endpoints. No text above this dated entry, evaluator, arms, seed plan or budgets is changed.

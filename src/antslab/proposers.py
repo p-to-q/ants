@@ -333,6 +333,16 @@ def make_proposer(arm: str, c: Contract, seed: int, client=None, memory_fn=None,
             raise ValueError("llm arms need a client")
         from .agent import AgentProposer
         return AgentProposer(c, client, EvoProposer(c, random.Random(seed + 1)), rng, llm_share=llm_share)
+    if arm == "agent2":
+        if client is None:
+            raise ValueError("llm arms need a client")
+        from .agent import AgentProposer
+        return AgentProposer(c, client, EvoProposer(c, random.Random(seed + 1)), rng, tools="v2", llm_share=llm_share)
+    if arm == "portfolio_agent2":
+        from .portfolio import build_portfolio
+        if client is None:
+            raise ValueError("llm arms need a client")
+        return build_portfolio(c, seed, client, memory_fn, agent="v2", **LEGACY_PORTFOLIO)
     if arm in ("llm", "llm_dream"):
         if client is None:
             raise ValueError("llm arms need a client")

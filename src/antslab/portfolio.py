@@ -471,7 +471,8 @@ def build_portfolio(c: Contract, seed: int, client=None, memory_fn=None, with_tp
             unavailable.append("tpe")                      # optuna is not installed: the arm runs without it, and says so (daemon_started.unavailable)
     if client is not None and agent:
         from .agent import AgentProposer                  # the agent operator takes the place of `llm`: same budget, same slot, more to read
-        ops["agent"] = AgentProposer(c, client, None, rng(9), memory_fn=memory_fn)
+        tools_gen = "v2" if agent == "v2" else "v1"
+        ops["agent"] = AgentProposer(c, client, None, rng(9), memory_fn=memory_fn, tools=tools_gen)
     elif client is not None:
         ops["llm"] = LLMStrict(c, client, None, rng(9), memory_fn=memory_fn)
     # A language-model operator earns credit only when its proposals are promoted, and its proposals start weaker at the cheap stage, so the

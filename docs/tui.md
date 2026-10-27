@@ -38,7 +38,8 @@ The phrase always sits next to the numbers it came from and always says why. It 
 ## Screens
 
 The final screen is **Past** (`9`). It groups past work by research round,
-not trial. Its subtitle explains the page in complete prose. Arrow and Page keys
+not trial. A compact count and cache notice replace the standing introduction;
+the tab supplies the page name. Empty/error states provide prose guidance. Arrow and Page keys
 select a round; Enter shows its evidence and parameters; Esc returns to the same
 selection. A cached receipt is not a live backup check. Operational snapshots
 omit results by default. See [the history/cache reference](modules/archive_index.md)
@@ -61,6 +62,11 @@ series are discovered one level below `/var/lib/ants/series` (override with
 | 8 | System | version and update, service state, model calls of this search and of every ledger with the cap (the cap applies to each ledger on its own) and where it comes from, calls per hour, backups on a 7-day axis and how many trials a restore of the newest one would lose |
 
 A trial opens to its levers, its metrics per stage with a bar, its error if any, and its lineage.
+On Leaderboard, `o` switches best/latest order. Best keeps deeper evaluations
+ahead of cheap-stage results; latest means recency only. The selected model's
+epoch, finish time and specification appear below the table. Preservation and
+train-only weight export are separate explicit `candidates` commands; opening
+this page does not write snapshots or retrain models.
 
 ## Keys
 

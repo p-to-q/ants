@@ -73,7 +73,13 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 | `experiments` | list experiments from `deploy/experiments.toml` and check their ledgers | no |
 | `seeds` | run multiple seeds of one or more arms, interleaved, with pre-registered seed list | workdirs, `seeds.json` |
 | `series run NAME` | run a pre-registered series (epoch-checked, delegates to seed runner) | workdirs, `seeds.json` |
-| `series status NAME` | read-only status table per run in a series | no |
+| `series status NAME [--json] [--values]` | read-only health/progress; scores are read only with explicit `--values` | no |
+| `series plan NAME [--workers N] [--json]` | resource estimates with stated CPU/memory assumptions | no |
+| `tier-a --spec FILE...` or `--trial ID... --workdir DIR` | explicit local dev-validation refit/report; `--csv FILE`, `--json`, `--out FILE`, `--lookback N` | report files only; refits models |
+| `best --order best|latest` | cap-filtered quality or recency order; default ranking unchanged | no |
+| `candidates sync|watch --contract FILE --workdir DIR --arm NAME --store DIR` | preserve deepest-stage development finalists; watch uses `--interval SEC` | private candidate records only |
+| `candidates list|show [ID] --store DIR` | verified saved configuration/evidence records | no |
+| `candidates refit ID --store DIR --contract FILE --dataset DEV --horizon N --out NEW_DIR` | explicit train-only weights/preprocessing/source bundle with parity check | new artifact; computes a new fit |
 | `series check NAME` | integrity check: epoch, def hash, chain per ledger in a series (exit 1 on any failure) | no |
 | `bundle make` | create a sealed, verifiable snapshot of one or more workdir ledgers | bundle directory and tar.gz |
 | `bundle verify PATH` | verify a bundle (directory or tar.gz): checksums, chains, manifest | no |
@@ -93,7 +99,7 @@ ants run --contract contracts/tinyts_real.toml --workdir $PWD/runs/real --arm po
 | `--dream-every N` | 100 | summarise every N evaluations; only `llm_dream`, `portfolio_dream` |
 
 Arms (`proposers.make_proposer`): `random`, `evo`, `evo_percap`, `qd`, `tpe` (needs `optuna`), `portfolio` (the nine-operator portfolio exactly as it has run since epoch 2; pinned, see [upgrading](upgrading.md)), `portfolio_lean` (the later design: noisy operators dropped, a reserved evo+qd pair, a discounted bandit), `portfolio_screen` (the plain portfolio with a learned screen between the first and second stage, [screen.py](modules/proposers.md)), and the LLM arms
-`llm`, `llm_dream`, `portfolio_llm`, `portfolio_dream`, `agent`, `portfolio_agent` (need a client). Unknown arm: `ValueError`. `agent` and `portfolio_agent` replace the one-shot LLM operator with one that reads the ledger through read-only tools before it proposes ([research note](research/meta-harness.md)); every tool call is a chained `agent_tool` event; LLM calls are capped per rolling day (`ANTS_LLM_MAX_CALLS_PER_DAY`, default 1500).
+`llm`, `llm_dream`, `portfolio_llm`, `portfolio_dream`, `agent`, `portfolio_agent`, `agent2`, `portfolio_agent2` (need a client). Unknown arm: `ValueError`. `agent` and `portfolio_agent` replace the one-shot LLM operator with one that reads the ledger through read-only tools before it proposes ([research note](research/meta-harness.md)); `agent2` and `portfolio_agent2` use the v2 tool generation with additional tools (`check`, `neighbors`, `effects`, `predict`, `scorecard`) and protocol v2 (per-proposal parent/expect/why), see [agent module](modules/agent.md); every tool call is a chained `agent_tool` event; LLM calls are capped per rolling day (`ANTS_LLM_MAX_CALLS_PER_DAY`, default 1500).
 
 Behaviour: one `ants run` per workdir (`flock` on `<workdir>/ants.lock`, released by the kernel even after kill -9; a second one exits 3, verified).
 SIGTERM / SIGINT set a stop flag: a running evaluation is abandoned within about 0.25 s (its process group is killed, the half-result is not recorded as evidence and the row is reclaimed on the next start), sleeps wake every 0.5 s. Stdout is the last step result.

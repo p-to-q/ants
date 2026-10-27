@@ -24,7 +24,7 @@ STATE_GLYPH = {"done": ("✓", "ok"), "failed": ("✗", "bad"), "timeout": ("⏱
 KEYS = {
     "home": "0-9 or ←→ screens · [ ] next/prev search · p pause/resume · h hint · / command · ? help · q quit",
     "overview": "←→ screens · r refresh · p pause/resume · h hint · [ ] search · space freeze · ? help",
-    "board": "Tab/< > cap · ←→ screens · ↑↓ row · Enter open · p pause · h hint · [ ] search · ? help",
+    "board": "o best/latest · Tab/< > cap · ↑↓ row · Enter open · ←→ screens · [ ] search · ? help",
     "trials": "↑↓ row · Enter open · s state · t stage · g/G top/bottom · space freeze · ? help",
     "fleet": "↑↓ row · Enter switch to that search · p pause/resume it · h hint · ? help",
     "events": "↑↓ scroll · k kind · space freeze · ? help",
@@ -272,23 +272,34 @@ def board(d, ctx: Ctx) -> View:
     if not caps:
         return View([[S(" no finished evaluations yet", "dim")]])
     tab = ctx.tab % len(caps)
-    lines = [[S(" ")] + [S(f"[≤{c}]", "accent") if i == tab else S(f" ≤{c} ", "dim") for i, c in enumerate(caps)] + [S("   Tab or < > cap · ←/→ screen · ↑/↓ row · Enter opens", "dim")], []]
+    order = d.get("order", "best")
+    lines = [[S(" ")] + [S(f"[≤{c}]", "accent") if i == tab else S(f" ≤{c} ", "dim") for i, c in enumerate(caps)] + [S(f"   {order} · o changes order · Enter opens", "dim")], []]
     rows = lb[caps[tab]]
+    primary = rows[0].get("primary", "rel_mse") if rows else "rel_mse"
     sizes = [r["n_params"] for r in rows if r["n_params"]]
     lo, hi = (min(sizes), max(sizes)) if sizes else (1, 2)
     lw = 12
-    lines.append([S(f"  {'#':>2} {'value':>8} {'gain':>6}  {'':<14} {'params (log)':<{lw}} {'stage':<5} {'trial':>6} {'':<2}{'operator':<10} spec", "dim")])
+    lines.append([S(f"  {'#':>2} {'MSE(std)':>8} {'rel_mae':>8} {'gain':>6}  {'':<14} {'params (log)':<{lw}} {'stage':<5} {'trial':>6} {'':<2}{'operator':<10} {primary}", "dim")])
     for i, r in enumerate(rows):
         g = gain(r["value"]) or 0
         col = pixel.log_position(r["n_params"] or 0, lo, hi, lw)
         loll = "".join("●" if c == col else "─" if c < col else " " for c in range(lw))
         prev = ctx.prev_ranks.get(r["trial"])
         trend = "  " if prev is None else "▲ " if prev > r["rank"] else "▼ " if prev < r["rank"] else "= "
-        lines.append([cursor(i, ctx.sel), S(f" {r['rank']:>2} ", "dim"), S(f"{r['value']:>8.4f} ", "bold"), S(f"{g:5.1f}% ", "ok" if g > 0 else "warn"),
+        vmse = fmt_v(r.get("val_mse"), 4) if r.get("val_mse") is not None else "-"
+        rmae = fmt_v(r.get("rel_mae"), 4) if r.get("rel_mae") is not None else "-"
+        lines.append([cursor(i, ctx.sel), S(f" {r['rank']:>2} ", "dim"), S(f"{vmse:>8} ", "none"), S(f"{rmae:>8} ", "none"),
+                      S(f"{g:5.1f}% ", "ok" if g > 0 else "warn"),
                       S(pixel.bar(max(g, 0), 30, 14), "accent"), S(" "), S(loll, "accent"), S(f" {r['stage']:<5} {r['trial']:>6} ", "none"),
                       S(trend, "ok" if trend.startswith("▲") else "warn" if trend.startswith("▼") else "dim"), S(f"{clip(r['operator'], 10):<10} ", "none"),
-                      S(clip(r["spec"], max(10, w - 80)), "dim")])
+                      S(f"{r['value']:.4f}", "bold")])
     lines.append([]); lines.append([S(f"  ● marks the parameter count between the smallest ({lo}) and the largest ({hi}) in this list", "dim")])
+    if rows:
+        selected = rows[min(max(ctx.sel, 0), len(rows) - 1)]
+        stamp = selected.get("finished_at")
+        when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(stamp)) if isinstance(stamp, (int, float)) else "time not recorded"
+        lines.append([S(clip(f"  #{selected['trial']}  {selected['stage']}  epoch {selected.get('epoch') or 'legacy'}  {when}", w - 1), "dim")])
+        lines.append([S(clip("  " + selected.get("spec", ""), w - 1), "none")])
     return View(lines, len(rows), 3)
 
 
@@ -327,12 +338,16 @@ def detail(d, ctx: Ctx) -> View:
     lines.append([S(" " + t["non_default"], "none")])
     lines.append([])
     lines.append(rule(w, "Metrics by stage"))
-    prim = None
+    lines.append([S(f" {'':4} {'MSE(std)':>9} {'rel_mae':>9} {'params':>7} {'fit_s':>7} {'rel_mse(ours)':>14}", "dim")])
     for stage, m in t["stages"].items():
-        shown = [f"{k}={v:.4g}" for k, v in list(m.items())[:7] if isinstance(v, (int, float))]
-        first = next(((k, v) for k, v in m.items() if isinstance(v, (int, float))), None)
-        bar = pixel.bar(max(0.0, 1.5 - float(first[1])), 1.0, 16) if first and first[0].startswith("rel") else ""
-        lines.append([S(f" {stage:<4}", "bold"), S(bar, "accent"), S(" "), S(clip("  ".join(shown), w - 28), "none")])
+        vmse = f"{m['val_mse']:.4f}" if isinstance(m.get("val_mse"), (int, float)) else "-"
+        rmae = f"{m['rel_mae']:.4f}" if isinstance(m.get("rel_mae"), (int, float)) else "-"
+        npar = f"{m['n_params']:g}" if isinstance(m.get("n_params"), (int, float)) else "-"
+        fits = f"{m['fit_s']:.1f}" if isinstance(m.get("fit_s"), (int, float)) else "-"
+        rmse_val = m.get("rel_mse")
+        rmse = f"{rmse_val:.4f}" if isinstance(rmse_val, (int, float)) else "-"
+        bar = pixel.bar(max(0.0, 1.5 - float(rmse_val)), 1.0, 16) if isinstance(rmse_val, (int, float)) else ""
+        lines.append([S(f" {stage:<4}", "bold"), S(bar, "accent"), S(f" {vmse:>9} {rmae:>9} {npar:>7} {fits:>7} {rmse:>14}", "none")])
     if t.get("error"):
         lines.append([]); lines.append([S(" error: ", "bad"), S(clip(t["error"], w - 10), "none")])
     if t["lineage"]:
@@ -538,9 +553,9 @@ def afterlife_screen(d, ctx: Ctx) -> View:
     w = ctx.width
     def prose(text, style="dim"):
         return [[S(" " + part, style)] for part in textwrap.wrap(text, max(10, w - 2))]
-    lines = [[S(" Past", "accent")]]
-    lines += prose("A graveyard for past experiments, with their findings and evidence kept within reach. Revisit a round to see what ran, what it found and where the verified copies are recorded.")
-    lines += [[S(f" {len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}. This view reads cached records only.", "dim")], []]
+    heading = "History unavailable" if catalog.get("error") else f"{len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}"
+    lines = [[S(" " + heading, "warn" if catalog.get("error") else "accent"),
+              S("   cached records only", "dim")], []]
     if catalog.get("error"):
         lines += prose("The index could not be read. Check its format and permissions, or rebuild it from verified bundles. No running experiment was changed.", "warn")
         lines += prose(clean_text(catalog["error"], 200), "warn")
@@ -550,7 +565,7 @@ def afterlife_screen(d, ctx: Ctx) -> View:
         lines += prose("Run `ants archive index --help` for the indexing command. The index is a cache; the sealed bundle remains the evidence.")
         return View(lines)
     selected = min(max(ctx.sel, 0), len(rounds) - 1)
-    count = min(7, max(2, ctx.height - 27))
+    count = min(7, max(2, ctx.height - 22))
     start = (selected // count) * count
     label_w = max(16, w - 43)
     lines.append([S(f" {'date':<11}{'round / question':<{label_w}}{'kind':<11}receipt", "dim")])
@@ -588,7 +603,7 @@ def afterlife_screen(d, ctx: Ctx) -> View:
     when = time.strftime("%Y-%m-%d %H:%M", time.localtime(checked)) if isinstance(checked, (float, int)) else "not recorded"
     lines += [[S(f" Verified {when}. Receipts are recorded, not checked live.", "dim")],
               [S(" Off-host receipt: " + clean_text(row.get("offsite_note") or "not recorded", 160), "none")],
-              [S(" Enter opens the full results, parameters and recovery locations.", "dim")]]
+              [S(" Enter opens the full record and backup locations.", "dim")]]
     return View(lines, len(rounds), row0)
 
 
@@ -640,8 +655,11 @@ def help_screen(ctx: Ctx) -> View:
     for k, v in HELP:
         lines.append([S(f" {k:<20}", "key"), S(v, "none")])
     lines.append([])
-    lines.append([S(" What the words mean", "accent")])
-    for k, v in (("rel_mse", "squared error divided by the error of 'repeat last season'; below 1.000 beats that reference"), ("stage", "s0 is a cheap first look, s1 and s2 are deeper tests; only deeper values are compared with each other"),
+    lines.append([S(" What the columns mean", "accent")])
+    for k, v in (("MSE (std.)", "mean squared error on z-scored values, averaged over this evaluator's tasks; protocol-dependent, not directly a paper comparison"),
+                 ("rel_mae", "MAE divided by seasonal-naive MAE, family-weighted geometric mean; our guard metric"),
+                 ("rel_mse (ours)", "MSE divided by seasonal-naive MSE, family-weighted geometric mean; our primary, not comparable to a paper's table"),
+                 ("stage", "s0 is a cheap first look, s1 and s2 are deeper tests; only deeper values are compared with each other"),
                  ("search / arm", "one running search strategy with its own record"), ("epoch", "the identity of the measuring code and data; results of different epochs are not comparable")):
         lines.append([S(f" {k:<20}", "key"), S(v, "dim")])
     lines.append([]); lines.append([S(" Read-only by construction: the ledger is opened read-only. `hint`, `pause` and `resume` are the only commands that write, and they go through the normal CLI.", "dim")])

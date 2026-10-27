@@ -1,5 +1,8 @@
 # history
 
+Ingested records retain their finish timestamp and epoch for read-only best vs
+latest presentation. Default search ranking, credit and promotion are unchanged.
+
 Incremental, bounded in-memory view of one arm's finished trials. One epoch only when the caller passes `epoch=`; with `epoch=None` (the default) it ingests every epoch.
 
 **Interface**

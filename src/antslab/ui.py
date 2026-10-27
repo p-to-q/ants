@@ -43,15 +43,18 @@ def snapshot(led, c, arm: str, workdir, hist: History | None = None) -> dict:
             "llm_calls_1h": {"calls": calls[0], "ok": calls[1]}, "user_hints": [_c(e["payload"].get("text", ""), 500) for e in led.recent_events("user_hint", 3)]}
 
 
-def leaderboard(h: History, c, top: int = 5, cumulative: bool = True) -> dict:
+def leaderboard(h: History, c, top: int = 5, cumulative: bool = True, order: str = "best") -> dict:
     """Best specs per size cap. Ranked by the deepest stage each spec reached, then by value at that stage: a cheap first-stage
     number must never outrank a deeper measurement (stages are different protocols and not comparable).
     cumulative=True (default): the entry for cap N ranks every spec of at most N parameters, so "<= 300" really means that and a
     small model that beats a bigger one shows under both caps. cumulative=False: each spec only in the smallest cap that holds it
     (the registry's cap bins: one champion per bin)."""
     h.update()                                   # always current: callers must not have to remember this
+    if order not in ("best", "latest"):
+        raise ValueError("leaderboard order must be best or latest")
     out, bins = {}, {}
-    key = lambda r: (-r["stage_idx"], h.sign * r["value"])
+    key = ((lambda r: (-(r.get("finished_at") or 0), -r["id"])) if order == "latest"
+           else (lambda r: (-r["stage_idx"], h.sign * r["value"])))
     for r in sorted((r for r in h.best.values() if r.get("feasible", True)), key=key):
         bins.setdefault(h.cap_bin(r["metrics"]), []).append(r)
     acc: list = []
@@ -62,6 +65,8 @@ def leaderboard(h: History, c, top: int = 5, cumulative: bool = True) -> dict:
             acc = sorted(acc + rs, key=key)
             rs = acc
         out[str(b)] = [{"rank": i, "value": round(r["value"], 5), "stage": c.stages[r["stage_idx"]], "n_params": r["metrics"].get(c.cap_metric),
+                        "val_mse": r["metrics"].get("val_mse"), "rel_mae": r["metrics"].get("rel_mae"), "primary": c.primary,
+                        "finished_at": r.get("finished_at"), "epoch": r.get("epoch"),
                         "trial": r["id"], "key": r["key"], "operator": _c(((h.first.get(r["key"]) or r)["source"]).split(":")[0], 40), "spec": _diff(c, r["spec"])}
                        for i, r in enumerate(rs[:top], 1)]
     return out
@@ -262,10 +267,11 @@ def render_show(d: dict) -> str:
     L = [f"trial {d['trial']}  ({_c(d['state'], 20)}, arm {_c(d['arm'], 60)}, epoch {_c(d['epoch'], 40)}, proposed by {_c(d['source'], 60)})",
          f"spec key {_c(d['spec_key'], 40)}", f"non-default levers: {_c(d['non_default'], 140)}"]
     if d["stages"]:
-        L.append("\nstage   " + "rel_mse   rel_mae   params   fit_s")
+        L.append("\nstage   " + "MSE(std)  rel_mae   params   fit_s   rel_mse(ours)")
         for st, m in sorted(d["stages"].items()):
-            L.append(f"  {_c(st, 5):5s} {_num(m.get('rel_mse', m.get('val_mse')), '.4f', 8)}  {_num(m.get('rel_mae'), '.4f', 8)}  "
-                     f"{_num(m.get('n_params'), 'g', 6)}  {_num(m.get('fit_s'), '.1f', 6)}")
+            L.append(f"  {_c(st, 5):5s} {_num(m.get('val_mse'), '.4f', 8)}  {_num(m.get('rel_mae'), '.4f', 8)}  "
+                     f"{_num(m.get('n_params'), 'g', 6)}  {_num(m.get('fit_s'), '.1f', 6)}  "
+                     f"{_num(m.get('rel_mse'), '.4f', 8)}")
         deep = {k: v for st, m in d["stages"].items() for k, v in m.items() if k in ("robustness_index", "seasonal_fidelity", "horizon_decay")}
         if deep:
             L.append("secondary: " + ", ".join(f"{k}={_num(v, '.3f')}" for k, v in deep.items()))

@@ -141,7 +141,7 @@ def _summary_row(arm: str, seed: int, wd: Path, state: str, contract_path: str) 
     return row
 
 
-MODEL_ARMS = ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent")
+MODEL_ARMS = ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent", "agent2", "portfolio_agent2")
 
 
 def active_arm_units() -> list[str]:

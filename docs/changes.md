@@ -2,6 +2,41 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-27 · Preserve candidate versions and export explicit train-only refits
+Changed: added best/latest leaderboard order, an independent candidate detector/watcher with version records and scoped atomic pointers, and a train-only TinyTS weight/preprocessing/source exporter with reload parity.
+Why: a useful model needs a traceable saved version, while the existing gym did not preserve its original fitted weights.
+Forecloses: destructive best-file replacement, merging epochs/caps, implicit viewer writes or retraining, fabricated historical checkpoints, and treating a dev-best candidate as a published champion.
+
+## 2026-10-27 · Past starts with the retained work
+Changed: removed the duplicate body title and standing introduction; kept a compact count/cache notice and the existing list/preview/detail layout, with more visible rounds.
+Why: repeated explanatory copy displaced the records on a frequently visited terminal screen.
+Forecloses: redesigning navigation or storage, hiding repair guidance, and presenting an unreadable index as zero rounds.
+
+## 2026-10-27 · Accept agent-v2 tools through the real entry points
+Changed: ported v2 check/neighbors/effects/predict/scorecard and expectation records; completed CLI, definition/preflight and seed model-arm classification, with scoped same-stage diagnostics.
+Why: a tool implementation is unusable if its arm never receives a client, and differing evaluation stages cannot support a valid better/worse comparison.
+Forecloses: changing v1 arm identities, bypassing model-call guards, or treating tool tests and observational scorecards as evidence of research gain.
+
+## 2026-10-27 · Accept standard metric displays and validation reports
+Changed: ported the local metrics implementation with missing-metric handling, read-only trial lookup and an actual CSV output file; added dev-only per-dataset/horizon validation reporting.
+Why: retained model results need interpretable errors and reproducible reporting, alongside the search's relative objective.
+Forecloses: treating missing relative metrics as standardised ones, calling a refit a saved checkpoint, or claiming paper-comparable Tier A validation before its full protocol exists.
+
+## 2026-10-27 · Accept health-only series status and resource planning
+Changed: ported the existing local series work onto current main; status omits score reads unless --values; resource plans validate workers, account for CPU oversubscription and state assumptions.
+Why: checking an active series should not expose interim rankings, and adding workers does not create CPUs.
+Forecloses: silent score reads, a corrupt ledger looking like missing history, misleading resource guarantees, or dropping current run/definition guards during the port.
+
+## 2026-10-27 · Audit existing development beyond the deployment checkout
+Changed: inventoried original local feature branches against current main and separated experimental deployment gates from concurrent engineering and branch acceptance.
+Why: a bounded maintenance restriction and stale historical status tables had been extended into a blanket development delay, while useful implementations already existed locally.
+Forecloses: rebuilding completed branch work, merging old integration branches wholesale over newer fixes, or treating every roadmap feature as blocked by E43.
+
+## 2026-10-27 · E43 first look and registered continuation
+Changed: recorded the completed first look, uncertainty and reproducibility finding; added the already registered seeds 9–16 series file and a final-analysis/preservation runbook.
+Why: the first look triggers continuation under the frozen rule, while separate stage directories require explicit combined-input validation at the final look.
+Forecloses: silently adopting the screen, extending the old seed manifest, treating plans as deployment receipts, or changing experiment code between stages.
+
 ## 2026-10-20 · Explicit JSON output for status and data
 Changed: status selects text or JSON explicitly; data list/verify/build/fetch accept --json. Tests isolate catalogs and ledgers and cover parser acceptance and failure exit codes.
 Why: agents need parseable output without guessing whether a command honors its flag; tests must not discover an operator's real workdir or data.

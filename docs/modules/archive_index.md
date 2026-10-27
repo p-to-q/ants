@@ -2,6 +2,12 @@
 
 Past is the last terminal page (`9`). Its job is to help an operator revisit
 a research round and locate its evidence, not rank unrelated experiments.
+The body opens with a compact retained-round count and cache notice; the tab
+already supplies the page name. It has no standing introduction or repeated
+title. The list, selected-round preview and Enter details retain their structure.
+Unreadable history says unavailable, not zero rounds. Empty/error states keep
+their indexing/repair instructions, and recorded receipts remain explicitly
+different from a live backup check.
 
 ## Information and actions
 

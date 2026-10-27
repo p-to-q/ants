@@ -182,8 +182,8 @@ class Source:
             out = [out[int(i * step)] for i in range(points - 1)] + [out[-1]]
         return out
 
-    def leaderboard(self, top: int = 10) -> dict:
-        return ui.leaderboard(self.hist, self.c, top)
+    def leaderboard(self, top: int = 10, order: str = "best") -> dict:
+        return ui.leaderboard(self.hist, self.c, top, order=order)
 
     def trials(self, state: str | None = None, stage: str | None = None, limit: int = 300) -> list[dict]:
         q = "SELECT id, stage, state, source, spec_key, cpu_s, finished_at, json_extract(metrics, ?) AS value, error FROM trials WHERE gym=? AND arm=?"

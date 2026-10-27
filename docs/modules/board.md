@@ -1,5 +1,9 @@
 # board
 
+Leaderboard JSON includes standardised `val_mse` and `rel_mae` where present;
+HTML shows them alongside the actual named primary metric. Missing aggregates
+are `-`, not invented values, and the primary ranking rule is unchanged.
+
 Projection surface: `board.json` + self-contained `board.html` (meta-refresh every 60 s, no external requests, no scripts). Read-only; never a dependency of the loop.
 
 **Interface**

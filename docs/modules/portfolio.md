@@ -1,5 +1,9 @@
 # portfolio
 
+`portfolio_agent2` retains the legacy portfolio allocation and selects the v2
+agent tool generation explicitly. Optional-operator availability reporting,
+existing floors/reserves and pinned old-arm definitions are preserved.
+
 Operator portfolio and meta-controller: sweep, de, cem, aco, sa, qd, tpe, llm + `PortfolioProposer`.
 
 **Interface**

@@ -154,7 +154,7 @@ def cmd_run(a):
         return 3
     wd, led, c = _open(a)
     client = None
-    if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
+    if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent", "agent2", "portfolio_agent2"):
         from .llm import LLMClient, load_endpoints
         llm_budget = getattr(a, "llm_budget", None) or 0
         try:
@@ -370,10 +370,19 @@ def cmd_best(a):
     from .history import History
     wd, led, c = _open(a)
     h = History.for_arm(led, c, a.arm); h.update()
-    lb = ui.leaderboard(h, c, a.top)
+    lb = ui.leaderboard(h, c, a.top, order=getattr(a, "order", "best"))
     if a.cap:
         lb = {k: v for k, v in lb.items() if k == str(a.cap)}
-    _emit(a, lb, lambda d: "\n".join(f"cap <= {k}\n" + "\n".join(f"  {r['rank']}. {r['value']:.4f}  {r['n_params']} params  trial {r['trial']}  {r['operator']}  {r['spec'][:70]}" for r in v) for k, v in d.items()))
+    def _best_text(d):
+        lines = []
+        for k, v in d.items():
+            lines.append(f"cap <= {k}")
+            for r in v:
+                vmse = f"MSE={r['val_mse']:.4f}" if r.get("val_mse") is not None else "MSE=-"
+                rmae = f"rel_mae={r['rel_mae']:.4f}" if r.get("rel_mae") is not None else "rel_mae=-"
+                lines.append(f"  {r['rank']}. {vmse}  {rmae}  {r['n_params']} params  trial {r['trial']}  {r['operator']}  {c.primary}={r['value']:.4f}  {r['spec'][:50]}")
+        return "\n".join(lines)
+    _emit(a, lb, _best_text)
     return 0
 
 
@@ -659,8 +668,10 @@ def cmd_seeds(a):
 
 
 def cmd_series(a):
-    from .series import run_series, series_status, series_check
+    from .series import run_series, series_status, series_check, series_plan
     action = a.action
+    if action == "plan":
+        return series_plan(a)
     if action == "run":
         return run_series(a)
     elif action == "status":
@@ -741,6 +752,7 @@ def main(argv=None):
             s.add_argument("--every", type=float, default=5); s.add_argument("--once", action="store_true")
         if name == "best":
             s.add_argument("--top", type=int, default=5); s.add_argument("--cap", type=int)
+            s.add_argument("--order", choices=["best", "latest"], default="best")
         if name == "show":
             s.add_argument("ref", help="trial id or spec-key prefix")
         if name == "diff":
@@ -783,7 +795,7 @@ def main(argv=None):
     # --- series ---
     sp = sub.add_parser("series", help="manage a pre-registered series of seed runs")
     sp_sub = sp.add_subparsers(dest="action", required=True)
-    for act in ("run", "status", "check"):
+    for act in ("run", "status", "check", "plan"):
         ss = sp_sub.add_parser(act)
         ss.add_argument("name", help="series name (matches deploy/series/<name>.toml)")
         ss.add_argument("--file", default=None, help="explicit path to the series TOML file")
@@ -794,6 +806,9 @@ def main(argv=None):
             ss.add_argument("--llm-env", default=None)
         if act == "status":
             ss.add_argument("--json", action="store_true")
+            ss.add_argument("--values", action="store_true", help="also read the best values per cap (hidden by default between the looks of a protocol)")
+        if act == "plan":
+            ss.add_argument("--json", action="store_true"); ss.add_argument("--workers", type=int, default=None)
     sp.set_defaults(fn=cmd_series)
     # --- bundle ---
     bp = sub.add_parser("bundle", help="create or verify a sealed results bundle")
@@ -826,6 +841,34 @@ def main(argv=None):
     pf.add_argument("--llm-env", default=None); pf.add_argument("--json", action="store_true")
     pf.add_argument("--strict", action="store_true", help="exit 1 on WARN too")
     pf.set_defaults(fn=cmd_preflight)
+    # --- tier-a report ---
+    tp = sub.add_parser("tier-a", help="Tier A validation report: per-dataset, per-horizon MSE/MAE on z-scored values (report only, never feeds the search)")
+    tp.add_argument("--workdir", default=None); tp.add_argument("--contract", default=None); tp.add_argument("--arm", default=None)
+    tp.add_argument("--trial", type=int, nargs="*", help="trial id(s) to load specs from the ledger")
+    tp.add_argument("--spec", nargs="*", help="path(s) to spec JSON files")
+    tp.add_argument("--split", default="val", help="only 'val' is allowed (test refused)")
+    tp.add_argument("--lookback", type=int, default=None, help="override lookback for all specs")
+    tp.add_argument("--out", default=None, help="write report to this file")
+    tp.add_argument("--csv", default=None, help="write CSV to this file (also selects CSV format for stdout)")
+    tp.add_argument("--json", action="store_true")
+    tp.set_defaults(fn=lambda a: __import__("antslab.tiera", fromlist=["cmd_tier_a"]).cmd_tier_a(a))
+    ca = sub.add_parser("candidates", help="preserve versioned development candidates; no champion promotion or weight refitting")
+    cas = ca.add_subparsers(dest="action", required=True)
+    for action in ("sync", "watch", "list", "show", "refit"):
+        cs = cas.add_parser(action)
+        cs.add_argument("--store", required=True, help="private candidate store directory")
+        if action in ("sync", "watch"):
+            cs.add_argument("--contract", required=True); cs.add_argument("--workdir", required=True)
+            cs.add_argument("--arm", required=True)
+        if action == "watch":
+            cs.add_argument("--interval", type=float, default=60)
+        if action in ("show", "refit"):
+            cs.add_argument("id")
+        if action == "refit":
+            cs.add_argument("--contract", required=True); cs.add_argument("--dataset", required=True)
+            cs.add_argument("--horizon", type=int, choices=[96,192,336,720], default=96)
+            cs.add_argument("--out", required=True, help="new artifact directory; never overwrites an existing version")
+    ca.set_defaults(fn=lambda a: __import__("antslab.candidates", fromlist=["cmd_candidates"]).cmd_candidates(a))
     s = sub.add_parser("ui", help="the terminal interface (what plain `ants` opens on a terminal)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")

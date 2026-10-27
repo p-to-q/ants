@@ -9,11 +9,22 @@ terminals keep a shared ASCII fallback; reduced motion retains static state glyp
 The last terminal page is **Past** (`9`): cached, per-round history with
 read-only details and recorded backup locations. Its information hierarchy and
 failure behaviour are documented in [archive_index](archive_index.md).
+The body opens with the retained-round count, without repeating the tab's name
+or a permanent introduction. Empty and unreadable history remain distinct.
 History and Data load independently of a live ledger or evaluation contract;
 contract resolution is deferred until a live Source is opened. A missing current
 experiment must not prevent access to preserved evidence or the data catalog.
 
 Human- and agent-facing views: plain dicts that the CLI prints as text or as `--json`. Read-only except `hint` (an event) and the `PAUSE` flag file.
+
+Leaderboard entries additionally carry `val_mse` and `rel_mae`. CLI, terminal
+details and HTML show standardised MSE and relative MAE alongside the primary
+value. Missing metrics display `-`; standardised MSE is not silently relabelled
+as relative MSE. These are this evaluator's aggregates, not paper benchmark rows.
+Leaderboard order is `best` by default (deepest stage first), or `latest` by
+finish time. The terminal toggles with `o`; the selected record shows its epoch,
+completion time and specification. Recency is not evidence of improvement.
+Viewing never triggers candidate preservation, refitting or model adoption.
 
 **Interface**
 - `snapshot(led, c, arm, workdir, hist=None)` (stages by state, finish rates, disk, `chain_tail_ok` from `verify_tail`, best per cap, operator rates, research paths, LLM calls in the last hour, latest hints), `leaderboard(hist, c, top)`, `show(led, c, ref)` (trial id or spec-key prefix; spec, stage metrics, parent lineage), `log(led, n, kind)`, `hint(led, text)`, `doctor(led, c, arm, workdir)`, `render_top`, `render_show`, `PAUSE_FILE = "PAUSE"`.

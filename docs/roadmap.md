@@ -1,5 +1,65 @@
 # Roadmap
 
+## Development is concurrent with the frozen experiment (2026-10-27)
+
+The E43 freeze applies to its installed evaluator, search definitions, data,
+seeds and budgets. It does **not** block local development, tests, independent
+feature branches or acceptance of already written work. The October 20
+maintenance-only scope was one review pass, not an indefinite development ban.
+The October 17 blanket “none starts before E43” language below is historical
+and superseded by this section and the October 19 execution table.
+
+[Current code/branch inventory and acceptance queue](research/development-inventory-20261027.md)
+distinguishes implementations awaiting integration from unbuilt features and
+unvalidated research claims. In particular, local `metrics`/`v063` already
+contain report/display work, and `agent2`/`v063` contain agent-v2 tools and
+series planning/status work. Do not rebuild them from their roadmap titles.
+Conversely, old `llm`/`ops` branches include capabilities already on main and
+would undo subsequent fixes if merged wholesale.
+
+Acceptance update: the local integration branch now contains health/status/plan,
+standard metrics/validation reports, agent-v2 entry-point wiring, the compact
+Past header, best/latest views, versioned candidates and explicit train-only
+weight exports. Common suite: 1174 passed, 28 skipped; chaos: 6 passed. An
+ETTh1 refit smoke exported weights/preprocessing/source with exact reload parity;
+this is not a held-out result. See the dated inventory for scope limits.
+Next engineering is the combined-series report, full result/lineage/environment
+handoff and the fair simple-reference harness, not another rewrite of these tools.
+Read-only landscape/pooled-evidence tools, integrity/gate tests and a separate
+next-gym prototype may also progress under their own bounded scopes. Full
+server studies and adoption of new search/evaluation rules retain their
+registered evidence gates; code development does not wait for those outcomes.
+
+## E43 first look and continuation decision (2026-10-27)
+
+Stage 1 finished October 24 at 10:53 Asia/Shanghai: all 16 runs reached budget,
+with matching epochs/arm hashes and verified ledger chains. The registered
+primary paired median is -0.0001834 (screen minus control), p=0.6875. There is
+no evidence of screening superiority at look 1; the negative median triggers
+the already registered seeds 9–16 continuation, not a new hypothesis.
+[Dated result, limitations and runbook](experiments/E43-look1-20261027.md).
+
+Use `deploy/series/e43b.toml` in a separate directory with the same installed
+0.6.2 experiment snapshot and two workers. Keep e43a records and its seed
+manifest intact. First record the local verified backup and the pilot replay
+divergence; the latter is a disclosed determinism finding under the protocol,
+not a claim that replay passed. A budget-crossing sensitivity leaves all 16
+primary endpoints and the continuation decision unchanged.
+
+The next formal look combines all 16 pairs after stage 2 completes, estimated
+another 5–6 days **from its recorded start**. Do not infer start from this plan.
+Operational readback now records start on October 27 at 11:07 Asia/Shanghai,
+with the seed-9 pair healthy and backup/maintenance jobs successful; the
+estimated final-review window is November 1–2. See the dated deployment receipt.
+No algorithm development is needed to run it. Prioritize health-only status
+(#7), explicit multi-stage input validation for final analysis, and diagnosing
+proposal reproducibility on copies. Keep safety fixes and selected-finalist
+export separate. After the final look, use the outcome-dependent protocol and
+simple baselines/Optuna reference before new controller or LLM/Jev comparisons.
+The 2026-10-20 maintenance restriction remains for package/runtime rollout;
+the registered continuation is a configuration-only operation on the frozen
+installed snapshot.
+
 ## Maintenance disposition and research gates (2026-10-20)
 
 This section narrows the active backlog; it does not introduce another adaptive
@@ -370,7 +430,7 @@ Readers who went through the source found these. They are accepted as stated; ea
 | 38 | **Training-lifecycle coverage.** Read R14; then decide, per stage in the table above, lever, separate gym or out of scope. The first candidate is the gradient gym of step 23 with an adapter-sized trainable part, because it answers 'train small against shrink large' on the same caps and the same data | the plan covers the whole life of a model, or says why it does not | R14, then a gym profile | yes (a new gym) | planned; R14 read: start with the gradient gym of step 23, nothing else in the lifecycle is a lever |
 | 39 | **Model-call budget and reliability.** Endpoint health seeded from the ledger (24 h window); circuit breaker per endpoint (quarantine after 5 consecutive failures, exponential backoff 10 min to 2 h, all-quarantined returns paused); retry with jitter for 429/5xx/timeout/reset (up to 2 retries, Retry-After honoured); per-arm lifetime budget (`--llm-budget` / `ANTS_LLM_BUDGET`); `call_id` + `attempt` + `arm` columns on `llm_calls` (schema v2, migration); `llm_summary(since)`; failure causes per endpoint in doctor and System page; endpoint quarantine state in doctor and System page | model arms are compared at equal access, not at equal luck | `llm.py`, `ledger.py`, `cli.py`, `ui.py`, `tui/model.py`, `tui/views.py` | no (a changed arm definition is a fresh arm) | built and independently reviewed on branch `llm` (breaker, retry, budget, schema v2); in the 0.6.2 pull request; not released, not on the server |
 | 40 | **Reward and credit.** The ladder in 'What the reward should be': deep-stage hypervolume gain per CPU-second, delayed credit to lineage, the cheap-stage proxy as a small shaping term; compare the two rewards on the finished ledgers first (step 22), then as two arms | the scheduler spends compute where the frontier actually moves | steps 35, 22, 18 | yes | planned |
-| 41 | **A model-free shared layer**, built in the order of the table in 'Shared without a model': (1) a tagged, read-only pooled view of all arms' trials; (2) the evaluation cache, with `reverify` as its guard; (3) the mutation-effect atlas with prospective tests and a false-discovery rule; (4) the shared surrogate and cost model; (5) the refutation register; (6) region claims with leases | how much of the benefit of sharing needs no model, and whether sharing helps at all (stage C of the plan) | pooled views over the ledgers, analysis code, a claims table | (1) and (3) to (6): no; (2): the arm definition changes | planned; (1) and (3) first, with step 21, because they are read-only |
+| 41 | **A model-free shared layer**, built in the order of the table in 'Shared without a model': (1) a tagged, read-only pooled view of all arms' trials; (2) the evaluation cache, with `reverify` as its guard; (3) the mutation-effect atlas with prospective tests and a false-discovery rule; (4) the shared surrogate and cost model; (5) the refutation register; (6) region claims with leases. The v2 agent tools (branch `agent2`, not yet run) expose three of these as read-only tools within one arm: `effects` is the mutation-effect atlas (item 3), `neighbors` and `check` are the cache/duplicate view (item 2), and `predict` is the per-arm surrogate (item 4) | how much of the benefit of sharing needs no model, and whether sharing helps at all (stage C of the plan) | pooled views over the ledgers, analysis code, a claims table | (1) and (3) to (6): no; (2): the arm definition changes | planned; (1) and (3) first, with step 21, because they are read-only |
 
 
 ## Toward research agents: what exists and what changes (2026-10-17)
