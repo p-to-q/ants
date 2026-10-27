@@ -73,7 +73,8 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 | `experiments` | list experiments from `deploy/experiments.toml` and check their ledgers | no |
 | `seeds` | run multiple seeds of one or more arms, interleaved, with pre-registered seed list | workdirs, `seeds.json` |
 | `series run NAME` | run a pre-registered series (epoch-checked, delegates to seed runner) | workdirs, `seeds.json` |
-| `series status NAME` | read-only status table per run in a series | no |
+| `series status NAME [--json] [--values]` | read-only health/progress; scores are read only with explicit `--values` | no |
+| `series plan NAME [--workers N] [--json]` | resource estimates with stated CPU/memory assumptions | no |
 | `series check NAME` | integrity check: epoch, def hash, chain per ledger in a series (exit 1 on any failure) | no |
 | `bundle make` | create a sealed, verifiable snapshot of one or more workdir ledgers | bundle directory and tar.gz |
 | `bundle verify PATH` | verify a bundle (directory or tar.gz): checksums, chains, manifest | no |

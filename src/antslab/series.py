@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -217,108 +218,156 @@ def run_series(a) -> int:
         lock.close()
 
 
-def series_status(a) -> int:
-    """CLI entry point for `ants series status NAME`."""
-    from .cli import _contract_path
+def find_series_file(name: str, file: str | None = None) -> Path | None:
+    if file:
+        return Path(file)
+    for cand in (Path("deploy/series") / f"{name}.toml", Path("/opt/ants/deploy/series") / f"{name}.toml"):
+        if cand.exists():
+            return cand
+    return None
 
-    path = Path(a.file) if hasattr(a, "file") and a.file else None
-    if path is None:
-        for cand in (Path("deploy/series") / f"{a.name}.toml",
-                     Path("/opt/ants/deploy/series") / f"{a.name}.toml"):
-            if cand.exists():
-                path = cand
-                break
-        if path is None:
-            print(f"ants series: no series file found for {a.name!r}", file=sys.stderr)
-            return 1
 
-    try:
-        s = load_series(path)
-    except SeriesError as e:
-        print(f"ants series: {e}", file=sys.stderr)
-        return 1
-
-    contract = s["contract"]
-    try:
-        contract = str(Path(_contract_path(contract)).resolve())
-    except (SystemExit, FileNotFoundError):
-        print(f"ants series: contract not found: {contract}", file=sys.stderr)
-        return 1
-
-    base = Path(a.base if hasattr(a, "base") and a.base else s["base"])
-    as_json = getattr(a, "json", False)
-
-    # compute current epoch for comparison
+def collect_status(s: dict, contract: str, base: Path, values: bool = False) -> tuple[list[dict], str]:
+    """One row per (arm, seed) of a series, read-only, and the epoch the current code would give. Shared by `ants series status`, `plan` and the
+    terminal interface. The best values per cap are NOT read unless `values` is true: the protocols (E43, section 6) read health and progress between
+    looks and nothing that compares arms, and the default of every display follows that."""
+    from .seeds import _workdir_name, _best_per_cap, _budget_reached
+    from .ledger import Ledger
     try:
         current_epoch = compute_epoch(contract)
     except Exception:
         current_epoch = "?"
-
-    from .seeds import _workdir_name, _best_per_cap
-    from .ledger import Ledger
-
     rows = []
     for arm in s["arms"]:
         for seed in s["seeds_parsed"]:
             wd = base / _workdir_name(arm, seed)
             ledger_path = wd / "ledger.sqlite"
-            row = {"arm": arm, "seed": seed, "state": "not started",
-                   "trials": 0, "cpu_s": 0.0, "best_per_cap": {},
+            row = {"arm": arm, "seed": seed, "state": "not started", "trials": 0, "cpu_s": 0.0, "budget_s": s["max_cpu_s"],
                    "epoch_ok": None, "def_hash_constant": None, "chain_ok": None}
             if ledger_path.exists():
+                led = None
                 try:
                     led = Ledger.open_readonly(ledger_path)
-                    # trial/cpu counts
                     gym = led.conn.execute("SELECT gym FROM trials LIMIT 1").fetchone()
                     if gym:
-                        gym = gym[0]
-                        row["trials"] = led.count_final(gym, arm)
-                        row["cpu_s"] = round(led.cpu_total(gym, arm), 1)
-                    # epoch check
-                    epochs = [dict(r) for r in led.conn.execute("SELECT * FROM epochs")]
-                    epoch_ids = {r["id"] for r in epochs}
+                        row["trials"] = led.count_final(gym[0], arm)
+                        row["cpu_s"] = round(led.cpu_total(gym[0], arm), 1)
+                    epoch_ids = {r["id"] for r in led.conn.execute("SELECT id FROM epochs")}
                     row["epoch_ok"] = s["epoch"] in epoch_ids and len(epoch_ids) == 1
-                    # definition hash constant
                     starts = led.events("daemon_started")
                     if starts:
-                        hashes = {ev["payload"].get("arm_def_hash") for ev in starts
-                                  if ev["payload"].get("arm") == arm}
+                        hashes = {ev["payload"].get("arm_def_hash") for ev in starts if ev["payload"].get("arm") == arm}
                         row["def_hash_constant"] = len(hashes) <= 1
-                    # chain
-                    ok, _ = led.verify_chain()
-                    row["chain_ok"] = ok
-                    # state
+                    row["chain_ok"] = led.verify_chain()[0]
                     running = led.conn.execute("SELECT COUNT(*) FROM trials WHERE state='running'").fetchone()[0]
                     if row["trials"] > 0:
-                        from .seeds import _budget_reached
-                        if _budget_reached(ledger_path, None, s["max_cpu_s"], arm):
-                            row["state"] = "done"
-                        elif running > 0:
-                            row["state"] = "running"
-                        else:
-                            row["state"] = "partial"
+                        row["state"] = "done" if _budget_reached(ledger_path, None, s["max_cpu_s"], arm) else ("running" if running else "partial")
                     elif running > 0:
                         row["state"] = "running"
-                    led.close()
                 except Exception as e:
-                    row["state"] = f"error: {e}"
-            row["best_per_cap"] = _best_per_cap(wd, arm, contract)
+                    from .textsafe import clean_text
+                    row["state"] = f"error: {clean_text(str(e), 60)}"
+                finally:
+                    if led is not None:
+                        led.close()
+            if values:
+                row["best_per_cap"] = _best_per_cap(wd, arm, contract)
             rows.append(row)
+    return rows, current_epoch
 
-    if as_json:
-        print(json.dumps({"series": s["name"], "epoch_expected": s["epoch"],
-                           "epoch_current": current_epoch, "rows": rows}, indent=2))
+
+def _load_for_cli(a):
+    from .cli import _contract_path
+    path = find_series_file(a.name, getattr(a, "file", None))
+    if path is None:
+        print(f"ants series: no series file found for {a.name!r}", file=sys.stderr)
+        return None
+    try:
+        s = load_series(path)
+    except SeriesError as e:
+        print(f"ants series: {e}", file=sys.stderr)
+        return None
+    try:
+        contract = str(Path(_contract_path(s["contract"])).resolve())
+    except (SystemExit, FileNotFoundError):
+        print(f"ants series: contract not found: {s['contract']}", file=sys.stderr)
+        return None
+    return s, contract, Path(a.base if getattr(a, "base", None) else s["base"])
+
+
+def series_status(a) -> int:
+    """CLI entry point for `ants series status NAME [--json] [--values]`."""
+    loaded = _load_for_cli(a)
+    if loaded is None:
+        return 1
+    s, contract, base = loaded
+    rows, current_epoch = collect_status(s, contract, base, values=getattr(a, "values", False))
+    if getattr(a, "json", False):
+        print(json.dumps({"series": s["name"], "epoch_expected": s["epoch"], "epoch_current": current_epoch, "rows": rows}, indent=2))
         return 0
-
-    # table output
     print(f"series: {s['name']}  epoch: {s['epoch']} (current: {current_epoch}{'  OK' if current_epoch == s['epoch'] else '  MISMATCH'})")
-    hdr = f"{'arm':<24} {'seed':>4}  {'state':<14}  {'trials':>6}  {'cpu_s':>8}  {'epoch':>6}  {'def':>4}  {'chain':>6}"
-    print(hdr)
+    print(f"{'arm':<24} {'seed':>4}  {'state':<14}  {'trials':>6}  {'cpu_s':>8}  {'of':>7}  {'epoch':>6}  {'def':>4}  {'chain':>6}")
     for r in rows:
         eo = "ok" if r["epoch_ok"] else ("FAIL" if r["epoch_ok"] is not None else "-")
         dh = "ok" if r["def_hash_constant"] else ("FAIL" if r["def_hash_constant"] is not None else "-")
         ch = "ok" if r["chain_ok"] else ("FAIL" if r["chain_ok"] is not None else "-")
-        print(f"{r['arm']:<24} {r['seed']:>4}  {r['state']:<14}  {r['trials']:>6}  {r['cpu_s']:>8.1f}  {eo:>6}  {dh:>4}  {ch:>6}")
+        print(f"{r['arm']:<24} {r['seed']:>4}  {r['state']:<14}  {r['trials']:>6}  {r['cpu_s']:>8.1f}  {r['budget_s']:>7.0f}  {eo:>6}  {dh:>4}  {ch:>6}")
+    if not getattr(a, "values", False):
+        print("(values per cap are hidden between the looks of the protocol; --values shows them)")
+    return 0
+
+
+def plan(s: dict, workers: int | None = None, cpu_count: int | None = None, mem_available_mb: float | None = None) -> dict:
+    """What a series will ask of the machine, in plain numbers: runs, CPU-hours, wall time, memory. Pure (testable); the CLI fills in the machine."""
+    runs = len(s["arms"]) * len(s["seeds_parsed"])
+    total_cpu_h = runs * s["max_cpu_s"] / 3600
+    w = s["workers"] if workers is None else workers
+    if not isinstance(w, int) or isinstance(w, bool) or not 1 <= w <= 8:
+        raise SeriesError("workers must be an integer from 1 to 8")
+    eff = 0.9                                                    # a worker is not busy 100% (promotion, ledger writes, the supervisor)
+    effective_workers = min(w, cpu_count) if cpu_count and cpu_count > 0 else w
+    wall_h = total_cpu_h / (effective_workers * eff)
+    peak_mb = 270 + 120                                          # one evaluation's largest measured peak (266 MB on the server) + a run's own process
+    need_mb = w * peak_mb
+    notes = []
+    if cpu_count and w > cpu_count:
+        notes.append(f"{w} workers on {cpu_count} CPUs: they will share, and every run takes longer in wall time (its CPU budget is unchanged)")
+    if mem_available_mb is not None and need_mb > mem_available_mb:
+        notes.append(f"about {need_mb} MB estimated for {w} workers, {mem_available_mb:.0f} MB available: memory pressure is possible")
+    return {"runs": runs, "cpu_hours_per_run": round(s["max_cpu_s"] / 3600, 2), "total_cpu_hours": round(total_cpu_h, 1), "workers": w,
+            "expected_wall_hours": round(wall_h, 1), "expected_wall_days": round(wall_h / 24, 1), "memory_mb_estimate": need_mb,
+            "assumptions": {"cpu_efficiency": eff, "memory_mb_per_worker": peak_mb, "cpu_quota_detected": False}, "notes": notes}
+
+
+def mem_available_mb() -> float | None:
+    try:
+        for line in open("/proc/meminfo"):
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) / 1024
+    except OSError:
+        pass
+    return None
+
+
+def series_plan(a) -> int:
+    """CLI entry point for `ants series plan NAME [--workers N] [--json]`."""
+    loaded = _load_for_cli(a)
+    if loaded is None:
+        return 1
+    s, contract, base = loaded
+    try:
+        p = plan(s, getattr(a, "workers", None), os.cpu_count(), mem_available_mb())
+    except SeriesError as e:
+        print(f"ants series: {e}", file=sys.stderr)
+        return 1
+    if getattr(a, "json", False):
+        print(json.dumps(p, indent=2))
+        return 0
+    print(f"series {s['name']}: {p['runs']} runs of {p['cpu_hours_per_run']} CPU-hours = {p['total_cpu_hours']} CPU-hours")
+    print(f"  with {p['workers']} workers: about {p['expected_wall_hours']} hours ({p['expected_wall_days']} days) of wall time, about {p['memory_mb_estimate']} MB of memory")
+    print("  estimate assumes 90% CPU efficiency and 390 MB per worker; service CPU quota is not detected")
+    for n in p["notes"]:
+        print(f"  note: {n}")
     return 0
 
 

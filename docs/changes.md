@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-27 · Accept health-only series status and resource planning
+Changed: ported the existing local series work onto current main; status omits score reads unless --values; resource plans validate workers, account for CPU oversubscription and state assumptions.
+Why: checking an active series should not expose interim rankings, and adding workers does not create CPUs.
+Forecloses: silent score reads, a corrupt ledger looking like missing history, misleading resource guarantees, or dropping current run/definition guards during the port.
+
 ## 2026-10-27 · Audit existing development beyond the deployment checkout
 Changed: inventoried original local feature branches against current main and separated experimental deployment gates from concurrent engineering and branch acceptance.
 Why: a bounded maintenance restriction and stale historical status tables had been extended into a blanket development delay, while useful implementations already existed locally.

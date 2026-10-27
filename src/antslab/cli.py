@@ -659,8 +659,10 @@ def cmd_seeds(a):
 
 
 def cmd_series(a):
-    from .series import run_series, series_status, series_check
+    from .series import run_series, series_status, series_check, series_plan
     action = a.action
+    if action == "plan":
+        return series_plan(a)
     if action == "run":
         return run_series(a)
     elif action == "status":
@@ -783,7 +785,7 @@ def main(argv=None):
     # --- series ---
     sp = sub.add_parser("series", help="manage a pre-registered series of seed runs")
     sp_sub = sp.add_subparsers(dest="action", required=True)
-    for act in ("run", "status", "check"):
+    for act in ("run", "status", "check", "plan"):
         ss = sp_sub.add_parser(act)
         ss.add_argument("name", help="series name (matches deploy/series/<name>.toml)")
         ss.add_argument("--file", default=None, help="explicit path to the series TOML file")
@@ -794,6 +796,9 @@ def main(argv=None):
             ss.add_argument("--llm-env", default=None)
         if act == "status":
             ss.add_argument("--json", action="store_true")
+            ss.add_argument("--values", action="store_true", help="also read the best values per cap (hidden by default between the looks of a protocol)")
+        if act == "plan":
+            ss.add_argument("--json", action="store_true"); ss.add_argument("--workers", type=int, default=None)
     sp.set_defaults(fn=cmd_series)
     # --- bundle ---
     bp = sub.add_parser("bundle", help="create or verify a sealed results bundle")
