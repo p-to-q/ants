@@ -40,8 +40,10 @@ preserved; changing a title or receipt requires an explicitly managed new record
 Missing index: an empty page with the indexing command. Invalid or unreadable
 index: an actionable error, not a fabricated empty history. Invalid detail or
 checksum mismatch: a read-only error pane, with Esc to return. Regular-file,
-bounded-read and safe-ID checks reject pipes, symlinks and traversal. Index
-failure never modifies a running experiment. Cache verification does not replace
+bounded-read and safe-ID checks reject pipes, symlinks and traversal. An uncapped
+contract (no `cap_metric` and no `caps`) indexes with a null focus cap and an
+empty preview instead of crashing. Index failure never modifies a running
+experiment. Cache verification does not replace
 bundle verification or a restore drill; the original bundle remains the evidence.
 
 Tests: `tests/test_archive_index.py`, `tests/test_tui.py`. Status: experimental.
