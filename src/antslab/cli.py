@@ -370,7 +370,7 @@ def cmd_best(a):
     from .history import History
     wd, led, c = _open(a)
     h = History.for_arm(led, c, a.arm); h.update()
-    lb = ui.leaderboard(h, c, a.top)
+    lb = ui.leaderboard(h, c, a.top, order=getattr(a, "order", "best"))
     if a.cap:
         lb = {k: v for k, v in lb.items() if k == str(a.cap)}
     def _best_text(d):
@@ -752,6 +752,7 @@ def main(argv=None):
             s.add_argument("--every", type=float, default=5); s.add_argument("--once", action="store_true")
         if name == "best":
             s.add_argument("--top", type=int, default=5); s.add_argument("--cap", type=int)
+            s.add_argument("--order", choices=["best", "latest"], default="best")
         if name == "show":
             s.add_argument("ref", help="trial id or spec-key prefix")
         if name == "diff":
@@ -851,6 +852,23 @@ def main(argv=None):
     tp.add_argument("--csv", default=None, help="write CSV to this file (also selects CSV format for stdout)")
     tp.add_argument("--json", action="store_true")
     tp.set_defaults(fn=lambda a: __import__("antslab.tiera", fromlist=["cmd_tier_a"]).cmd_tier_a(a))
+    ca = sub.add_parser("candidates", help="preserve versioned development candidates; no champion promotion or weight refitting")
+    cas = ca.add_subparsers(dest="action", required=True)
+    for action in ("sync", "watch", "list", "show", "refit"):
+        cs = cas.add_parser(action)
+        cs.add_argument("--store", required=True, help="private candidate store directory")
+        if action in ("sync", "watch"):
+            cs.add_argument("--contract", required=True); cs.add_argument("--workdir", required=True)
+            cs.add_argument("--arm", required=True)
+        if action == "watch":
+            cs.add_argument("--interval", type=float, default=60)
+        if action in ("show", "refit"):
+            cs.add_argument("id")
+        if action == "refit":
+            cs.add_argument("--contract", required=True); cs.add_argument("--dataset", required=True)
+            cs.add_argument("--horizon", type=int, choices=[96,192,336,720], default=96)
+            cs.add_argument("--out", required=True, help="new artifact directory; never overwrites an existing version")
+    ca.set_defaults(fn=lambda a: __import__("antslab.candidates", fromlist=["cmd_candidates"]).cmd_candidates(a))
     s = sub.add_parser("ui", help="the terminal interface (what plain `ants` opens on a terminal)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")

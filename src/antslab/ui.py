@@ -43,15 +43,18 @@ def snapshot(led, c, arm: str, workdir, hist: History | None = None) -> dict:
             "llm_calls_1h": {"calls": calls[0], "ok": calls[1]}, "user_hints": [_c(e["payload"].get("text", ""), 500) for e in led.recent_events("user_hint", 3)]}
 
 
-def leaderboard(h: History, c, top: int = 5, cumulative: bool = True) -> dict:
+def leaderboard(h: History, c, top: int = 5, cumulative: bool = True, order: str = "best") -> dict:
     """Best specs per size cap. Ranked by the deepest stage each spec reached, then by value at that stage: a cheap first-stage
     number must never outrank a deeper measurement (stages are different protocols and not comparable).
     cumulative=True (default): the entry for cap N ranks every spec of at most N parameters, so "<= 300" really means that and a
     small model that beats a bigger one shows under both caps. cumulative=False: each spec only in the smallest cap that holds it
     (the registry's cap bins: one champion per bin)."""
     h.update()                                   # always current: callers must not have to remember this
+    if order not in ("best", "latest"):
+        raise ValueError("leaderboard order must be best or latest")
     out, bins = {}, {}
-    key = lambda r: (-r["stage_idx"], h.sign * r["value"])
+    key = ((lambda r: (-(r.get("finished_at") or 0), -r["id"])) if order == "latest"
+           else (lambda r: (-r["stage_idx"], h.sign * r["value"])))
     for r in sorted((r for r in h.best.values() if r.get("feasible", True)), key=key):
         bins.setdefault(h.cap_bin(r["metrics"]), []).append(r)
     acc: list = []
@@ -63,6 +66,7 @@ def leaderboard(h: History, c, top: int = 5, cumulative: bool = True) -> dict:
             rs = acc
         out[str(b)] = [{"rank": i, "value": round(r["value"], 5), "stage": c.stages[r["stage_idx"]], "n_params": r["metrics"].get(c.cap_metric),
                         "val_mse": r["metrics"].get("val_mse"), "rel_mae": r["metrics"].get("rel_mae"), "primary": c.primary,
+                        "finished_at": r.get("finished_at"), "epoch": r.get("epoch"),
                         "trial": r["id"], "key": r["key"], "operator": _c(((h.first.get(r["key"]) or r)["source"]).split(":")[0], 40), "spec": _diff(c, r["spec"])}
                        for i, r in enumerate(rs[:top], 1)]
     return out

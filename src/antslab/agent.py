@@ -225,7 +225,7 @@ class AgentProposer(LLMStrict):
             from . import ui
             rows = ui.leaderboard(job.hist, c, max(1, min(int(args.get("top", 5)), 10)))
             if self.tools_gen == "v1":
-                rows = {cap: [{k: v for k, v in row.items() if k not in ("val_mse", "rel_mae", "primary")}
+                rows = {cap: [{k: v for k, v in row.items() if k not in ("val_mse", "rel_mae", "primary", "finished_at", "epoch")}
                               for row in rs] for cap, rs in rows.items()}
             return _text(rows)
         if name == "failures":

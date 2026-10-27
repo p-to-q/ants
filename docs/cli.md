@@ -76,6 +76,10 @@ First match wins. What was filled in is printed to stderr as `using contract=...
 | `series status NAME [--json] [--values]` | read-only health/progress; scores are read only with explicit `--values` | no |
 | `series plan NAME [--workers N] [--json]` | resource estimates with stated CPU/memory assumptions | no |
 | `tier-a --spec FILE...` or `--trial ID... --workdir DIR` | explicit local dev-validation refit/report; `--csv FILE`, `--json`, `--out FILE`, `--lookback N` | report files only; refits models |
+| `best --order best|latest` | cap-filtered quality or recency order; default ranking unchanged | no |
+| `candidates sync|watch --contract FILE --workdir DIR --arm NAME --store DIR` | preserve deepest-stage development finalists; watch uses `--interval SEC` | private candidate records only |
+| `candidates list|show [ID] --store DIR` | verified saved configuration/evidence records | no |
+| `candidates refit ID --store DIR --contract FILE --dataset DEV --horizon N --out NEW_DIR` | explicit train-only weights/preprocessing/source bundle with parity check | new artifact; computes a new fit |
 | `series check NAME` | integrity check: epoch, def hash, chain per ledger in a series (exit 1 on any failure) | no |
 | `bundle make` | create a sealed, verifiable snapshot of one or more workdir ledgers | bundle directory and tar.gz |
 | `bundle verify PATH` | verify a bundle (directory or tar.gz): checksums, chains, manifest | no |

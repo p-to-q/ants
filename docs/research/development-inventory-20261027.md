@@ -74,3 +74,38 @@ engineering. Additional training or model calls on the small server, changes
 to the active evaluator/search policy, and new scientific claims are governed
 by their own protocol and evidence. Completing E43 is one research decision,
 not completion of the whole roadmap and not a prerequisite for all development.
+
+## Acceptance receipt, later on October 27
+
+Selective integration now includes series status/resource plans, standard metric
+displays and development validation reports, agent-v2 tools through the actual
+CLI/seed/definition entry points, and a small Past header trim. Existing
+preflight, arm guards, sealed-look protections and archive functionality were
+retained rather than replaced with the old integration branch.
+
+Added best/latest leaderboard order and a separate candidate sidecar: immutable
+configuration/evidence versions, scoped atomic best pointers and an explicitly
+started watcher. An explicit train-only refit exports numeric weights,
+preprocessing, source and provenance with cap enforcement and reload parity.
+It never fabricates the historical weights that TinyTS did not originally save.
+
+Validation: common suite **1174 passed, 28 skipped, 6 deselected**; slow chaos
+suite **6 passed**. Initial local-branch auditing also exposed three tests that
+assumed the repository working directory; those passed when rerun there. The
+ported series-plan fixture now resolves its file relative to the test module.
+Dataset-backed original Tier A checks passed; four such checks skip in the new
+checkout without processed data. This is not completion of real-data CI #13.
+
+Private integration smoke preserved 64 per-cap records from all 16 completed
+E43a run copies. One selected development candidate was explicitly refitted on
+ETTh1 training data at horizon 96. Its artifact stores 34 dense weight and
+preprocessing values under cap 300; seven prediction rows reload with maximum
+absolute difference 0. This validates artifact plumbing, not model superiority,
+screen efficacy, confirmation or publication readiness. It does not read E43
+stage-2 scores or use the server's worker slots.
+
+These changes are not a package/server rollout. References #7 and #8 remain
+open for their remaining acceptance work: full operational freshness/resource/
+backup reporting and default-output compatibility review for #7; complete
+finalist freeze/lineage/environment handoff and independent reproduction for #8.
+Passing focused tests is not a reason to close the broader issues prematurely.

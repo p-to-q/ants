@@ -62,6 +62,11 @@ series are discovered one level below `/var/lib/ants/series` (override with
 | 8 | System | version and update, service state, model calls of this search and of every ledger with the cap (the cap applies to each ledger on its own) and where it comes from, calls per hour, backups on a 7-day axis and how many trials a restore of the newest one would lose |
 
 A trial opens to its levers, its metrics per stage with a bar, its error if any, and its lineage.
+On Leaderboard, `o` switches best/latest order. Best keeps deeper evaluations
+ahead of cheap-stage results; latest means recency only. The selected model's
+epoch, finish time and specification appear below the table. Preservation and
+train-only weight export are separate explicit `candidates` commands; opening
+this page does not write snapshots or retrain models.
 
 ## Keys
 

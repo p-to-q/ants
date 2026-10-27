@@ -17,9 +17,14 @@ series planning/status work. Do not rebuild them from their roadmap titles.
 Conversely, old `llm`/`ops` branches include capabilities already on main and
 would undo subsequent fixes if merged wholesale.
 
-Immediate engineering: selectively accept health/status/plan and standard
-metrics/report tooling; prepare the combined-series report and finalist
-manifest; then review agent-v2 tools and build the simple-reference harness.
+Acceptance update: the local integration branch now contains health/status/plan,
+standard metrics/validation reports, agent-v2 entry-point wiring, the compact
+Past header, best/latest views, versioned candidates and explicit train-only
+weight exports. Common suite: 1174 passed, 28 skipped; chaos: 6 passed. An
+ETTh1 refit smoke exported weights/preprocessing/source with exact reload parity;
+this is not a held-out result. See the dated inventory for scope limits.
+Next engineering is the combined-series report, full result/lineage/environment
+handoff and the fair simple-reference harness, not another rewrite of these tools.
 Read-only landscape/pooled-evidence tools, integrity/gate tests and a separate
 next-gym prototype may also progress under their own bounded scopes. Full
 server studies and adoption of new search/evaluation rules retain their

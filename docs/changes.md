@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-27 · Preserve candidate versions and export explicit train-only refits
+Changed: added best/latest leaderboard order, an independent candidate detector/watcher with version records and scoped atomic pointers, and a train-only TinyTS weight/preprocessing/source exporter with reload parity.
+Why: a useful model needs a traceable saved version, while the existing gym did not preserve its original fitted weights.
+Forecloses: destructive best-file replacement, merging epochs/caps, implicit viewer writes or retraining, fabricated historical checkpoints, and treating a dev-best candidate as a published champion.
+
 ## 2026-10-27 · Past starts with the retained work
 Changed: removed the duplicate body title and standing introduction; kept a compact count/cache notice and the existing list/preview/detail layout, with more visible rounds.
 Why: repeated explanatory copy displaced the records on a frequently visited terminal screen.

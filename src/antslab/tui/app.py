@@ -122,9 +122,10 @@ class App:
         if screen == "overview":
             return {"snap": src.overview()}
         if screen == "board":
-            lb = src.leaderboard(10)
+            order = filt.get("board_order", "best")
+            lb = src.leaderboard(10, order=order)
             ranks = {r["trial"]: r["rank"] for rows in lb.values() for r in rows}
-            out = {"lb": lb, "prev_ranks": dict(self.ranks)}                  # ranks as of the previous refresh: the ▲ ▼ marks
+            out = {"lb": lb, "order": order, "prev_ranks": dict(self.ranks)}                  # ranks as of the previous refresh: the ▲ ▼ marks
             self.ranks = ranks
             return out
         if screen == "trials":
@@ -311,6 +312,11 @@ class App:
             self.cycle_screen(-1)
         elif ch in (10, 13, K.KEY_ENTER):
             self.enter(v)
+        elif ch == ord("o") and self.screen == "board":
+            self.filt["board_order"] = "latest" if self.filt.get("board_order", "best") == "best" else "best"
+            c.sel = 0
+            self.ranks = {}
+            self.refresh.set()
         elif ch == ord("s") and self.screen == "trials":
             i = views.STATES.index(self.filt.get("state"))
             self.filt["state"] = views.STATES[(i + 1) % len(views.STATES)]; c.sel = 0; self.refresh.set()

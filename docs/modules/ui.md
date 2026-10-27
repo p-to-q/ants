@@ -21,6 +21,10 @@ Leaderboard entries additionally carry `val_mse` and `rel_mae`. CLI, terminal
 details and HTML show standardised MSE and relative MAE alongside the primary
 value. Missing metrics display `-`; standardised MSE is not silently relabelled
 as relative MSE. These are this evaluator's aggregates, not paper benchmark rows.
+Leaderboard order is `best` by default (deepest stage first), or `latest` by
+finish time. The terminal toggles with `o`; the selected record shows its epoch,
+completion time and specification. Recency is not evidence of improvement.
+Viewing never triggers candidate preservation, refitting or model adoption.
 
 **Interface**
 - `snapshot(led, c, arm, workdir, hist=None)` (stages by state, finish rates, disk, `chain_tail_ok` from `verify_tail`, best per cap, operator rates, research paths, LLM calls in the last hour, latest hints), `leaderboard(hist, c, top)`, `show(led, c, ref)` (trial id or spec-key prefix; spec, stage metrics, parent lineage), `log(led, n, kind)`, `hint(led, text)`, `doctor(led, c, arm, workdir)`, `render_top`, `render_show`, `PAUSE_FILE = "PAUSE"`.

@@ -24,7 +24,7 @@ STATE_GLYPH = {"done": ("✓", "ok"), "failed": ("✗", "bad"), "timeout": ("⏱
 KEYS = {
     "home": "0-9 or ←→ screens · [ ] next/prev search · p pause/resume · h hint · / command · ? help · q quit",
     "overview": "←→ screens · r refresh · p pause/resume · h hint · [ ] search · space freeze · ? help",
-    "board": "Tab/< > cap · ←→ screens · ↑↓ row · Enter open · p pause · h hint · [ ] search · ? help",
+    "board": "o best/latest · Tab/< > cap · ↑↓ row · Enter open · ←→ screens · [ ] search · ? help",
     "trials": "↑↓ row · Enter open · s state · t stage · g/G top/bottom · space freeze · ? help",
     "fleet": "↑↓ row · Enter switch to that search · p pause/resume it · h hint · ? help",
     "events": "↑↓ scroll · k kind · space freeze · ? help",
@@ -272,7 +272,8 @@ def board(d, ctx: Ctx) -> View:
     if not caps:
         return View([[S(" no finished evaluations yet", "dim")]])
     tab = ctx.tab % len(caps)
-    lines = [[S(" ")] + [S(f"[≤{c}]", "accent") if i == tab else S(f" ≤{c} ", "dim") for i, c in enumerate(caps)] + [S("   Tab or < > cap · ←/→ screen · ↑/↓ row · Enter opens", "dim")], []]
+    order = d.get("order", "best")
+    lines = [[S(" ")] + [S(f"[≤{c}]", "accent") if i == tab else S(f" ≤{c} ", "dim") for i, c in enumerate(caps)] + [S(f"   {order} · o changes order · Enter opens", "dim")], []]
     rows = lb[caps[tab]]
     primary = rows[0].get("primary", "rel_mse") if rows else "rel_mse"
     sizes = [r["n_params"] for r in rows if r["n_params"]]
@@ -293,6 +294,12 @@ def board(d, ctx: Ctx) -> View:
                       S(trend, "ok" if trend.startswith("▲") else "warn" if trend.startswith("▼") else "dim"), S(f"{clip(r['operator'], 10):<10} ", "none"),
                       S(f"{r['value']:.4f}", "bold")])
     lines.append([]); lines.append([S(f"  ● marks the parameter count between the smallest ({lo}) and the largest ({hi}) in this list", "dim")])
+    if rows:
+        selected = rows[min(max(ctx.sel, 0), len(rows) - 1)]
+        stamp = selected.get("finished_at")
+        when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(stamp)) if isinstance(stamp, (int, float)) else "time not recorded"
+        lines.append([S(clip(f"  #{selected['trial']}  {selected['stage']}  epoch {selected.get('epoch') or 'legacy'}  {when}", w - 1), "dim")])
+        lines.append([S(clip("  " + selected.get("spec", ""), w - 1), "none")])
     return View(lines, len(rows), 3)
 
 
