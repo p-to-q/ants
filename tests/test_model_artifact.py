@@ -39,6 +39,19 @@ def test_cap_counts_preprocessing_and_all_dense_weights(tmp_path):
     assert not (tmp_path/"no").exists()
 
 
+def test_ensemble_export_keeps_both_members_and_their_combined_cap(tmp_path):
+    a,probe=fitted("linear")
+    b,_=fitted("period")
+    cap=sum(d[k].size for m in (a,b) for d,k in m._all_mats())+2
+    out=tmp_path/"ensemble"
+    A.save_refit([a,b],np.zeros(1),np.ones(1),probe,out,cap,{})
+    loaded=A.load(out)
+    assert len(loaded.models)==2
+    assert np.allclose(loaded.predict(probe),(a.predict(probe)+b.predict(probe))/2,rtol=0,atol=1e-10)
+    with pytest.raises(ValueError,match="cap"):
+        A.save_refit([a,b],np.zeros(1),np.ones(1),probe,tmp_path/"too-small",cap-1,{})
+
+
 def test_corrupt_weights_are_not_loaded(tmp_path):
     model,probe=fitted("period")
     out=tmp_path/"model"
