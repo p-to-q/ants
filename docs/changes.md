@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-27 · Audit existing development beyond the deployment checkout
+Changed: inventoried original local feature branches against current main and separated experimental deployment gates from concurrent engineering and branch acceptance.
+Why: a bounded maintenance restriction and stale historical status tables had been extended into a blanket development delay, while useful implementations already existed locally.
+Forecloses: rebuilding completed branch work, merging old integration branches wholesale over newer fixes, or treating every roadmap feature as blocked by E43.
+
 ## 2026-10-27 · E43 first look and registered continuation
 Changed: recorded the completed first look, uncertainty and reproducibility finding; added the already registered seeds 9–16 series file and a final-analysis/preservation runbook.
 Why: the first look triggers continuation under the frozen rule, while separate stage directories require explicit combined-input validation at the final look.

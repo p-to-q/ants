@@ -1,5 +1,30 @@
 # Roadmap
 
+## Development is concurrent with the frozen experiment (2026-10-27)
+
+The E43 freeze applies to its installed evaluator, search definitions, data,
+seeds and budgets. It does **not** block local development, tests, independent
+feature branches or acceptance of already written work. The October 20
+maintenance-only scope was one review pass, not an indefinite development ban.
+The October 17 blanket “none starts before E43” language below is historical
+and superseded by this section and the October 19 execution table.
+
+[Current code/branch inventory and acceptance queue](research/development-inventory-20261027.md)
+distinguishes implementations awaiting integration from unbuilt features and
+unvalidated research claims. In particular, local `metrics`/`v063` already
+contain report/display work, and `agent2`/`v063` contain agent-v2 tools and
+series planning/status work. Do not rebuild them from their roadmap titles.
+Conversely, old `llm`/`ops` branches include capabilities already on main and
+would undo subsequent fixes if merged wholesale.
+
+Immediate engineering: selectively accept health/status/plan and standard
+metrics/report tooling; prepare the combined-series report and finalist
+manifest; then review agent-v2 tools and build the simple-reference harness.
+Read-only landscape/pooled-evidence tools, integrity/gate tests and a separate
+next-gym prototype may also progress under their own bounded scopes. Full
+server studies and adoption of new search/evaluation rules retain their
+registered evidence gates; code development does not wait for those outcomes.
+
 ## E43 first look and continuation decision (2026-10-27)
 
 Stage 1 finished October 24 at 10:53 Asia/Shanghai: all 16 runs reached budget,
