@@ -197,5 +197,5 @@ def test_history_and_catalog_do_not_require_a_live_contract(tmp_path, monkeypatc
     assert a.load("afterlife", {}, None)["catalog"]["rounds"] == []
     assert a.load("data", {}, None) == {"data": {"sets": []}}
     text = app.once(screen="past", color=False)
-    assert text.startswith(" Past\n") and "graveyard" in text
+    assert text.startswith(" Past\n") and "cached records only" in text
     assert "Afterlife" not in text

@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-20 · Past opens with its count, not a paragraph
+Changed: the Past header keeps the retained-round count and the cached-records notice on one line; the standing introductory paragraph is gone, and the empty state still explains the page and the indexing command.
+Why: the header is revisited far more often than it is first discovered; static prose above the list costs wrapped lines on every visit without changing what the reader can do.
+Forecloses: reintroducing standing descriptive prose above the round list, and dropping the cached-records-only notice from the header.
+
 ## 2026-10-20 · Explicit JSON output for status and data
 Changed: status selects text or JSON explicitly; data list/verify/build/fetch accept --json. Tests isolate catalogs and ledgers and cover parser acceptance and failure exit codes.
 Why: agents need parseable output without guessing whether a command honors its flag; tests must not discover an operator's real workdir or data.
