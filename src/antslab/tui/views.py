@@ -546,9 +546,9 @@ def afterlife_screen(d, ctx: Ctx) -> View:
     w = ctx.width
     def prose(text, style="dim"):
         return [[S(" " + part, style)] for part in textwrap.wrap(text, max(10, w - 2))]
-    lines = [[S(" Past", "accent")]]
-    lines += prose("A graveyard for past experiments, with their findings and evidence kept within reach. Revisit a round to see what ran, what it found and where the verified copies are recorded.")
-    lines += [[S(f" {len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}. This view reads cached records only.", "dim")], []]
+    heading = "History unavailable" if catalog.get("error") else f"{len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}"
+    lines = [[S(" " + heading, "warn" if catalog.get("error") else "accent"),
+              S("   cached records only", "dim")], []]
     if catalog.get("error"):
         lines += prose("The index could not be read. Check its format and permissions, or rebuild it from verified bundles. No running experiment was changed.", "warn")
         lines += prose(clean_text(catalog["error"], 200), "warn")
@@ -558,7 +558,7 @@ def afterlife_screen(d, ctx: Ctx) -> View:
         lines += prose("Run `ants archive index --help` for the indexing command. The index is a cache; the sealed bundle remains the evidence.")
         return View(lines)
     selected = min(max(ctx.sel, 0), len(rounds) - 1)
-    count = min(7, max(2, ctx.height - 27))
+    count = min(7, max(2, ctx.height - 22))
     start = (selected // count) * count
     label_w = max(16, w - 43)
     lines.append([S(f" {'date':<11}{'round / question':<{label_w}}{'kind':<11}receipt", "dim")])
@@ -596,7 +596,7 @@ def afterlife_screen(d, ctx: Ctx) -> View:
     when = time.strftime("%Y-%m-%d %H:%M", time.localtime(checked)) if isinstance(checked, (float, int)) else "not recorded"
     lines += [[S(f" Verified {when}. Receipts are recorded, not checked live.", "dim")],
               [S(" Off-host receipt: " + clean_text(row.get("offsite_note") or "not recorded", 160), "none")],
-              [S(" Enter opens the full results, parameters and recovery locations.", "dim")]]
+              [S(" Enter opens the full record and backup locations.", "dim")]]
     return View(lines, len(rounds), row0)
 
 

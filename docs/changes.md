@@ -2,6 +2,11 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 2026-10-27 · Past starts with the retained work
+Changed: removed the duplicate body title and standing introduction; kept a compact count/cache notice and the existing list/preview/detail layout, with more visible rounds.
+Why: repeated explanatory copy displaced the records on a frequently visited terminal screen.
+Forecloses: redesigning navigation or storage, hiding repair guidance, and presenting an unreadable index as zero rounds.
+
 ## 2026-10-27 · Accept agent-v2 tools through the real entry points
 Changed: ported v2 check/neighbors/effects/predict/scorecard and expectation records; completed CLI, definition/preflight and seed model-arm classification, with scoped same-stage diagnostics.
 Why: a tool implementation is unusable if its arm never receives a client, and differing evaluation stages cannot support a valid better/worse comparison.

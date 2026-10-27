@@ -9,6 +9,8 @@ terminals keep a shared ASCII fallback; reduced motion retains static state glyp
 The last terminal page is **Past** (`9`): cached, per-round history with
 read-only details and recorded backup locations. Its information hierarchy and
 failure behaviour are documented in [archive_index](archive_index.md).
+The body opens with the retained-round count, without repeating the tab's name
+or a permanent introduction. Empty and unreadable history remain distinct.
 History and Data load independently of a live ledger or evaluation contract;
 contract resolution is deferred until a live Source is opened. A missing current
 experiment must not prevent access to preserved evidence or the data catalog.

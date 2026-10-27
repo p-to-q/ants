@@ -38,7 +38,8 @@ The phrase always sits next to the numbers it came from and always says why. It 
 ## Screens
 
 The final screen is **Past** (`9`). It groups past work by research round,
-not trial. Its subtitle explains the page in complete prose. Arrow and Page keys
+not trial. A compact count and cache notice replace the standing introduction;
+the tab supplies the page name. Empty/error states provide prose guidance. Arrow and Page keys
 select a round; Enter shows its evidence and parameters; Esc returns to the same
 selection. A cached receipt is not a live backup check. Operational snapshots
 omit results by default. See [the history/cache reference](modules/archive_index.md)
