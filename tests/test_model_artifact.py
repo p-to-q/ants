@@ -49,6 +49,17 @@ def test_corrupt_weights_are_not_loaded(tmp_path):
         A.load(out)
 
 
+def test_parent_directory_alias_is_allowed_but_bundle_alias_is_not(tmp_path):
+    model,probe=fitted("period")
+    actual=tmp_path/"actual";actual.mkdir()
+    alias=tmp_path/"alias";alias.symlink_to(actual,target_is_directory=True)
+    A.save_refit([model],np.zeros(1),np.ones(1),probe,alias/"model",10000,{})
+    assert A.load(alias/"model").predict(probe).shape==(4,12)
+    bundle_link=tmp_path/"bundle-link";bundle_link.symlink_to(actual/"model",target_is_directory=True)
+    with pytest.raises(ValueError,match="symlink"):
+        A.load(bundle_link)
+
+
 def test_prediction_requires_explicit_valid_channel_ids():
     model,probe=fitted("period")
     pred=A.Predictor([model],np.array([0.,1.]),np.array([1.,2.]))

@@ -54,6 +54,7 @@ def load(path):
     path = Path(path)
     if path.is_symlink():
         raise ValueError("artifact must not be a symlink")
+    path = path.resolve()
     meta = _read(path / "manifest.json")
     if meta.get("schema") != 1 or meta.get("origin") != "refitted_train_only":
         raise ValueError("unsupported model artifact")
@@ -65,7 +66,12 @@ def load(path):
         if p.is_absolute() or ".." in p.parts:
             raise ValueError("unsafe artifact path")
         target = path / p
-        if target.is_symlink() or any(parent.is_symlink() for parent in target.parents if parent != path.parent):
+        parents = []
+        for parent in target.parents:
+            if parent == path:
+                break
+            parents.append(parent)
+        if target.is_symlink() or any(parent.is_symlink() for parent in parents):
             raise ValueError("artifact files must not be symlinks")
         if not target.is_file() or target.stat().st_size > MAX_WEIGHTS_BYTES or _hash(target) != expected:
             raise ValueError(f"artifact checksum mismatch: {rel}")
