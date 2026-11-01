@@ -32,14 +32,23 @@ def _root() -> Path | None:
 
 def _contract_path(arg: str) -> str:
     """A path as given; or, when ANTS_ROOT is set, a bundled contract by name (`tinyts_synth_hard`, `tinyts_synth_hard.toml`)."""
-    if Path(arg).exists():
-        return arg
+    try:
+        if Path(arg).exists():
+            return arg
+    except PermissionError:
+        # The server wrapper switches to ants while retaining the caller's cwd.
+        # A relative lookup in /root must not prevent resolving a bundled name.
+        if Path(arg).is_absolute():
+            return arg
     from .home import package_root
     root = _root() or package_root()           # a bundled contract can be named in a source checkout too; it is never picked silently as a default
     if root:
         for cand in (root / "contracts" / arg, root / "contracts" / f"{arg}.toml", root / arg):
-            if cand.is_file():
-                return str(cand)
+            try:
+                if cand.is_file():
+                    return str(cand)
+            except PermissionError:
+                continue
     return arg
 
 
