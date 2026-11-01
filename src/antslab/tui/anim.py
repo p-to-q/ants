@@ -5,14 +5,22 @@ from __future__ import annotations
 
 import os
 
-# Shared activity token: new loading/working indicators reuse this template.
-# Activity meaning belongs to the accompanying text and colour, not a different animation.
 ACTIVITY_FRAMES = ("·", "✻", "✽", "✶", "✳", "✢")
 ACTIVITY_INTERVAL = 0.16
-SPINNERS = {name: (ACTIVITY_FRAMES, ACTIVITY_INTERVAL)
-            for name in ("loading", "running", "model", "found", "alive")}
-ASCII = dict.fromkeys(SPINNERS, "|/-\\")
+SPINNERS = {
+    "loading": ("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", 0.08),             # dots
+    "running": ("⣾⣽⣻⢿⡿⣟⣯⣷", 0.08),                # dots2: a search is working
+    "model": (("∙∙∙", "●∙∙", "∙●∙", "∙∙●", "∙∙∙"), 0.125),     # waiting for a model call
+    "found": ("✶✸✹✺✹✷", 0.07),                    # a new best, shown for a few seconds
+    "alive": ("-\\|/", 0.13),
+}
+ASCII = {"loading": "|/-\\", "running": "|/-\\", "model": (".  ", ".. ", "...", " ..", "  .", "   "), "found": "*+x+", "alive": "-\\|/"}
 STILL = {"loading": "…", "running": "●", "model": "…", "found": "★", "alive": "●"}
+
+# The new hex frames belong only to the All searches footer.
+SPINNERS["footer"] = (ACTIVITY_FRAMES, ACTIVITY_INTERVAL)
+ASCII["footer"] = '|/-\\'
+STILL["footer"] = "●"
 
 
 def reduced_motion() -> bool:

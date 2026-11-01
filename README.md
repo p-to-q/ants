@@ -29,7 +29,7 @@ The first domain is time-series forecasting with models of 100 to 3 000 paramete
 
 ## 0.6.4 research views
 
-Leaderboard now switches between Live and Saved (`v`), with explicit retained-model reasons and saved-weight validation traces (`t`, where locally available). Arms switches to a continuous wireframe search map (`m`), with observed models and recorded ancestry. `z` changes height semantics and Enter shows the selected model record. Map and model data share one screen, stacked first; a short, wide terminal uses columns. Health, Data and System place key data and labelled charts together by default (`v` opens full details). Past keeps dates, questions and pilot arm records in a compact history view.
+Leaderboard now switches between Live and Saved (`v`), with explicit retained-model reasons and saved-weight validation traces (`t`, where locally available). Arms switches to a continuous wireframe search map (`m`), with observed models and recorded ancestry. `o` rotates the view, `z` changes height semantics, `c` switches search/neutral colours, and Enter shows the selected model record. Map and model data share one screen, stacked first; a short, wide terminal uses columns. Health, Data and System place key data and labelled charts together by default (`v` opens full details). System includes a date/hour activity heatmap (`c`: recorded evaluation CPU minutes or completed trials), alongside separate backup receipts. Past keeps dates, questions and pilot arm records in a compact history view.
 
 Map snapshots are built explicitly from verified ledgers; opening the viewer does not train models or rescan experiments. The current map is a retrospective configuration projection, not an online controller or a semantic-distance claim. [Terminal map instructions](docs/modules/search_map.md) and [saved-weight checks](docs/modules/model_validation.md).
 
@@ -102,13 +102,20 @@ The figures now show the pooled development frontier from **all 32 completed E43
 | 1,000 | 900 | 0.779906 |
 | 3,000 | 3,000 | 0.776302 |
 
+**Reading the two figures.** Every plotted value is in [frontier.json](assets/frontier.json). In the first figure, the horizontal axis is the nominal parameter count and the vertical axis is `rel_mse`; lower error is better. The second expresses the same error as skill, `1 − rel_mse`, so higher is better. A `rel_mse` of 0.776302 means a 22.37% reduction in this aggregate error relative to seasonal naive. These are development measurements under stage S2: four development datasets, rolling-origin validation and closed-form forecasters.
+
+* *Skill at a fraction of the reference size.* The best recorded model under 300 parameters uses 295 and reaches `rel_mse` 0.806931. The untuned FITS-like reference uses 7,296 and reaches 0.851375: about 25 times as many nominal parameters, with higher development error.
+* *Beyond the largest reference on this development measurement.* The 3,000-parameter candidate reaches 0.776302, compared with 0.790450 for ridge with a look-back of 720 and 518,400 parameters. That is about 173 times fewer nominal parameters. The 900-parameter candidate reaches 0.779906; ridge 336 uses 241,920 at 0.809193 and the DLinear-like reference uses 483,840 at 0.821303. Their nominal sizes are about 269 and 538 times larger. These ratios describe the evaluator's parameter accounting, not total deployed storage or inference cost.
+* *Where the curve flattens.* The 98-parameter candidate reaches a 17.53% aggregate error reduction; the 900-parameter candidate reaches 22.01%. Increasing to 3,000 parameters raises that reduction to 22.37%, a further 0.36 percentage points. The observed frontier says where this search found diminishing returns; it does not establish a universal lower bound.
+* *Why these comparisons do not establish superiority.* The ants candidates are the best of many trials selected on their scoring data, whereas the references are single untuned settings. Pooling two arms and 16 seeds improves the descriptive coverage but does not remove selection bias. Equal-budget comparisons with tuned references and independent held-out evaluation remain the job of [TinyTS-Bench](#benchmark). No sealed result is inferred from these plots.
+
 These are pooled minima selected on the same development data used for scoring. They include the completed budget-crossing trial and are descriptive model candidates, not independent generalization results or the paired endpoints of E43. Stored deployment weights plus preprocessing can exceed the evaluator's nominal parameter count; the exporter checks actual storage and refuses an over-cap bundle.
 
 **E43 final look:** the registered ≤300-parameter comparison gives a paired median difference of 0 and Wilcoxon p=0.5771 at the prespecified 0.0294 threshold. Screening is not adopted on this evidence. The ≤3,000-parameter improvement is exploratory. See the [final acceptance report](docs/experiments/E43-final-20261102.md).
 
 The [retained research collection](docs/models/E43-shortlist-20261102.md) records ten selected models, their full specifications, reasons and available weight variants. The Saved interface displays this catalog and its explicit development-only weight checks; a fresh installation needs its own catalog or an imported collection.
 
-Data and per-ledger SHA-256 identities: [frontier.json](assets/frontier.json). Regenerate the displayed figures with `python assets/make_figures.py`. The raw ledgers are backed up privately and are not shipped with this repository; a clone reproduces the figures from the checked-in data, not the full experiment. Candidate specifications are preserved separately. Refit bundles contain numeric weights, preprocessing, source and parity checks and are labelled as new train-only fits, not historical checkpoints.
+**What is and is not reproducible from this repository.** Data and per-ledger SHA-256 identities: [frontier.json](assets/frontier.json). Regenerate the displayed figures with `python assets/make_figures.py`. The raw ledgers are backed up privately and are not shipped with this repository; a clone reproduces the figures from the checked-in data, not the full experiment. The public time series are fetched with pinned hashes (`ants data fetch`), rather than committed here. Re-running the search also requires the registered contracts, arm settings, seeds and budgets; reproducing the figures alone does not reproduce the search. Candidate specifications are preserved separately. Refit bundles contain numeric weights, preprocessing, source and parity checks and are labelled as new train-only fits, not historical checkpoints.
 
 ## Benchmark
 
@@ -219,7 +226,7 @@ Dated plan, order of work, what starts a new epoch and how comparisons are kept 
 
 - [x] ledger, runner, campaign, search ecology, janitor, sealed-look accounting, chain anchors, promotion ladder with evidence
 - [x] resident system: onboarding, service units with watchdog, verified backups, read-only SQL, update check, terminal interface
-- [x] first long campaign on a 2 GB server (three arms running since 2026-10-13)
+- [x] first long campaign on a 2 GB server (three pilot arms launched on 2026-10-13; E43 subsequently completed)
 - [ ] equal-budget comparison: plain, one-shot model, agent that reads the ledger, random 2×, TPE; 8 seeds
 - [ ] a deeper stage that is not a copy of the one before it; stronger cheap stage ([open questions](docs/open.md))
 - [ ] artifact checks (E3), per-window losses for the registry

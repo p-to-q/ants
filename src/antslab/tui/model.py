@@ -5,6 +5,8 @@ Nothing here writes: ledgers are opened with `Ledger.open_readonly`, so a viewer
 from __future__ import annotations
 
 import os
+import math
+import sqlite3
 import time
 from pathlib import Path
 
@@ -281,6 +283,23 @@ def equal_budget(sources: list["Source"]) -> dict:
     return {"n": n, "rows": rows}
 
 
+def registered_budget(src):
+    """Completed registered budget is evidence, not a heartbeat/liveness guess."""
+    from ..series import find_series_file,load_series
+    wd=src.workdir.resolve()
+    if wd.parent.parent.name!='series':return None
+    try:
+        path=find_series_file(wd.parent.name)
+        if not path:return None
+        s=load_series(path)
+        if wd.parent!=Path(s['base']).resolve() or src.hist.epoch!=s['epoch'] or src.arm not in s['arms']:return None
+        if wd.name not in {f'{src.arm}_s{seed}' for seed in s['seeds_parsed']}:return None
+        cpu=src.led.conn.execute('SELECT COALESCE(SUM(cpu_s),0) FROM trials WHERE gym=? AND arm=? AND epoch=?',
+                                 (src.c.gym,src.arm,src.hist.epoch)).fetchone()[0]
+        return {'used':cpu,'limit':s['max_cpu_s']} if cpu>=s['max_cpu_s'] else None
+    except (OSError,ValueError,sqlite3.Error):return None
+
+
 def fleet(sources: list["Source"]) -> list[dict]:
     """one line per workdir/arm for the home screen and the comparison screen"""
     out = []
@@ -293,6 +312,10 @@ def fleet(sources: list["Source"]) -> list[dict]:
         done = snap["totals"].get("done", 0)
         deepest = s.c.stages[-1]
         n_deep = snap["stages"].get(deepest, {}).get("done", 0)
+        budget=registered_budget(s)
+        if budget:
+            snap['mood']={'phrase':'Budget reached','style':'dim','glyph':'',
+                          'reason':f"{budget['used']:.0f} / {budget['limit']:.0f} CPU-s; no further work expected"}
         out.append({"workdir": str(s.workdir), "arm_name": s.arm, "arm": s.arm if s.workdir.name == s.arm else f"{s.workdir.name}/{s.arm}", "epoch": snap["epoch"], "evals": done, "deep": n_deep, "h1": snap["finished_1h"],
                     "last_age": snap["last_finish_age_s"], "paused": snap["paused"], "chain": snap["chain_tail_ok"], "mood": snap["mood"], "rate_6h": snap["rate_6h"], "ops": snap["operators"],
                     "best": {k: v[0] for k, v in snap["best_by_cap"].items() if v}, "free_gb": snap["free_gb"], "curve": snap["curve"]})
@@ -353,6 +376,40 @@ def human_error(e: BaseException, what: str = "this screen") -> str:
     return f"{what} could not be shown: {type(e).__name__}: {e}"
 
 
+def research_activity(sources, now=None):
+    """Current-cohort operational counts; CPU is attributed to the finish hour."""
+    import datetime
+    now=time.time() if now is None else now
+    today=datetime.datetime.fromtimestamp(now).replace(hour=0,minute=0,second=0,microsecond=0)
+    start=(today-datetime.timedelta(days=6)).timestamp()
+    cells={};seen=set();beginnings=[];errors=0
+    for src in sources:
+        identity=(str(src.workdir.resolve()),src.c.gym,src.arm,src.hist.epoch)
+        if identity in seen:continue
+        seen.add(identity)
+        if not src.hist.epoch:
+            errors+=1;continue
+        try:
+            first=src.led.conn.execute('SELECT MIN(created_at) FROM trials WHERE gym=? AND arm=? AND epoch=?',identity[1:]).fetchone()[0]
+            if isinstance(first,(int,float)) and math.isfinite(first):beginnings.append(first)
+            found=src.led.conn.execute(
+                "SELECT strftime('%Y-%m-%d',finished_at,'unixepoch','localtime'),"
+                "CAST(strftime('%H',finished_at,'unixepoch','localtime') AS INTEGER),"
+                "SUM(CASE WHEN state='done' THEN 1 ELSE 0 END),"
+                "SUM(CASE WHEN cpu_s>=0 AND cpu_s<1e12 THEN cpu_s ELSE 0 END),"
+                "SUM(CASE WHEN cpu_s>=0 AND cpu_s<1e12 THEN 1 ELSE 0 END),COUNT(*) "
+                "FROM trials WHERE gym=? AND arm=? AND epoch=? AND finished_at>=? AND finished_at<=? "
+                "AND state IN ('done','failed','timeout','crashed') GROUP BY 1,2",
+                (*identity[1:],start,now)).fetchall()
+            for day,hour,done,cpu,known,total in found:
+                key=(day,int(hour));cell=cells.setdefault(key,{'day':day,'hour':int(hour),'done':0,'cpu_s':0.,'cpu_known':0,'terminal':0})
+                for key,value in [('done',done),('cpu_s',cpu),('cpu_known',known),('terminal',total)]:cell[key]+=value
+        except (OSError,sqlite3.Error,ValueError):errors+=1
+    return {'now':now,'timezone':time.strftime('%Z %z',time.localtime(now)),
+            'started_at':min(beginnings) if beginnings else None,'sources':len(seen),'unreadable':errors,
+            'cells':list(cells.values())}
+
+
 def system_info(source: "Source | None", all_sources: "list[Source] | None" = None) -> dict:
     import subprocess
     from ..home import config_path, home
@@ -399,6 +456,7 @@ def system_info(source: "Source | None", all_sources: "list[Source] | None" = No
         info["agent_tools_24h"] = source.led.conn.execute("SELECT COUNT(*) FROM events WHERE kind='agent_tool' AND ts>?", (time.time() - 86400,)).fetchone()[0]
         info["calls_hour"] = source.calls_per_hour(time.time())
         info["now"] = time.time()
+        info['activity']=research_activity(all_sources or [source],info['now'])
         # llm_summary for per-endpoint and per-arm detail
         try:
             info["llm_summary"] = source.led.llm_summary(time.time() - 86400)

@@ -1,10 +1,10 @@
 # ui
 
-All animated activity indicators share `tui.anim.ACTIVITY_FRAMES`:
-`· → ✻ → ✽ → ✶ → ✳ → ✢`, one frame per 160 ms (320 ms over SSH).
-Home rows, running-trial indicators, model waits, discovery bursts and the status
-bar use the same template. Text and colour retain activity meaning. ASCII-only
-terminals keep a shared ASCII fallback; reduced motion retains static state glyphs.
+Activity animations retain their original per-purpose frames: loading/running braille,
+model-wait dots, discovery stars and the line spinner before the Home summary.
+Only the bottom **All searches** indicator uses `· → ✻ → ✽ → ✶ → ✳ → ✢`
+at 160 ms per frame (320 ms over SSH). It has its own `footer` token, so it cannot
+change the other indicators. ASCII fallback and reduced-motion modes remain available.
 
 The last terminal page is **Past** (`9`): cached, per-round history with
 read-only details and recorded backup locations. Its information hierarchy and

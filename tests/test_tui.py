@@ -342,12 +342,14 @@ def test_animation_frames_come_from_the_clock_and_degrade(monkeypatch):
     monkeypatch.delenv("ANTS_REDUCE_MOTION", raising=False)
     monkeypatch.delenv("SSH_CONNECTION", raising=False)
     monkeypatch.delenv("SSH_TTY", raising=False)
-    every = anim.ACTIVITY_INTERVAL
     expected = ("·", "✻", "✽", "✶", "✳", "✢")
-    for name in anim.SPINNERS:
-        assert tuple(anim.frame(name, (i + .1) * every) for i in range(6)) == expected
-        assert anim.frame(name, .1 * every) == anim.frame(name, 6.1 * every)
-        assert all(set(anim.frame(name, (i + .1) * every, ascii_only=True)) <= set("|/-\\") for i in range(8))
+    assert tuple(anim.frame('footer',(i+.1)*anim.ACTIVITY_INTERVAL) for i in range(6))==expected
+    assert anim.SPINNERS['alive'][0]=='-\\|/'
+    assert anim.SPINNERS['running'][0]=='⣾⣽⣻⢿⡿⣟⣯⣷'
+    for name,(frames,every) in anim.SPINNERS.items():
+        assert tuple(anim.frame(name,(i+.1)*every) for i in range(len(frames)))==tuple(frames)
+        assert anim.frame(name,.1*every)==anim.frame(name,(len(frames)+.1)*every)
+        assert all(anim.frame(name,(i+.1)*every,ascii_only=True).isascii() for i in range(8))
     assert set(anim.frame("loading", 0.3, ascii_only=True)) <= set("|/-\\")
     monkeypatch.setenv("ANTS_REDUCE_MOTION", "1")
     assert anim.frame("running", 0.0) == anim.frame("running", 5.0) == "●" and anim.pulse(0.9)
@@ -356,6 +358,7 @@ def test_animation_frames_come_from_the_clock_and_degrade(monkeypatch):
         assert anim.frame(name, 10.0, ascii_only=True).isascii()
     monkeypatch.delenv("ANTS_REDUCE_MOTION")
     monkeypatch.setenv("SSH_CONNECTION", "x")
+    every=anim.SPINNERS['running'][1]
     assert anim.frame("running", every * .75) == anim.frame("running", 0.0)                  # over ssh the interval doubles
     for name, (frames, _) in anim.SPINNERS.items():
         assert all(len(f) == len(frames[0]) for f in frames), name                              # frames of one width: nothing jitters

@@ -4,7 +4,7 @@ Append-only, newest first, only durable changes. Three lines each. `Forecloses:`
 
 ## 0.6.4 — readable dashboards and guarded deployment
 
-Changed: continuous density wireframe, observed-point/ancestry overlays and useful initial selection; one-screen map/model layout; default Health/Data/System dashboards; correct series backup/service paths and actual backup time axes; stable deployment gate, lock and readiness checks.
+Changed: continuous density wireframe, collision-safe lowercase markers, sampled ancestry, visible camera/colour controls and useful initial selection; one-screen map/model layout; default Health/Data/System dashboards and scoped date/hour activity heatmap; restored original activity-specific animations with hex frames only in All searches footer; correct series backup/service paths and actual backup time axes; stable deployment gate, lock and readiness checks.
 
 Why: terminal views must explain observed state without hidden chart modes, confusing completed cohorts with live work, inventing an empty seven-day history, or importing a half-installed environment.
 

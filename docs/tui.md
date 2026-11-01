@@ -90,7 +90,7 @@ this page does not write snapshots or retrain models.
 
 ## Animation, and turning it down
 
-The key loop is the clock: about 7 redraws a second, 2.5 over SSH. Frames are computed from the time, never counted, so a slow redraw cannot make an animation lag, and curses sends only the cells that changed. All animated activity indicators share `· → ✻ → ✽ → ✶ → ✳ → ✢`: loading, running, waiting for a model, a new best and the status bar. The template advances every 160 ms, doubled over SSH; a slow redraw may skip a frame. Text and colour explain the state, rather than a different spinner shape.
+The key loop is the clock: about 7 redraws a second, 2.5 over SSH. Frames are computed from the time, never counted, so a slow redraw cannot make an animation lag, and curses sends only the cells that changed. Loading, running, model-wait, discovery and Home-summary animations keep their original distinct frames. Only the bottom All searches indicator uses `· → ✻ → ✽ → ✶ → ✳ → ✢` (160 ms, doubled over SSH); other footer contexts retain the original line/loading animation.
 
 | to get | set |
 |---|---|

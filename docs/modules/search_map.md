@@ -15,3 +15,5 @@ Configure `ANTS_SEARCH_MAP`, personal `maps/current.json`, or server `/var/lib/a
 The richer browser 2.5D prototype remains separate; no JavaScript/image terminal protocol is required. Use the [design contract](../research/search-map.md) for planned online/projector, snapshot and benchmark extensions.
 
 Tests: `tests/test_search_map.py`. Status: experimental.
+
+0.6.4 acceptance controls are displayed under the map title: `m` compare, `o` quarter-turn camera rotation, `z` height, `c` search/neutral colours, arrows select, Enter record. Camera rotation preserves the cached PCA and values. Lowercase a/b identify latest points per search; @ selection, * best, + representative overlapping terminal cells. Labels are displaced with short leaders when coincident so a missing-looking b does not imply no results. Numbered 1–4 samples follow recorded earlier ancestry toward @, rather than inventing a nearest-neighbour route. A compact reading guide stays below the model data. Too-small terminals receive an explicit resize hint.

@@ -97,3 +97,62 @@ def test_empty_backup_states_are_complete_and_do_not_claim_a_time_window():
         text=render.plain(views.system_screen({'info':{'backup_state':state,'backups':[]}},views.Ctx(width=80,height=24)).lines)
         assert phrase in text and 'No time range' in text
         assert '7 days' not in text and 'No observations' not in text
+
+
+def test_activity_query_scopes_arm_epoch_and_deduplicates_sources(tmp_path,make_contract):
+    import time
+    from antslab.ledger import Ledger
+    from antslab.tui.model import Source,research_activity
+    make_contract();wd=tmp_path/'activity';l=Ledger(wd/'ledger.sqlite')
+    for arm,epoch,cpu in [('random','current',60),('other','current',9000),('random','old',9000)]:
+        tid=l.enqueue('toy',arm,1,{'a':.5,'b':2,'c':'u'},'random',stage='s2',epoch=epoch)
+        t=l.claim(60,arm=arm,epoch=epoch)
+        l.finish(tid,t['attempt'],'done',metrics={'val_mse':.8,'n_params':10},cpu_s=cpu)
+    src=Source(wd,str(tmp_path/'task.toml'),'random');src.hist.epoch='current'
+    before=l.conn.execute('SELECT COUNT(*) FROM events').fetchone()[0]
+    try:
+        result=research_activity([src,src],time.time()+1)
+        assert result['sources']==1 and result['unreadable']==0
+        assert sum(c['cpu_s'] for c in result['cells'])==60
+        assert sum(c['done'] for c in result['cells'])==1
+        assert l.conn.execute('SELECT COUNT(*) FROM events').fetchone()[0]==before
+    finally:src.close();l.close()
+
+
+def test_activity_grid_distinguishes_coverage_and_uses_visible_dates_only():
+    import datetime
+    now=datetime.datetime.now().replace(hour=12,minute=0,second=0,microsecond=0)
+    data={'now':now.timestamp(),'started_at':now.timestamp()-7200,'timezone':'local',
+          'sources':1,'unreadable':0,'cells':[{'day':now.strftime('%Y-%m-%d'),'hour':11,
+                     'done':2,'cpu_s':90,'cpu_known':2,'terminal':2},
+                     {'day':(now-datetime.timedelta(days=5)).strftime('%Y-%m-%d'),'hour':11,
+                     'done':999,'cpu_s':99999,'cpu_known':1,'terminal':1}]}
+    grid=charts.activity_grid(data,80,2);text=render.plain(grid)
+    assert 'CPU minutes' in text and 'peak 1.5' in text and 'total 1.5' in text
+    assert '- outside coverage' in text and '█' in text and '999' not in text
+    assert grid[3][10][0]=='- ' and grid[3][11][0]=='· ' and grid[3][12][0]=='█ '
+    trials=render.plain(charts.activity_grid(data,80,2,'trials'))
+    assert 'completed trials' in trials and 'total 2' in trials
+    info={'version':'0.6.4','now':now.timestamp(),'activity':data,'backup_state':'empty','backups':[]}
+    for width,height in [(80,24),(100,30)]:
+        v=views.system_screen({'info':info},views.Ctx(width=width,height=height))
+        assert len(v.lines)<=height-3 and 'Backup receipts' in render.plain(v.lines)
+
+
+def test_registered_budget_completion_is_not_a_stuck_heartbeat(tmp_path,make_contract,monkeypatch):
+    from types import SimpleNamespace
+    from antslab import series
+    from antslab.ledger import Ledger
+    from antslab.tui.model import registered_budget
+    c=make_contract();epoch='012345abcdef';wd=tmp_path/'series/e44a/random_s1'
+    path=tmp_path/'e44a.toml'
+    path.write_text(f'name="e44a"\nquestion="fixture"\narms=["random"]\nseeds="1"\nmax_cpu_s=60\nworkers=1\nepoch="{epoch}"\nbase="{wd.parent}"\n')
+    monkeypatch.setattr(series,'find_series_file',lambda *a:path)
+    l=Ledger(wd/'ledger.sqlite');src=SimpleNamespace(workdir=wd,c=c,hist=SimpleNamespace(epoch=epoch),arm='random',led=l)
+    for cpu in (59,1):
+        tid=l.enqueue('toy','random',1,{'a':.5,'b':2,'c':'u'},'random',stage='s2',epoch=epoch)
+        t=l.claim(60,arm='random',epoch=epoch);l.finish(tid,t['attempt'],'done',cpu_s=cpu)
+        result=registered_budget(src)
+        assert (result is None) if cpu==59 else result=={'used':60,'limit':60}
+    src.hist.epoch='different';assert registered_budget(src) is None
+    l.close()

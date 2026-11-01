@@ -75,3 +75,38 @@ def role_bars(roles,width=80,ascii_only=False):
             f'{full} file present  {empty} unavailable  ~ generated',
             'Presence is not a hash check.']
     return [line[:width] for line in lines]
+
+
+def activity_grid(data,width=80,days=7,metric='cpu',ascii_only=False):
+    """Styled date/hour grid. CPU is logged evaluation time, never host utilisation."""
+    import datetime
+    if width<62:
+        return [[(' Research activity','accent')],[(' Widen to 62 columns for the 24-hour grid.','dim')]]
+    now=data.get('now',0);today=datetime.datetime.fromtimestamp(now).replace(hour=0,minute=0,second=0,microsecond=0)
+    days=max(1,min(days,7));started=data.get('started_at')
+    dates={(today-datetime.timedelta(days=d)).strftime('%Y-%m-%d') for d in range(days)}
+    cells={(c['day'],c['hour']):c for c in data.get('cells',[]) if c['day'] in dates}
+    unit='CPU minutes' if metric=='cpu' else 'completed trials'
+    peak=max([c['cpu_s']/60 if metric=='cpu' else c['done'] for c in cells.values()] or [0])
+    lines=[[(' Research activity · '+unit+f' · {data.get("sources",0)} ledgers · c changes metric','accent')],
+           [(' local hr  '+''.join(f'{h:02d}    ' for h in range(0,24,3)),'dim')]]
+    total=0.;missing=sum(c['terminal']-c['cpu_known'] for c in cells.values())
+    for delta in range(days-1,-1,-1):
+        day=today-datetime.timedelta(days=delta);row=[(' '+day.strftime('%m-%d %a')+' ','dim')]
+        for h in range(24):
+            begin=day.replace(hour=h).timestamp();end=(day.replace(hour=h)+datetime.timedelta(hours=1)).timestamp()
+            cell=cells.get((day.strftime('%Y-%m-%d'),h));unknown=not finite(started) or end<=started or begin>now
+            value=(cell['cpu_s']/60 if metric=='cpu' else cell['done']) if cell else 0
+            if metric=='cpu' and cell and not cell['cpu_known']:unknown=True
+            if unknown:mark,style='- ','dim'
+            elif value<=0:mark,style='. ' if ascii_only else '· ','dim'
+            else:
+                level=min(3,max(0,math.ceil(4*math.sqrt(value/(peak or 1)))-1))
+                mark=('1234'[level] if ascii_only else '░▒▓█'[level])+' ';style=('ok','ok','accent','bold')[level];total+=value
+            row.append((mark,style))
+        lines.append(row)
+    lines.append([(f' {days} dates · {data.get("timezone","local time")} · peak {number(peak)} {unit}/hour · total {number(total)}','dim')])
+    lines.append([(' · zero recorded · - outside coverage · CPU attributed to finish hour','dim')])
+    if missing or data.get('unreadable'):
+        lines.append([(f' {missing} missing CPU records · {data.get("unreadable",0)} unreadable sources','warn')])
+    return lines

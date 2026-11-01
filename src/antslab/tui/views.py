@@ -30,7 +30,7 @@ KEYS = {
     "events": "↑↓ scroll · k kind · space freeze · ? help",
     "health": "v full checks / dashboard · r refresh · ? help",
     "data": "v dataset names / dashboard · r refresh · ? help",
-    "system": "v full details / dashboard · r refresh · ? help",
+    "system": "c activity CPU/trials · v full details / dashboard · r refresh · ? help",
     "afterlife": "↑↓ round · Enter evidence / parameters · ←→ screens · r refresh cache · ? help",
     "detail": "Esc back · ? help",
 }
@@ -185,11 +185,12 @@ def home(d, ctx: Ctx) -> View:
     if rows0:
         found = sum(1 for r in rows0 if mood_of(r["mood"])["phrase"] == "Just found something")
         ok = sum(1 for r in rows0 if mood_of(r["mood"])["style"] in ("ok", "accent"))
-        lines.append([S("  "), S(spin("alive", ctx), "accent"), S(f" {len(rows0)} searches · {ok} doing well" + (f" · {found} just found something" if found else ""), "dim")])
+        complete=sum(mood_of(r['mood'])['phrase']=='Budget reached' for r in rows0)
+        lines.append([S("  "), S(spin("alive", ctx), "accent"), S(f" {len(rows0)} searches · {ok} doing well" + (f" · {found} just found something" if found else "")+(f' · {complete} budgets reached' if complete else ''), "dim")])
     lines.append([])
     rows = d.get("fleet") or []
     if rows:
-        lines.append(rule(w, "Running"))
+        lines.append(rule(w, "Current searches"))
         lines += fleet_table(rows, w, ctx)
         lines.append([S("  value = rel_mse at the deepest stage reached, lower is better, 1.000 = seasonal naive", "dim")])
     else:
@@ -847,7 +848,19 @@ def system_dashboard(d,ctx):
             text=f" {name}: {ep.get('ok',0)}/{ep.get('attempts',0)} ok{status} {causes}"
             lines.append([S(clean_text(text,ctx.width-1),'warn' if status else 'dim')])
     if i.get('backup_dir'):lines.append([S(' Backups '+clip(clean_text(i['backup_dir'],500),ctx.width-10),'dim')])
-    lines+=system_charts(d,ctx).lines
+    activity=i.get('activity')
+    if activity is not None:
+        from .charts import activity_grid
+        days=max(1,min(7,ctx.height-3-len(lines)-9))
+        lines+=activity_grid(activity,ctx.width,days,ctx.filt.get('activity_metric','cpu'),ctx.ascii_only)
+        lines.append(rule(ctx.width,'Backup receipts'))
+        backups=i.get('backups') or []
+        if backups:
+            newest=backups[0];age=max(0,i.get('now',ctx.t)-newest['created'])/60
+            lines.append([S(f' {len(backups)} receipts · newest {age:.1f} min ago','none')])
+            lines.append([S(' Recorded metadata; integrity is checked separately.','dim')])
+        else:lines+=system_charts(d,ctx).lines[1:]
+    else:lines+=system_charts(d,ctx).lines
     return _dashboard(lines,ctx,'v full paths, spend and backup receipts · r refresh')
 
 
@@ -911,31 +924,41 @@ def search_map_screen(d, ctx):
     from ..textsafe import clean_text
     from .landscape import draw
     data=d.get('map',{});points=data.get('points',[]);w=ctx.width;scope=data.get('scope',{})
-    lines=[[S(' Search map','accent'),S(' · m compare · z height · arrows select · Enter record','dim')]]
+    lines=[[S(' Search map','accent'),S(' · recorded snapshot','dim')],
+           [S(' m ','key'),S('compare  '),S('o ','key'),S('rotate  '),S('z ','key'),S('height  '),
+            S('c ','key'),S('colour  '),S('↑↓ ','key'),S('select  '),S('Enter ','key'),S('record')]]
     if data.get('error'):
         return View(lines+[[S(' '+clean_text(data['error'],w-2),'warn')]])
     if not points:
         return View(lines+[[S(' No map snapshot. Build with ants map build.','dim')]])
+    if ctx.height<22 or w<60:
+        return View(lines+[[S(' Enlarge terminal for the map.','warn')],[S(' Minimum: 60 columns x 22 rows.','dim')]])
     selected=min(max(ctx.sel,0),len(points)-1);chosen=points[selected]
     mode=ctx.filt.get('map_height','density')
     wide=w>=140 and ctx.height<30
     mw=w-47 if wide else w
     # Reserve complete labels, model information and navigation on one screen.
-    ch=max(7,min(25,ctx.height-(8 if wide else 12)))
-    body,meta=draw(points,mw-2,ch,selected,mode,ctx.ascii_only,scope.get('direction','min'))
+    detail_count=4 if wide or ctx.height>=28 else 3
+    ch=max(7,min(25,ctx.height-(11 if wide else 11+detail_count)))
+    angle=ctx.filt.get('map_angle',0);colours=ctx.filt.get('map_colours',True)
+    body,meta=draw(points,mw-2,ch,selected,mode,ctx.ascii_only,scope.get('direction','min'),angle,colours)
     runs='/'.join(clean_text(s.get('run','?'),25) for s in data.get('sources',[])[:2])
-    lines.append([S(f" {len(points)} observations · {scope.get('stage','deep')} · {runs} · retrospective PCA",'dim')])
-    lines.append([S(' Height: smoothed visit density; dots are evaluated models' if mode=='density' else ' Height: observed score only; no score surface is interpolated','dim')])
+    lines.append([S(f" {len(points)} {scope.get('stage','deep')} observations · {runs} · retrospective PCA",'dim')])
+    lines.append([S((' Height: smoothed visits' if mode=='density' else ' Height: observed score only')+(' · colour: search identity' if colours else ' · neutral colours'),'dim')])
     arm=clean_text(chosen['arm'],32);sp=chosen['spec']
     details=[rule(w-mw-3 if wide else w,'Selected model'),
              [S(f" {arm} #{chosen.get('trial','?')}  {scope.get('metric','score')} {chosen['value']:.5f}",'accent')],
              [S(f" {chosen['n_params']:g} nominal params · {chosen['cpu_s']:.0f} CPU-s · {meta['edges']} parent links",'none')],
              [S(' '+clean_text(' / '.join(str(sp.get(k,'?')) for k in ('core','lookback','period','pretrain')),w-2),'dim')]]
+    details=details[:detail_count]
     if wide:lines+=pixel.side_by_side(body,details,gap=3,valign='top')
     else:lines+=body+details
     legend=' '.join(mark+' '+clean_text(arm,22) for mark,arm in meta['marks'])
-    lines.append([S(' @ selected · * best observed · '+legend,'dim')])
-    lines.append([S(' Lines: density mesh + recorded ancestry. Cached snapshot, not live.','dim')])
+    lines.append([S(' '+legend+' · latest recorded points','ok')])
+    lines.append([S(' @ selected · * best observed · + overlapping observations','dim')])
+    lines.append([S(' 1-4: earlier sampled ancestors toward @. Bright paths are recorded.','dim')])
+    guide=' Grey mesh: visit density, not quality.' if mode=='density' else ' Grey grid: reference plane, not predicted scores.'
+    lines.append([S(guide+' Short leaders attach labels. Not live.','dim')])
     return View(lines,len(points),3,True)
 
 

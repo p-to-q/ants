@@ -351,6 +351,15 @@ class App:
         elif ch == ord("z") and self.screen == "fleet" and self.filt.get("fleet_mode") == "map":
             self.filt["map_height"] = "score" if self.filt.get("map_height", "density") == "density" else "density"
             self.refresh.set()
+        elif ch == ord('c') and self.screen=='system':
+            self.filt['activity_metric']='trials' if self.filt.get('activity_metric','cpu')=='cpu' else 'cpu'
+            self.refresh.set()
+        elif ch==ord('o') and self.screen=='fleet' and self.filt.get('fleet_mode')=='map':
+            self.filt['map_angle']=(self.filt.get('map_angle',0)+1)%4
+            self.refresh.set()
+        elif ch==ord('c') and self.screen=='fleet' and self.filt.get('fleet_mode')=='map':
+            self.filt['map_colours']=not self.filt.get('map_colours',True)
+            self.refresh.set()
         elif ch == ord("v") and self.screen in ("health", "data", "system"):
             name = self.screen + "_details"
             self.filt[name] = not self.filt.get(name, False)
@@ -544,7 +553,7 @@ class App:
         tabs = " ".join((f"[{k}]" if self.screen == s or (self.screen == "detail" and s == "trials") else k) for s, k in
                         [(s, str(i)) for i, (s, _) in enumerate(views.SCREENS)])
         now = time.time()
-        glyph = anim.frame("loading" if self.refreshing else "alive", now, c.ascii_only)
+        glyph = anim.frame("footer" if self.label=="All searches" else "loading" if self.refreshing else "alive", now, c.ascii_only)
         status = f" {glyph} {self.label} · {tabs}"
         hint = views.KEYS.get(self.screen, views.KEYS["home"])
         try:

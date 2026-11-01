@@ -6,7 +6,7 @@ values: it draws independent observations above the same reference plane.
 import math
 
 
-def draw(points, width, height, selected=0, mode='density', ascii_only=False, direction='min'):
+def draw(points, width, height, selected=0, mode='density', ascii_only=False, direction='min', angle=0, colours=True):
     width, height = max(30, width), max(7, height)
     nx, ny = 16, 12
     us, vs = [p['u'] for p in points], [p['v'] for p in points]
@@ -29,7 +29,10 @@ def draw(points, width, height, selected=0, mode='density', ascii_only=False, di
     # Draw at braille subcell resolution, then resolve labels at terminal cells.
     pw,ph=2*(width-2),4*(height-1)
     rise=ph*.42; sx=(pw-10)/(nx+ny);sy=(ph-rise-8)/(nx+ny)
-    def project(x,y,z=0):return 4+ny*sx+(x-y)*sx, rise+2+(x+y)*sy-z*rise
+    angle%=4
+    def project(x,y,z=0):
+        x,y=((x,y),(ny-y,x),(nx-x,ny-y),(y,nx-x))[angle]
+        return 4+(ny if angle%2==0 else nx)*sx+(x-y)*sx, rise+2+(x+y)*sy-z*rise
     pixels={}
     def dot(x,y,priority=0):
         x,y=round(x),round(y)
@@ -56,15 +59,15 @@ def draw(points, width, height, selected=0, mode='density', ascii_only=False, di
     lookup={}
     for i,p in enumerate(points):lookup.setdefault((p['source'],p['spec_key']),[]).append(i)
     def trace(start,limit,priority):
-        edges=0;child=start;visited=set()
+        edges=0;child=start;visited=set();chain=[start]
         while edges<limit and child not in visited:
             visited.add(child);p=points[child]
             parents=[i for i in lookup.get((p['source'],p.get('parent_key')),[]) if points[i]['cpu_s']<p['cpu_s']]
             if not parents:break
             parent=max(parents,key=lambda i:points[i]['cpu_s'])
-            line(projected[child],projected[parent],priority);edges+=1;child=parent
-        return edges
-    edges=trace(selected,20,4)
+            line(projected[child],projected[parent],priority);edges+=1;child=parent;chain.append(parent)
+        return edges,chain
+    edges,chain=trace(selected,20,4)
     arms=list(dict.fromkeys(p['arm'] for p in points))
     for arm in arms[:4]:
         if arm==points[selected]['arm']:continue
@@ -76,19 +79,47 @@ def draw(points, width, height, selected=0, mode='density', ascii_only=False, di
         cell=(x//2,y//4);old,rank=cells.get(cell,(0,0))
         cells[cell]=(old|bits[y%4][x%2],max(rank,priority))
     canvas=[[(' ','none') for _ in range(width)] for _ in range(height)]
+    arm_cells={}
+    for i,(x,y) in enumerate(projected):arm_cells.setdefault((round(x)//2,round(y)//4),set()).add(points[i]['arm'])
     for (x,y),(mask,rank) in cells.items():
         char=('+' if rank>=2 else ':' if mask.bit_count()>3 else '.') if ascii_only else chr(0x2800+mask)
-        canvas[y][x]=(char,'bold' if rank==4 else 'ok' if rank==3 else 'accent' if rank==2 else 'dim')
+        style='bold' if rank==4 else 'ok' if rank==3 else 'accent' if rank==2 else 'dim'
+        if colours and rank==2:
+            ids=arm_cells.get((x,y),set())
+            style=('accent','ok','bold','dim')[arms.index(next(iter(ids)))%4] if len(ids)==1 else 'bold'
+        if not colours and rank<4:style='dim'
+        canvas[y][x]=(char,style)
     def label(x,y,text,style='dim'):
         for n,c in enumerate(text):
             if 0<=x+n<width and 0<=y<height:canvas[y][x+n]=(c,style)
-    arms=list(dict.fromkeys(p['arm'] for p in points));marks=[]
+    occupied=set();locations={}
+    def place_label(i,text,style):
+        px,py=projected[i];x,y=round(px/2),int(py//4)
+        for dx,dy in [(0,0),(3,-1),(-3,-1),(4,1),(-4,1),(2,0),(-2,0),(6,-2),(-6,-2),(0,2)]:
+            xx,yy=x+dx,y+dy
+            if not(0<=xx<width and 0<=yy<height-1) or (xx,yy) in occupied:continue
+            steps=max(abs(dx),abs(dy),1)
+            if dx or dy:
+                for t in range(steps):
+                    ax,ay=round(x+dx*t/steps),round(y+dy*t/steps)
+                    if 0<=ax<width and 0<=ay<height-1 and (ax,ay) not in occupied:label(ax,ay,'.','dim')
+            label(xx,yy,text,style);occupied.add((xx,yy));locations[text]=(xx,yy);return
+    best=min(range(len(points)),key=lambda i:points[i]['value']*(1 if direction=='min' else -1))
+    place_label(selected,'@','bold');place_label(best,'*','warn')
+    marks=[]
     for n,arm in enumerate(arms):
         i=max((i for i,p in enumerate(points) if p['arm']==arm),key=lambda i:points[i]['cpu_s'])
-        mark=chr(97+n) if n<26 else '+';marks.append((mark,arm))
-        x,y=projected[i];label(round(x/2),int(y//4),mark,'ok')
-    best=min(range(len(points)),key=lambda i:points[i]['value']*(1 if direction=='min' else -1))
-    x,y=projected[best];label(round(x/2),int(y//4),'*','warn')
-    x,y=projected[selected];label(round(x/2),int(y//4),'@','bold')
-    label(1,height-1,'PC2  /  configuration projection  /  PC1')
-    return canvas,{'edges':edges,'marks':marks,'best':best,'density_peak':peak}
+        glyph=chr(97+n) if n<26 else '+';marks.append((glyph,arm))
+        place_label(i,glyph,'ok')
+    ancestors=list(reversed(chain))[:-1];node_labels=[]
+    count=min(4,len(ancestors))
+    for n in range(count):
+        i=ancestors[round(n*(len(ancestors)-1)/max(1,count-1))]
+        glyph=str(n+1);place_label(i,glyph,'bold');node_labels.append((glyph,i))
+    from collections import Counter
+    collisions=Counter((round(x/2),int(y//4)) for x,y in projected)
+    for cell,_ in [kv for kv in collisions.most_common() if kv[1]>1][:2]:
+        i=next(i for i,(x,y) in enumerate(projected) if (round(x/2),int(y//4))==cell)
+        place_label(i,'+','accent')
+    label(1,height-1,f'PC1 / PC2 fixed projection · view {angle*90} deg')
+    return canvas,{'edges':edges,'marks':marks,'best':best,'density_peak':peak,'locations':locations,'nodes':node_labels}
