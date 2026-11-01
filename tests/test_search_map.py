@@ -82,6 +82,21 @@ def test_map_is_independent_of_live_source_and_mode_keys(map_source,tmp_path,mon
     import curses
     a.on_key(ord('m'),curses);assert a.filt['fleet_mode']=='map'
     a.on_key(ord('z'),curses);assert a.filt['map_height']=='score'
+    a.on_key(ord('o'),curses);assert a.filt['map_angle']==1
+    a.on_key(ord('c'),curses);assert a.filt['map_colours'] is False
+
+
+def test_coincident_search_labels_survive_and_rotation_is_view_only():
+    from antslab.tui.landscape import draw
+    points=[{'u':0,'v':0,'value':2-i,'source':str(i),'arm':arm,'cpu_s':5,
+             'spec_key':str(i),'parent_key':None} for i,arm in enumerate(['first','second'])]
+    before=json.dumps(points,sort_keys=True)
+    canvas,meta=draw(points,78,12,selected=1)
+    assert len({meta['locations'][c] for c in ('@','*','a','b')})==4
+    for c in ('@','*','a','b'):
+        x,y=meta['locations'][c];assert canvas[y][x][0]==c
+    other,_=draw(points,78,12,selected=1,angle=1,colours=False)
+    assert canvas!=other and json.dumps(points,sort_keys=True)==before
 
 
 def test_windowed_views_do_not_scroll_twice():

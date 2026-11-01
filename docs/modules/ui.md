@@ -1,10 +1,10 @@
 # ui
 
-All animated activity indicators share `tui.anim.ACTIVITY_FRAMES`:
-`· → ✻ → ✽ → ✶ → ✳ → ✢`, one frame per 160 ms (320 ms over SSH).
-Home rows, running-trial indicators, model waits, discovery bursts and the status
-bar use the same template. Text and colour retain activity meaning. ASCII-only
-terminals keep a shared ASCII fallback; reduced motion retains static state glyphs.
+Activity animations retain their original per-purpose frames: loading/running braille,
+model-wait dots, discovery stars and the line spinner before the Home summary.
+Only the bottom **All searches** indicator uses `· → ✻ → ✽ → ✶ → ✳ → ✢`
+at 160 ms per frame (320 ms over SSH). It has its own `footer` token, so it cannot
+change the other indicators. ASCII fallback and reduced-motion modes remain available.
 
 The last terminal page is **Past** (`9`): cached, per-round history with
 read-only details and recorded backup locations. Its information hierarchy and
@@ -43,3 +43,5 @@ Leaderboard also has a read-only Saved mode (`v`), backed by [saved_models](save
 Health, Data and System use `v` for explicit chart/detail modes. [The plotting contract](tui-charts.md) defines axes, windows and missingness. Health trends are queried only in chart mode; data distributions use metadata without opening raw series. Saved/Past short copy follows [the interface copy rules](../research/interface-copy.md).
 
 0.6.3 integrates a native character-map view in Arms (`m`, `z`) and saved-weight forecast curves (`t` in Saved). Cached Historical/Saved/Map contexts display their actual label and cannot pause/hint an unrelated current search; ledger commands require switching back to Live. Already paged views declare `windowed` so drawing a large selection does not apply a second scroll offset. See [map](search_map.md) and [model validation](model_validation.md).
+
+0.6.4 replaces separated chart/detail modes with default combined dashboards and explicit detail access, corrects series-owned service/backup discovery, and renders a continuous density wireframe instead of disconnected columns. Ordinary entries in the live fleet follow ANTS_SERIES_DIR; the Ubuntu wrapper reads public root-owned view settings from /etc/ants-view.conf. Completed cohorts belong in cached Past, rather than being scanned on every live refresh.

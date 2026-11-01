@@ -243,7 +243,7 @@ def test_unit_files_referenced_by_the_installer_and_remote_deploy_exist():
     assert wanted >= {"ants@.service", "ants-janitor@.service", "ants-janitor@.timer", "ants-board.service", "ants-health@.service", "ants-health@.timer", "ants-backup@.service", "ants-backup@.timer"}
     for w in wanted:
         assert (DEPLOY / w).exists(), f"{w} is installed by install.sh but does not exist in deploy/"
-    assert all(p.name.startswith(("ants", "install", "remote_deploy", "PREFLIGHT", "experiments", "pull_backups", "launchd", "series")) for p in DEPLOY.iterdir()), "deploy files are named ants-* or a known ops file"
+    assert all(p.name.startswith(("ants", "install", "remote_deploy", "PREFLIGHT", "experiments", "pull_backups", "launchd", "series")) for p in DEPLOY.iterdir() if p.name!='__pycache__'), "deploy files are named ants-* or a known ops file"
 
 
 @pytest.mark.parametrize("unit", UNITS)
@@ -364,6 +364,6 @@ def test_the_path_wrapper_runs_ants_as_the_service_user_and_passes_arguments_unt
     w = DEPLOY / "ants-wrapper.sh"
     text = w.read_text()
     assert subprocess.run(["sh", "-n", str(w)], capture_output=True).returncode == 0
-    assert 'exec runuser -u ants --' in text and 'sudo -u ants' in text and text.count('"$@"') == 3
+    assert 'exec runuser -u ants --' in text and 'sudo -u ants' in text and text.count('/opt/ants/.venv/bin/ants "$@"') == 3
     assert "eval" not in text and "$*" not in text
     assert "ants-wrapper.sh" in (DEPLOY / "install.sh").read_text() and "/usr/local/bin/ants" in (DEPLOY / "install.sh").read_text()

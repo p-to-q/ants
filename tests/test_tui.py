@@ -342,12 +342,14 @@ def test_animation_frames_come_from_the_clock_and_degrade(monkeypatch):
     monkeypatch.delenv("ANTS_REDUCE_MOTION", raising=False)
     monkeypatch.delenv("SSH_CONNECTION", raising=False)
     monkeypatch.delenv("SSH_TTY", raising=False)
-    every = anim.ACTIVITY_INTERVAL
     expected = ("·", "✻", "✽", "✶", "✳", "✢")
-    for name in anim.SPINNERS:
-        assert tuple(anim.frame(name, (i + .1) * every) for i in range(6)) == expected
-        assert anim.frame(name, .1 * every) == anim.frame(name, 6.1 * every)
-        assert all(set(anim.frame(name, (i + .1) * every, ascii_only=True)) <= set("|/-\\") for i in range(8))
+    assert tuple(anim.frame('footer',(i+.1)*anim.ACTIVITY_INTERVAL) for i in range(6))==expected
+    assert anim.SPINNERS['alive'][0]=='-\\|/'
+    assert anim.SPINNERS['running'][0]=='⣾⣽⣻⢿⡿⣟⣯⣷'
+    for name,(frames,every) in anim.SPINNERS.items():
+        assert tuple(anim.frame(name,(i+.1)*every) for i in range(len(frames)))==tuple(frames)
+        assert anim.frame(name,.1*every)==anim.frame(name,(len(frames)+.1)*every)
+        assert all(anim.frame(name,(i+.1)*every,ascii_only=True).isascii() for i in range(8))
     assert set(anim.frame("loading", 0.3, ascii_only=True)) <= set("|/-\\")
     monkeypatch.setenv("ANTS_REDUCE_MOTION", "1")
     assert anim.frame("running", 0.0) == anim.frame("running", 5.0) == "●" and anim.pulse(0.9)
@@ -356,6 +358,7 @@ def test_animation_frames_come_from_the_clock_and_degrade(monkeypatch):
         assert anim.frame(name, 10.0, ascii_only=True).isascii()
     monkeypatch.delenv("ANTS_REDUCE_MOTION")
     monkeypatch.setenv("SSH_CONNECTION", "x")
+    every=anim.SPINNERS['running'][1]
     assert anim.frame("running", every * .75) == anim.frame("running", 0.0)                  # over ssh the interval doubles
     for name, (frames, _) in anim.SPINNERS.items():
         assert all(len(f) == len(frames[0]) for f in frames), name                              # frames of one width: nothing jitters
@@ -390,9 +393,9 @@ def test_every_screen_has_a_chart_or_gauge(run_dir):
     assert "Evaluations finished" in out["overview"] and any(0x2800 < ord(c) <= 0x28FF for c in out["overview"]) or "Best so far" not in out["overview"]
     assert "▮" in out["trials"] and "✓" in out["trials"]
     assert "Deepest-stage evaluations" in out["fleet"]
-    assert "Gauges" in out["health"] and "disk used" in out["health"]
+    assert "Failed / finished" in out["health"] and "disk used" in out["health"]
     assert "events per minute" in out["events"]
-    assert "Backups" in out["system"] and "Model spend" in out["system"]
+    assert "Backups" in out["system"] and "Model calls" in out["system"]
 
 
 def test_keys_pause_hint_freeze_and_step_through_searches(run_dir, tmp_path):
@@ -492,7 +495,7 @@ def test_the_system_page_counts_model_calls_in_every_ledger_and_says_where_the_c
         info = model.system_info(a, [a, b])
         assert [x["name"] for x in info["llm_by_ledger"]] == [f"{wd.name}/{a.arm}", f"other/{b.arm}"]
         assert "built-in default" in info["llm_cap_source"]
-        text = render.plain(views.system_screen({"info": info}, views.Ctx(width=100)).lines)
+        text = render.plain(views.system_screen({"info": info}, views.Ctx(width=100,filt={'system_details':True})).lines)
         assert "all 2 ledgers together" in text and "on its own" in text and "cap from:" in text
         monkeypatch.setenv("ANTS_LLM_MAX_CALLS_PER_DAY", "7")
         assert "ANTS_LLM_MAX_CALLS_PER_DAY=7" in model.system_info(a, [a])["llm_cap_source"]

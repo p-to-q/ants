@@ -50,7 +50,7 @@ conversion is not implemented by this change.
 | Deployment preflight | experimental | `tests/test_preflight.py`; E43a deployment on 2026-10-19 | exact arm or numeric seed suffix only; prefix-sharing arm names are kept separate; read-only snapshot, not a long-run guarantee ([module](modules/preflight.md)) |
 | Past round history | experimental | `tests/test_archive_index.py`, `tests/test_tui.py` | cached verified-bundle summaries; snapshot kind omits metrics; receipts are recorded, not checked live; no restore or deletion action ([module](modules/archive_index.md)) |
 | Existing-state startup detection | experimental | `tests/test_system.py` | shares viewer discovery; series and archive-only state skip first-run downloads; detection does not write or open ledgers ([module](modules/cli.md)) |
-| Shared activity animation | experimental | `tests/test_tui.py` | one six-frame token across all activity states; clock-driven, SSH slowdown, reduced motion and ASCII fallback ([module](modules/ui.md)) |
+| Context-specific activity animation | experimental | `tests/test_tui.py` | historical loading/running/model/found/line animations; six-frame hex token only in the All searches footer; clock-driven, SSH slowdown, reduced motion and ASCII fallback ([module](modules/ui.md)) |
 | Packaging scan (`scripts/scan_secrets.py`, `pack_public.sh`) | experimental | `tests/test_security_deploy.py` | scans the staging directory and the final tarball; pattern based |
 
 November 2 acceptance: candidate versions publish atomically; refit targets are not clipped. E43 final results and public development frontier are documented in `docs/experiments/E43-final-20261102.md`. Historical weights remain unavailable; refits are labelled and cap-checked independently.
@@ -65,3 +65,6 @@ November 2 acceptance: candidate versions publish atomically; refit targets are 
 
 | Native terminal search-map snapshot | experimental | `tests/test_search_map.py` | explicit retrospective PCA, bounded compatible caches, native Arms view; no automatic online projection refresh |
 | Saved-weight dev validation and traces | experimental | `tests/test_model_validation.py` | exact-weight checksum/data-role and split checks; descriptive dev scores only, no confirm evidence |
+
+| Combined operational dashboards and series discovery | experimental | `tests/test_terminal_charts.py`, `test_system.py` | summaries plus default plots, scoped date/hour evaluation CPU or completion heatmap, series-owned backup/service mapping and explicit missing/unreadable metadata; cached receipts do not establish live archive integrity |
+| Guarded Ubuntu deployment | experimental | `tests/test_deploy_gate.py` | stable launcher/status, exclusive installer lock, systemd active-run refusal and explicit readiness; direct managed binary bypasses launcher, no automatic atomic venv rollback |

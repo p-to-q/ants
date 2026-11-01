@@ -63,6 +63,17 @@ def test_service_install_print_writes_nothing(work, capsys, monkeypatch, tmp_pat
 
 
 # ----------------------------------------------------------------------------------------------------------- backup
+def test_series_backup_discovery_matches_timer_layout_and_explicit_override(tmp_path,monkeypatch):
+    root=tmp_path/'service';monkeypatch.setenv('ANTS_SERVICE_ROOT',str(root))
+    monkeypatch.setenv('ANTS_HOME',str(tmp_path/'home'))
+    monkeypatch.delenv('ANTS_BACKUP_DIR',raising=False)
+    a=root/'series/e44a/random_s101';b=root/'series/e44b/random_s101'
+    assert system.backup_dir(a)==root/'backups/series/e44a/random_s101'
+    assert system.backup_dir(b)!=system.backup_dir(a)
+    monkeypatch.setenv('ANTS_BACKUP_DIR',str(tmp_path/'override'))
+    assert system.backup_dir(a)==tmp_path/'override'
+
+
 def test_backup_is_verified_and_restores_the_same_chain(work):
     dest = work.parent / "bk"
     m = make_backup(work / "ledger.sqlite", dest, keep=3, now=1_700_000_000)
