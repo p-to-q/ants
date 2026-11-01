@@ -609,3 +609,7 @@ Adopt [Saved models in Leaderboard](research/leaderboard-saved-models.md): Live/
 ### Past and unified experiment catalog
 
 Implement [one study/stage/run catalog](research/experiment-catalog.md) shared by Home, Arms, Leaderboard and Past. Past gets History / Planned / All projections, a dense list/detail structure, protocol-compatible comparisons and route/evidence links per [the next-version specification](research/past-next-version.md). E43a/E43b remain stages of one E43 study; snapshots are artifacts. Preserve historical pilots and uncertainty. Strip standing narrative from the populated view, retain scoped status tags and detail/help explanations. Schema/API and migration precede UI; none of this registers or starts a proposed experiment.
+
+### Evidence-grounded search map
+
+Explore [the Arms Compare/Map view](research/search-map.md), beginning with fixed parameter-count/relative-MSE coordinates and an actual seed-8 historical replay. Separate completed observations, pending proposals and recorded lineage. Keep projection and replay budget identities fixed; no synthetic score terrain or inferred Agent motion. Implement as a bounded read-only cache/view after the unified identities and retention interfaces are accepted. This is a prototype/design, not a deployed map or a change to search policy.

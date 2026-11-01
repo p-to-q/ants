@@ -802,6 +802,6 @@ def system_charts(d,ctx):
                  ylabel='Backup archive size (MB, decimal)',ascii_only=ctx.ascii_only)
     lines=[[S(' Backup history · v details','accent')],[]]
     lines += [[S(' '+line,'accent' if i==0 else 'dim')] for i,line in enumerate(plot)]
-    lines += [[],[S(f' {len(points)} recorded backups in the last 7 days','dim')],
+    lines += [[],[S(f' {len(points)} backups plotted · known size/time · last 7 days','dim')],
               [S(' Recorded sizes and times; integrity is checked separately.','dim')]]
     return View(lines)

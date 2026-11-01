@@ -28,7 +28,7 @@ def test_system_plot_uses_only_recent_recorded_sizes():
                              {'created':now-200,'stored_bytes':None}]}
     ctx=views.Ctx(width=90,filt={'system_charts':True})
     text=render.plain(views.system_screen({'info':info},ctx).lines)
-    assert '1 recorded backups' in text and '(MB, decimal)' in text and 'days before sample' in text
+    assert '1 backups plotted' in text and '(MB, decimal)' in text and 'days before sample' in text
     assert 'integrity is checked separately' in text and '999' not in text
 
 
