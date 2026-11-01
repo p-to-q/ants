@@ -21,3 +21,5 @@ Catalog-driven data layer: the dataset roles ARE the evaluation protocol.
 - Live series (sunspots, CPI) are pinned by SHA-256 in `data/MANIFEST.sha256`; `ants data verify` reports any drift. Nothing re-hashes raw files while a campaign runs.
 - `protocol_hash()` = hash of `catalog.toml`, `catalog_synth.toml`, `MANIFEST.sha256` and the parser version. What starts a new epoch is decided by the campaign, which does not use this hash: see [campaign](campaign.md) and [docs/DATA.md](../DATA.md).
 - `_CACHE` is process-wide and keyed by dataset name.
+
+The TUI data overview additionally groups catalog metadata by family and display group for a count matrix. It uses path existence observations for availability and never calls `Catalog.load` or reads raw series to draw these charts. A present file has not thereby passed a hash check. Access roles and evaluation semantics are unchanged.

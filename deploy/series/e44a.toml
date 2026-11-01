@@ -1,0 +1,12 @@
+# Engineering calibration only. Does not extend E43 or authorize confirm/sealed access.
+name = "e44a"
+question = "Can random, plain Optuna-TPE and portfolio complete reproducible bounded runs with preserved model/evidence artifacts under the new release? Engineering calibration, not efficacy."
+protocol = "docs/experiments/E44-calibration-20261102.md"
+contract = "contracts/tinyts_real.toml"
+arms = ["random", "tpe", "portfolio"]
+seeds = "101-102"
+max_cpu_s = 3600
+workers = 2
+epoch = "5da6eeee6527"
+base = "/var/lib/ants/series/e44a"
+status = "planned"

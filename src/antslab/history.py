@@ -72,7 +72,7 @@ class History:
                 return total
 
     def _update_batch(self) -> tuple:
-        q = ("SELECT id,spec_key,stage,params,metrics,source,origin_key,edit,finished_at FROM trials "
+        q = ("SELECT id,spec_key,stage,params,metrics,source,origin_key,edit,finished_at,epoch FROM trials "
              "WHERE gym=? AND arm=? AND state='done' AND (finished_at>? OR (finished_at=? AND id>?))"
              + (" AND epoch=?" if self.epoch is not None else "") + " ORDER BY finished_at,id LIMIT " + str(self.BATCH))
         args = [self.c.gym, self.arm, self.cursor, self.cursor, self.cursor_id] + ([self.epoch] if self.epoch is not None else [])
@@ -87,6 +87,7 @@ class History:
             si = self.c.stages.index(r["stage"]) if r["stage"] in self.c.stages else 0
             rec = {"id": r["id"], "key": r["spec_key"], "stage_idx": si, "value": m[self.c.primary],
                    "metrics": m, "spec": json.loads(r["params"]), "source": r["source"],
+                   "finished_at": r["finished_at"], "epoch": r["epoch"],
                    "origin_key": r["origin_key"], "edit": json.loads(r["edit"]) if r["edit"] else None}
             rec["feasible"] = self.feasible(m)
             if rec["feasible"]:

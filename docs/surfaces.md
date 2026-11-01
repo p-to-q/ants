@@ -13,6 +13,11 @@ conversion is not implemented by this change.
 
 | Surface | Status | Evidence | Notes |
 |---|---|---|---|
+| Series status and resource plan | experimental | `tests/test_series.py`, `test_series_plan.py` | read-only status omits score reads unless `--values`; planning states estimates and does not detect service CPU quota ([module](modules/series.md)) |
+| Standard metric displays and Tier A validation report | experimental | `test_metrics_display.py`, `test_tiera.py` | dev validation refitting only; per-dataset/horizon errors do not yet implement the full paper-comparable benchmark ([module](modules/tiera.md)) |
+| Agent v2 read-only tools | experimental | `tests/test_agent_v2.py`, `test_agent.py` | new arms, separate tool-generation identity; client/seed/preflight wiring verified with mock/empty endpoints; empirical benefit and live model availability unmeasured ([module](modules/agent.md)) |
+| Versioned development candidates | experimental | `test_candidates.py`, `test_candidate_views.py` | explicit read-only detector and optional watcher; immutable version records with scoped current-best pointers; no automatic adoption ([module](modules/candidates.md)) |
+| Train-only TinyTS weight artifacts | experimental | `test_model_artifact.py` | numeric weights, preprocessing, source, recipe and load-predict parity; new refits, not historical checkpoints or held-out claims ([module](modules/model_artifact.md)) |
 | Ledger (SQLite, hash chain, fencing token, epochs) | stable | `tests/test_ledger_gate.py`, `test_chaos_db.py`, `test_chaos_clock.py`, `test_redteam_chain.py`, kill -9 chaos test | chain anchors exist (`anchor`, `write_anchor`, `verify_against_anchor`) but nothing ships them off-box, so tail truncation and a consistent rewrite stay undetected in practice; the `trials` table is not audited against its events |
 | Runner (subprocess, process-group kill, clean env, strict `metrics.json`) | stable | `tests/test_runner.py`, `test_chaos_runner.py` | grandchildren that `setsid` are found by a per-trial token and killed; the Linux `/proc` scan is tested only against a synthetic tree, macOS `ps` only with python children |
 | Campaign (cascade, breaker, pre-filters, disk levels, graceful stop, transient-error back-off) | stable | `tests/test_campaign.py`, `test_chaos_signals.py`, `test_chaos_misc.py`, `-m slow` | single-instance lock exists (`flock` on `<workdir>/ants.lock`, second `ants run` exits 3); finish and promotion are not one transaction (a kill can lose a promotion); a stopped gym can outlive a `kill -9` of only the daemon outside systemd |
@@ -47,3 +52,16 @@ conversion is not implemented by this change.
 | Existing-state startup detection | experimental | `tests/test_system.py` | shares viewer discovery; series and archive-only state skip first-run downloads; detection does not write or open ledgers ([module](modules/cli.md)) |
 | Shared activity animation | experimental | `tests/test_tui.py` | one six-frame token across all activity states; clock-driven, SSH slowdown, reduced motion and ASCII fallback ([module](modules/ui.md)) |
 | Packaging scan (`scripts/scan_secrets.py`, `pack_public.sh`) | experimental | `tests/test_security_deploy.py` | scans the staging directory and the final tarball; pattern based |
+
+November 2 acceptance: candidate versions publish atomically; refit targets are not clipped. E43 final results and public development frontier are documented in `docs/experiments/E43-final-20261102.md`. Historical weights remain unavailable; refits are labelled and cap-checked independently.
+
+
+### Additional terminal surfaces
+
+| surface | status | evidence | limits |
+|---|---|---|---|
+| Saved model catalog and Leaderboard view | experimental | `tests/test_saved_models.py` | bounded read-only schema-1 metadata, Live/Saved navigation and scoped receipts; no live weight verification, export controls, previous-collection navigation or automated checkpoint service |
+| Health/Data/System coordinate charts | experimental | `tests/test_terminal_charts.py` | explicit windows/units, scoped observations and catalog metadata; no persistent host monitoring or live backup verification |
+
+| Native terminal search-map snapshot | experimental | `tests/test_search_map.py` | explicit retrospective PCA, bounded compatible caches, native Arms view; no automatic online projection refresh |
+| Saved-weight dev validation and traces | experimental | `tests/test_model_validation.py` | exact-weight checksum/data-role and split checks; descriptive dev scores only, no confirm evidence |

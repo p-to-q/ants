@@ -197,5 +197,16 @@ def test_history_and_catalog_do_not_require_a_live_contract(tmp_path, monkeypatc
     assert a.load("afterlife", {}, None)["catalog"]["rounds"] == []
     assert a.load("data", {}, None) == {"data": {"sets": []}}
     text = app.once(screen="past", color=False)
-    assert text.startswith(" Past\n") and "graveyard" in text
+    assert text.startswith(" 0 retained rounds") and "cached records only" in text
     assert "Afterlife" not in text
+
+
+def test_past_starts_with_records_and_keeps_error_distinct_from_empty():
+    rows = [{"id":f"r-{i}","title":f"Demo round {i}","kind":"snapshot","preview":[]} for i in range(12)]
+    view = views.afterlife_screen({"catalog":{"rounds":rows}},views.Ctx(width=100,height=30))
+    text = render.plain(view.lines)
+    assert text.startswith(" 12 retained rounds") and "graveyard" not in text
+    assert " Demo round 6" in text and view.row0 == 3
+    error = render.plain(views.afterlife_screen({"catalog":{"rounds":[],"error":"invalid index"}},views.Ctx()).lines)
+    assert "History unavailable" in error and "0 retained rounds" not in error
+    assert "permissions" in error and "ants archive index --help" in error

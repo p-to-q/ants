@@ -75,7 +75,8 @@ def test_views_are_pure_functions_of_their_data():
                   {"rank": 2, "value": 0.95, "stage": "s2", "n_params": 260, "trial": 6, "key": "k2", "operator": "tpe", "spec": "a=2"}]}
     v = views.board({"lb": lb}, ctx)
     assert v.rows == 2 and "evo" in "".join(t for t, _ in v.lines[v.row0]) and "▌" in "".join(t for t, _ in v.lines[v.row0 + 1])
-    assert views.board({"lb": {}}, ctx).lines[0][0][0].strip() == "no finished evaluations yet"
+    empty = "".join(t for line in views.board({"lb": {}}, ctx).lines for t, _ in line)
+    assert "No finished evaluations yet" in empty and "Saved: v" in empty
     assert views.health({"rows": [("OK", "fine"), ("FAIL", "broken")]}, ctx).lines[0][0][0].strip() == "1 failing, 0 warnings"
 
 

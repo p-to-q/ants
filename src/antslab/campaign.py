@@ -162,7 +162,23 @@ class Campaign:
         promoter = getattr(proposer, "promoter", None)
         if promoter is not None:                                  # only when present: the definition (and its hash) of every older arm is unchanged
             d["promotion"] = promoter.definition()
+        # tool generation: a key appears only for v2, so v1 arm hashes are unchanged
+        tg = Campaign._agent_tools_gen(proposer)
+        if tg and tg != "v1":
+            d["tools_gen"] = tg
         return d
+
+    @staticmethod
+    def _agent_tools_gen(proposer) -> str | None:
+        """The tool generation of the agent operator inside the portfolio, if any."""
+        ops = getattr(proposer, "ops", None)
+        if ops:
+            ag = ops.get("agent")
+            if ag and hasattr(ag, "tools_gen"):
+                return ag.tools_gen
+        if hasattr(proposer, "tools_gen"):
+            return proposer.tools_gen
+        return None
 
     def arm_definition(self) -> dict:
         return Campaign.definition_of(self.arm, self.p, self.c, self.batch)

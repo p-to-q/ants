@@ -689,3 +689,26 @@ def test_make_refuses_a_workdir_name_verify_would_reject_before_writing_anything
         with pytest.raises(bundle.BundleError, match="plain names"):
             bundle.make_bundle("b", out, [wd])
         assert not out.exists() or not list(out.iterdir())
+
+
+def test_contract_lookup_skips_an_inaccessible_current_directory(monkeypatch):
+    from antslab.cli import _contract_path
+    from antslab.home import package_root
+    root = package_root()
+    original = Path.exists
+    def denied_relative(path):
+        if not path.is_absolute():
+            raise PermissionError('caller cwd is private')
+        return original(path)
+    monkeypatch.setattr(Path, 'exists', denied_relative)
+    assert Path(_contract_path('contracts/tinyts_real.toml')) == root/'contracts/tinyts_real.toml'
+
+
+def test_series_lookup_skips_an_inaccessible_current_directory(monkeypatch):
+    from pathlib import Path
+    from antslab.series import find_series_file
+    def exists(path):
+        if not path.is_absolute():raise PermissionError('root cwd')
+        return str(path)=='/opt/ants/deploy/series/e43b.toml'
+    monkeypatch.setattr(Path,'exists',exists)
+    assert find_series_file('e43b')==Path('/opt/ants/deploy/series/e43b.toml')

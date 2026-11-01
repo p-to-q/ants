@@ -1,0 +1,14 @@
+# E43's registered second stage, not the separate portfolio_lean hypothesis.
+# Look 1: no efficacy rejection, median paired difference < 0; see the dated report.
+# New directory preserves the immutable seeds 1-8 manifest in e43a.
+name = "e43b"
+question = "Registered E43 continuation, seeds 9-16: at 50 400 CPU-seconds per run, does portfolio_screen improve best s2 rel_mse at at most 300 parameters over portfolio? Final look combines paired seeds 1-16."
+protocol = "docs/experiments/E43-learned-screen.md"
+contract = "contracts/tinyts_real.toml"
+arms = ["portfolio", "portfolio_screen"]
+seeds = "9-16"
+max_cpu_s = 50400
+workers = 2
+epoch = "5da6eeee6527"
+base = "/var/lib/ants/series/e43b"
+status = "planned"

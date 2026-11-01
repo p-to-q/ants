@@ -28,8 +28,11 @@ case "${1:-preflight}" in
     SUM=$({ sha256sum "$PKG" 2>/dev/null || shasum -a 256 "$PKG"; } | cut -d' ' -f1)
     # Nothing of the experiments is touched by a deploy: the code tree is replaced, /var/lib/ants (ledgers, backups, archive) never is. As a
     # belt for the braces, every ledger gets a verified backup first, and the deploy stops if one fails.
-    "${SSH[@]}" 'set -e; for w in /var/lib/ants/*/ledger.sqlite; do [ -e "$w" ] || continue; d=$(dirname "$w"); n=$(basename "$d"); [ -x /opt/ants/.venv/bin/ants ] || break
-                 sudo -n -u ants /opt/ants/.venv/bin/ants backup --workdir "$d" --dest "/var/lib/ants/backups/$n" --keep 14 --gzip >/dev/null || { echo "pre-deploy backup of $n failed: not deploying"; exit 1; }; done; echo "pre-deploy backups ok"'
+    "${SSH[@]}" 'set -e; if [ -x /opt/ants/.venv/bin/ants ]; then
+                 find /var/lib/ants -type f -name ledger.sqlite -not -path "*/backups/*" -not -path "*/archive/*" -print0 | while IFS= read -r -d "" w; do
+                 d=$(dirname "$w"); n=${d#/var/lib/ants/}
+                 sudo -n -u ants /opt/ants/.venv/bin/ants backup --workdir "$d" --dest "/var/lib/ants/backups/pre-deploy/$n" --keep 14 --gzip >/dev/null || { echo "pre-deploy backup of $n failed: not deploying"; exit 1; }
+                 done; fi; echo "pre-deploy backups ok"'
     "${SSH[@]}" 'rm -rf "$HOME/.ants_deploy" && mkdir -m 700 "$HOME/.ants_deploy"'
     scp -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes "$PKG" "$USER_@$HOST:.ants_deploy/antslab.tar.gz"
     "${SSH[@]}" 'set -e; D="$HOME/.ants_deploy"; echo "'"$SUM"'  $D/antslab.tar.gz" | sha256sum -c - >/dev/null

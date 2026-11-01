@@ -24,13 +24,13 @@ STATE_GLYPH = {"done": ("✓", "ok"), "failed": ("✗", "bad"), "timeout": ("⏱
 KEYS = {
     "home": "0-9 or ←→ screens · [ ] next/prev search · p pause/resume · h hint · / command · ? help · q quit",
     "overview": "←→ screens · r refresh · p pause/resume · h hint · [ ] search · space freeze · ? help",
-    "board": "Tab/< > cap · ←→ screens · ↑↓ row · Enter open · p pause · h hint · [ ] search · ? help",
+    "board": "v Live/Saved · t saved forecast · o best/latest · Tab/< > cap · ↑↓ row · Enter open · ←→ screens · [ ] search · ? help",
     "trials": "↑↓ row · Enter open · s state · t stage · g/G top/bottom · space freeze · ? help",
-    "fleet": "↑↓ row · Enter switch to that search · p pause/resume it · h hint · ? help",
+    "fleet": "m compare/map · z map height · ↑↓ row · Enter switch to that search · p pause/resume it · h hint · ? help",
     "events": "↑↓ scroll · k kind · space freeze · ? help",
-    "health": "r refresh · ? help",
-    "data": "r refresh · ? help",
-    "system": "r refresh · ? help",
+    "health": "v checks/charts · r refresh · ? help",
+    "data": "v catalog/charts · r refresh · ? help",
+    "system": "v details/charts · r refresh · ? help",
     "afterlife": "↑↓ round · Enter evidence / parameters · ←→ screens · r refresh cache · ? help",
     "detail": "Esc back · ? help",
 }
@@ -41,6 +41,7 @@ class View:
     lines: list
     rows: int = 0
     row0: int = 0          # index of the line that carries row 0
+    windowed: bool = False
 
 
 @dataclass
@@ -266,29 +267,42 @@ def overview(d, ctx: Ctx) -> View:
 
 
 def board(d, ctx: Ctx) -> View:
+    if d.get("mode") == "saved":
+        return saved_board(d, ctx)
     w = ctx.width
     lb = d["lb"]
     caps = list(lb)
     if not caps:
-        return View([[S(" no finished evaluations yet", "dim")]])
+        return View([[S(" Live   Saved: v", "accent")], [S(" No finished evaluations yet.", "dim")]])
     tab = ctx.tab % len(caps)
-    lines = [[S(" ")] + [S(f"[≤{c}]", "accent") if i == tab else S(f" ≤{c} ", "dim") for i, c in enumerate(caps)] + [S("   Tab or < > cap · ←/→ screen · ↑/↓ row · Enter opens", "dim")], []]
+    order = d.get("order", "best")
+    lines = [[S(" Live · v Saved   ", "accent")] + [S(f"[≤{c}]", "accent") if i == tab else S(f" ≤{c} ", "dim") for i, c in enumerate(caps)] + [S(f"   {order} · o changes order · Enter opens", "dim")], []]
     rows = lb[caps[tab]]
+    primary = rows[0].get("primary", "rel_mse") if rows else "rel_mse"
     sizes = [r["n_params"] for r in rows if r["n_params"]]
     lo, hi = (min(sizes), max(sizes)) if sizes else (1, 2)
     lw = 12
-    lines.append([S(f"  {'#':>2} {'value':>8} {'gain':>6}  {'':<14} {'params (log)':<{lw}} {'stage':<5} {'trial':>6} {'':<2}{'operator':<10} spec", "dim")])
+    lines.append([S(f"  {'#':>2} {'MSE(std)':>8} {'rel_mae':>8} {'gain':>6}  {'':<14} {'params (log)':<{lw}} {'stage':<5} {'trial':>6} {'':<2}{'operator':<10} {primary}", "dim")])
     for i, r in enumerate(rows):
         g = gain(r["value"]) or 0
         col = pixel.log_position(r["n_params"] or 0, lo, hi, lw)
         loll = "".join("●" if c == col else "─" if c < col else " " for c in range(lw))
         prev = ctx.prev_ranks.get(r["trial"])
         trend = "  " if prev is None else "▲ " if prev > r["rank"] else "▼ " if prev < r["rank"] else "= "
-        lines.append([cursor(i, ctx.sel), S(f" {r['rank']:>2} ", "dim"), S(f"{r['value']:>8.4f} ", "bold"), S(f"{g:5.1f}% ", "ok" if g > 0 else "warn"),
+        vmse = fmt_v(r.get("val_mse"), 4) if r.get("val_mse") is not None else "-"
+        rmae = fmt_v(r.get("rel_mae"), 4) if r.get("rel_mae") is not None else "-"
+        lines.append([cursor(i, ctx.sel), S(f" {r['rank']:>2} ", "dim"), S(f"{vmse:>8} ", "none"), S(f"{rmae:>8} ", "none"),
+                      S(f"{g:5.1f}% ", "ok" if g > 0 else "warn"),
                       S(pixel.bar(max(g, 0), 30, 14), "accent"), S(" "), S(loll, "accent"), S(f" {r['stage']:<5} {r['trial']:>6} ", "none"),
                       S(trend, "ok" if trend.startswith("▲") else "warn" if trend.startswith("▼") else "dim"), S(f"{clip(r['operator'], 10):<10} ", "none"),
-                      S(clip(r["spec"], max(10, w - 80)), "dim")])
+                      S(f"{r['value']:.4f}", "bold")])
     lines.append([]); lines.append([S(f"  ● marks the parameter count between the smallest ({lo}) and the largest ({hi}) in this list", "dim")])
+    if rows:
+        selected = rows[min(max(ctx.sel, 0), len(rows) - 1)]
+        stamp = selected.get("finished_at")
+        when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(stamp)) if isinstance(stamp, (int, float)) else "time not recorded"
+        lines.append([S(clip(f"  #{selected['trial']}  {selected['stage']}  epoch {selected.get('epoch') or 'legacy'}  {when}", w - 1), "dim")])
+        lines.append([S(clip("  " + selected.get("spec", ""), w - 1), "none")])
     return View(lines, len(rows), 3)
 
 
@@ -327,12 +341,16 @@ def detail(d, ctx: Ctx) -> View:
     lines.append([S(" " + t["non_default"], "none")])
     lines.append([])
     lines.append(rule(w, "Metrics by stage"))
-    prim = None
+    lines.append([S(f" {'':4} {'MSE(std)':>9} {'rel_mae':>9} {'params':>7} {'fit_s':>7} {'rel_mse(ours)':>14}", "dim")])
     for stage, m in t["stages"].items():
-        shown = [f"{k}={v:.4g}" for k, v in list(m.items())[:7] if isinstance(v, (int, float))]
-        first = next(((k, v) for k, v in m.items() if isinstance(v, (int, float))), None)
-        bar = pixel.bar(max(0.0, 1.5 - float(first[1])), 1.0, 16) if first and first[0].startswith("rel") else ""
-        lines.append([S(f" {stage:<4}", "bold"), S(bar, "accent"), S(" "), S(clip("  ".join(shown), w - 28), "none")])
+        vmse = f"{m['val_mse']:.4f}" if isinstance(m.get("val_mse"), (int, float)) else "-"
+        rmae = f"{m['rel_mae']:.4f}" if isinstance(m.get("rel_mae"), (int, float)) else "-"
+        npar = f"{m['n_params']:g}" if isinstance(m.get("n_params"), (int, float)) else "-"
+        fits = f"{m['fit_s']:.1f}" if isinstance(m.get("fit_s"), (int, float)) else "-"
+        rmse_val = m.get("rel_mse")
+        rmse = f"{rmse_val:.4f}" if isinstance(rmse_val, (int, float)) else "-"
+        bar = pixel.bar(max(0.0, 1.5 - float(rmse_val)), 1.0, 16) if isinstance(rmse_val, (int, float)) else ""
+        lines.append([S(f" {stage:<4}", "bold"), S(bar, "accent"), S(f" {vmse:>9} {rmae:>9} {npar:>7} {fits:>7} {rmse:>14}", "none")])
     if t.get("error"):
         lines.append([]); lines.append([S(" error: ", "bad"), S(clip(t["error"], w - 10), "none")])
     if t["lineage"]:
@@ -344,6 +362,8 @@ def detail(d, ctx: Ctx) -> View:
 
 
 def fleet_screen(d, ctx: Ctx) -> View:
+    if d.get("mode") == "map":
+        return search_map_screen(d, ctx)
     w = ctx.width
     rows = d["fleet"]
     lines = [[S(" Compare searches at equal evaluations, not equal time: they run at different speeds.", "dim")], []]
@@ -415,7 +435,10 @@ def health(d, ctx: Ctx) -> View:
     rows = d["rows"]
     n_bad = sum(1 for l, _ in rows if l == "FAIL")
     n_warn = sum(1 for l, _ in rows if l == "WARN")
-    lines = [[S(" all clear" if not (n_bad or n_warn) else f" {n_bad} failing, {n_warn} warnings", "ok" if not (n_bad or n_warn) else "bad" if n_bad else "warn")]]
+    lines = [[S(" No checks available" if not rows else " all clear" if not (n_bad or n_warn) else f" {n_bad} failing, {n_warn} warnings", "dim" if not rows else "ok" if not (n_bad or n_warn) else "bad" if n_bad else "warn")]]
+    if ctx.filt.get("health_charts"):
+        return health_charts(d, ctx, lines)
+    lines[0].append(S("   v charts", "dim"))
     strip = [S(" ")]
     for level, _ in rows:
         g, style = TILE.get(level, ("?", "dim"))
@@ -445,7 +468,26 @@ def data_screen(d, ctx: Ctx) -> View:
     if "error" in d:
         return View([[S(" " + clip(t, w - 2), "warn" if i == 0 else "dim")] for i, t in enumerate(d["error"].split("\n"))])
     o = d["data"]
+    if ctx.filt.get("data_charts"):
+        from .charts import role_bars
+        lines = [[S(" Catalog coverage · v details", "accent")], []] + [
+            [S(" "+line, "dim" if i else "none")] for i,line in enumerate(role_bars(o["roles"],w-2,ctx.ascii_only))]
+        families = o.get("families", {})
+        if families and w >= 70:
+            groups = [g for g in ("dev","confirm","sealed","stress","synthetic") if g in o["roles"]]
+            lines += [[], rule(w,"Family / catalog group (entry counts)"),
+                      [S(" "+"family".ljust(18)+"".join(("synth" if g == "synthetic" else g).rjust(9) for g in groups),"dim")]]
+            items = sorted(families.items(),key=lambda x:(-bool(x[1].get("dev")), -bool(x[1].get("confirm")), -sum(x[1].values()),x[0]))
+            limit = max(0,min(6,ctx.height-4-len(lines)))
+            from ..textsafe import clean_text
+            for family,counts in items[:limit]:
+                lines.append([S(" "+clip(clean_text(family,40),18).ljust(18),"none"),
+                              S("".join(str(counts.get(g,0)).rjust(9) for g in groups),"dim")])
+            if len(items)>limit:
+                lines.append([S(f" {len(items)-limit} more families · v for dataset names","dim")])
+        return View(lines)
     lines = [[S(f" {o['base']}", "dim"), S(f"   raw {o['raw_bytes'] / 1e6:.0f} MB · processed {o['processed']} files", "dim")], []]
+    lines[0].append(S(" · v charts", "accent"))
     meaning = {"dev": "steers the search", "confirm": "re-checks a frozen candidate", "sealed": "looked at once, at the end", "stress": "synthetic stress tests", "synthetic": "generated on demand"}
     for role in ("dev", "confirm", "sealed", "stress", "synthetic"):
         items = o["roles"].get(role)
@@ -465,7 +507,10 @@ def data_screen(d, ctx: Ctx) -> View:
 def system_screen(d, ctx: Ctx) -> View:
     i = d["info"]
     w = ctx.width
+    if ctx.filt.get("system_charts"):
+        return system_charts(d, ctx)
     lines = [[S(f" ants {i['version']}", "accent"), S(f"   latest known {i['latest'] or '-'}", "dim"), S("   update available: `ants update`" if i.get("update") else "", "warn")], []]
+    lines[0].append(S(" · v charts", "dim"))
     kv = [("home", i["home"]), ("config", i["config"] or "(none; `ants onboard`)"), ("workdir", i.get("workdir", "-")), ("backups in", i.get("backup_dir", "-"))]
     if "service" in i:
         kv.append(("service", f"{i['service']['unit']}: {i['service']['state']}"))
@@ -538,9 +583,9 @@ def afterlife_screen(d, ctx: Ctx) -> View:
     w = ctx.width
     def prose(text, style="dim"):
         return [[S(" " + part, style)] for part in textwrap.wrap(text, max(10, w - 2))]
-    lines = [[S(" Past", "accent")]]
-    lines += prose("A graveyard for past experiments, with their findings and evidence kept within reach. Revisit a round to see what ran, what it found and where the verified copies are recorded.")
-    lines += [[S(f" {len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}. This view reads cached records only.", "dim")], []]
+    heading = "History unavailable" if catalog.get("error") else f"{len(rounds)} retained {'round' if len(rounds) == 1 else 'rounds'}"
+    lines = [[S(" " + heading, "warn" if catalog.get("error") else "accent"),
+              S("   cached records only", "dim")], []]
     if catalog.get("error"):
         lines += prose("The index could not be read. Check its format and permissions, or rebuild it from verified bundles. No running experiment was changed.", "warn")
         lines += prose(clean_text(catalog["error"], 200), "warn")
@@ -550,7 +595,7 @@ def afterlife_screen(d, ctx: Ctx) -> View:
         lines += prose("Run `ants archive index --help` for the indexing command. The index is a cache; the sealed bundle remains the evidence.")
         return View(lines)
     selected = min(max(ctx.sel, 0), len(rounds) - 1)
-    count = min(7, max(2, ctx.height - 27))
+    count = min(7, max(2, ctx.height - 22))
     start = (selected // count) * count
     label_w = max(16, w - 43)
     lines.append([S(f" {'date':<11}{'round / question':<{label_w}}{'kind':<11}receipt", "dim")])
@@ -562,16 +607,16 @@ def afterlife_screen(d, ctx: Ctx) -> View:
         kind = clean_text(r.get("kind", "?"), 10)
         lines.append([cursor(i, selected), S(f"{date:<11}", "dim"),
                       S(f"{clip(label, label_w):<{label_w}}", "bold" if i == selected else "none"),
-                      S(f"{kind:<11}", "dim"), S("off-host*" if r.get("offsite_note") else "local*", "ok" if r.get("offsite_note") else "warn")])
+                      S(f"{kind:<11}", "dim"), S("off-host note" if r.get("offsite_note") else "local note", "dim")])
     lines.append([S(f" {start + 1}-{min(start + count, len(rounds))} / {len(rounds)} · ↑↓ PgUp/PgDn select", "dim")])
     row = rounds[selected]
     lines += [[], rule(w, clean_text(row.get("title", row["id"]), 100))]
     if row.get("kind") == "snapshot":
-        lines += prose("This is an operational checkpoint. Research results are intentionally omitted while the experiment may still be running.")
+        lines.append([S(" Snapshot · results intentionally omitted", "dim")])
     else:
         direction = "lower" if row.get("direction") == "min" else "higher"
         lines.append([S(f" {clean_text(row.get('metric', '?'), 40)} · {row.get('stage', '?')} · cap ≤{row.get('focus_cap', '?')} · {direction} is better", "dim")])
-        lines.append([S(" Descriptive medians of per-run best values. n/N reports coverage.", "dim")])
+        lines.append([S(" Per-run best · median · n/N eligible runs", "dim")])
         preview = row.get("preview", [])
         limit = min(6, max(1, ctx.height - 22))
         for result in preview[:limit]:
@@ -579,17 +624,17 @@ def afterlife_screen(d, ctx: Ctx) -> View:
                           S(f" {fmt_v(result.get('median'), 5):>10}", "accent"),
                           S(f"  {result.get('n', 0)}/{result.get('total', 0)}  epoch {clean_text(result.get('epoch', '?'), 12)}", "dim")])
         if any(result.get("n", 0) < result.get("total", 0) for result in preview):
-            lines += prose("Some runs have no eligible result. Missing values are excluded, not treated as zero.", "warn")
+            lines.append([S(" Partial coverage · missing results excluded", "warn")])
         if row.get("kind") == "pilot":
-            lines += prose("These pilot results are exploratory, not confirmatory.", "warn")
+            lines.append([S(" Pilot · exploratory", "warn")])
         if len(preview) > limit:
             lines.append([S(f" {len(preview) - limit} more arm summaries are available with Enter.", "dim")])
     checked = row.get("verified_at")
     when = time.strftime("%Y-%m-%d %H:%M", time.localtime(checked)) if isinstance(checked, (float, int)) else "not recorded"
-    lines += [[S(f" Verified {when}. Receipts are recorded, not checked live.", "dim")],
-              [S(" Off-host receipt: " + clean_text(row.get("offsite_note") or "not recorded", 160), "none")],
-              [S(" Enter opens the full results, parameters and recovery locations.", "dim")]]
-    return View(lines, len(rounds), row0)
+    receipt = "off-host receipt" if row.get("offsite_note") else "local receipt only"
+    lines += [[S(f" Checked {when} · {receipt} · recorded, not live", "dim")],
+              [S(" Enter: results, parameters and evidence", "dim")]]
+    return View(lines, len(rounds), row0, True)
 
 
 def afterlife_detail(summary: dict, width: int) -> str:
@@ -640,9 +685,222 @@ def help_screen(ctx: Ctx) -> View:
     for k, v in HELP:
         lines.append([S(f" {k:<20}", "key"), S(v, "none")])
     lines.append([])
-    lines.append([S(" What the words mean", "accent")])
-    for k, v in (("rel_mse", "squared error divided by the error of 'repeat last season'; below 1.000 beats that reference"), ("stage", "s0 is a cheap first look, s1 and s2 are deeper tests; only deeper values are compared with each other"),
+    lines.append([S(" What the columns mean", "accent")])
+    for k, v in (("MSE (std.)", "mean squared error on z-scored values, averaged over this evaluator's tasks; protocol-dependent, not directly a paper comparison"),
+                 ("rel_mae", "MAE divided by seasonal-naive MAE, family-weighted geometric mean; our guard metric"),
+                 ("rel_mse (ours)", "MSE divided by seasonal-naive MSE, family-weighted geometric mean; our primary, not comparable to a paper's table"),
+                 ("stage", "s0 is a cheap first look, s1 and s2 are deeper tests; only deeper values are compared with each other"),
                  ("search / arm", "one running search strategy with its own record"), ("epoch", "the identity of the measuring code and data; results of different epochs are not comparable")):
         lines.append([S(f" {k:<20}", "key"), S(v, "dim")])
     lines.append([]); lines.append([S(" Read-only by construction: the ledger is opened read-only. `hint`, `pause` and `resume` are the only commands that write, and they go through the normal CLI.", "dim")])
     return View(lines)
+
+
+def saved_board(d, ctx: Ctx) -> View:
+    """Retained candidates, independent of the currently selected live ledger."""
+    from ..textsafe import clean_text
+    from ..saved_models import retention_label, weight_label
+    catalog = d.get('catalog', {})
+    w = ctx.width
+    lines = [[S(' Saved', 'accent'), S('   v Live · t forecast · Enter evidence', 'dim')]]
+    if catalog.get('error'):
+        return View(lines + [[S(' Model catalog unavailable', 'warn')],
+                            [S(' '+clean_text(catalog['error'], max(10,w-2)), 'dim')],
+                            [S(' Check ANTS_MODEL_CATALOG and its recorded schema.', 'dim')]])
+    rows = catalog.get('models', [])
+    if rows and ctx.filt.get('saved_trace'):
+        return saved_forecast(d,ctx)
+    if not rows:
+        return View(lines + [[S(' No retained models indexed yet.', 'dim')],
+                            [S(' Set ANTS_MODEL_CATALOG to a saved collection JSON.', 'dim')]])
+    lines.append([S(' '+clip(clean_text(catalog.get('label','Research collection'),100),w-2), 'none'),
+                  S(' · recorded receipts', 'dim')])
+    selected = min(max(ctx.sel,0),len(rows)-1)
+    wide = w >= 120
+    lw = max(50,int(w*.58)) if wide else w
+    shown = min(10, max(2, ctx.height - (8 if wide else 18)))
+    start = max(0,min(selected-shown//2,len(rows)-shown))
+    body = [[S(f"   {'model':<12} {'dev score':>9} {'params':>6}  kept for", 'dim')]]
+    for i,row in enumerate(rows[start:start+shown], start):
+        c = row['candidate']
+        body.append([cursor(i,selected), S(c['spec_key'][:12], 'bold' if i==selected else 'none'),
+                     S(f" {c['value']:9.5f} {c['n_params']:6g}  ", 'none'),
+                     S(retention_label(row), 'accent' if i==selected else 'dim')])
+    body.append([S(f' {start+1}-{min(start+shown,len(rows))} / {len(rows)} · ↑↓ browse', 'dim')])
+    row=rows[selected];c=row['candidate'];sp=c['spec'];ident=c['identity']
+    def safe(value,n=100): return clean_text(value,n)
+    profile=' / '.join(safe(sp.get(k,'?'),25) for k in ('core','pretrain','decomp'))
+    detail=[rule(w-lw-3 if wide else w, 'Kept for research'),
+            [S(' '+profile,'bold')],
+            [S(' '+retention_label(row),'accent')],
+            [S(f" {safe(ident.get('run','?'),50)} · #{safe(c.get('trial','?'),20)}",'dim')],
+            [S(f" {safe(c['metric'],25)} {c['value']:.5f} · {safe(c['stage'],10)}",'none')],
+            [S(f" Nominal {c['n_params']:g} / cap {c['cap']:g}",'dim')],
+            [S(' '+weight_label(row),'none')]]
+    refit=row.get('refit')
+    if isinstance(refit,dict):
+        detail.append([S(f" {safe(refit.get('dataset','?'),25)} · h{safe(refit.get('horizon','?'),10)} · {refit.get('stored_numeric_values','?')} stored",'dim')])
+    evaluation=refit.get('validation') if isinstance(refit,dict) else None
+    if isinstance(evaluation,dict):
+        detail.append([S(f" Refit dev MSE {evaluation['metrics']['mse_std']:.4f} · t curve",'dim')])
+    else:
+        detail.append([S(' Refit quality: not evaluated here','dim')])
+    if wide:
+        for i in range(max(len(body),len(detail))):
+            left=fit([body[i] if i<len(body) else []],lw)[0]
+            size=sum(len(x) for x,_ in left)
+            right=detail[i] if i<len(detail) else []
+            lines.append(left+[S(' '*(lw-size)+' │ ','dim')]+right)
+    else:
+        lines += body+[[]]+detail
+    return View(lines,len(rows),3,True)
+
+
+def saved_detail(row: dict, width: int) -> str:
+    """The full cached record; no weight loading or path traversal."""
+    import json
+    from ..textsafe import clean_text
+    c=row['candidate']
+    lines=[f"Model {c['spec_key']}",'',
+           'WHY IT WAS KEPT',clean_text(row.get('reason','Reason not recorded'),1000),'',
+           'EVIDENCE SCOPE',
+           'Development selection metrics belong to the original trial.',
+           'A refit is a new train-only fit; its quality needs a separate evaluation.',
+           'File and parity receipts below are recorded metadata, not live checks.',
+           'Historical checkpoint availability and new refit availability are separate.',
+           'Export/restore is an explicit operation; opening this record does not train or load weights.','',
+           'SPECIFICATION, SOURCE AND AVAILABLE VARIANTS',json.dumps(row,indent=2,ensure_ascii=True)]
+    return '\n'.join(part for line in lines for part in
+                     (textwrap.wrap(clean_text(line,50000),max(20,width-4),replace_whitespace=False,drop_whitespace=False) or ['']))
+
+
+def health_charts(d, ctx, header=None):
+    from .charts import scatter
+    ex=d.get('extra') or {};rates=ex.get('failure_trend') or []
+    lines=list(header or [[S(' Health trends','accent')]])
+    lines += [[S(' Current search · last 6 h · 30-minute bins · v checks','dim')]]
+    ph = 4 if ctx.height >= 28 else 3
+    rate_top = min(100,max(10,math.ceil(max([y for _,y,_ in rates] or [0])/10)*10))
+    plots=[scatter([('observed rate','o',[(x,y) for x,y,n in rates])],ctx.width-2,ph,
+                   xlim=(-6,0),ylim=(0,rate_top),xlabel='hours before sample',ylabel='Failed / finished (%) · scaled axis',ascii_only=ctx.ascii_only),
+           scatter([('finished trials','o',ex.get('finished_trend') or [])],ctx.width-2,ph,
+                   xlim=(-6,0),ylim=(0,max([n for _,n in ex.get('finished_trend',[])] or [1]) or 1),
+                   xlabel='hours before sample',ylabel='Finished trials / 30 min',ascii_only=ctx.ascii_only)]
+    for plot in plots:
+        lines += [[S(' '+line,'accent' if i==0 else 'dim')] for i,line in enumerate(plot)]
+        if ctx.height >= 28:
+            lines.append([])
+    n=sum(n for _,_,n in rates)
+    lines.append([S(f' n={n} finished outcomes · missing rates are not zero','dim')])
+    sampled=ex.get('sampled_at')
+    if isinstance(sampled,(int,float)):
+        lines.append([S(' Sampled '+time.strftime('%Y-%m-%d %H:%M UTC',time.gmtime(sampled)), 'dim')])
+    return View(lines)
+
+
+def system_charts(d,ctx):
+    from .charts import scatter,finite
+    i=d['info'];now=i.get('now',ctx.t)
+    points=[]
+    for b in i.get('backups') or []:
+        created,size=b.get('created'),b.get('stored_bytes')
+        if finite(created) and finite(size) and size>=0 and finite(now) and 0<=now-created<=7*86400:
+            points.append(((created-now)/86400,size/1e6))
+    plot=scatter([('recorded backups','o',points)],ctx.width-2,7,xlim=(-7,0),
+                 ylim=(0,max([y for _,y in points] or [1]) or 1),xlabel='days before sample',
+                 ylabel='Backup archive size (MB, decimal)',ascii_only=ctx.ascii_only)
+    lines=[[S(' Backup history · v details','accent')],[]]
+    lines += [[S(' '+line,'accent' if i==0 else 'dim')] for i,line in enumerate(plot)]
+    lines += [[],[S(f' {len(points)} backups plotted · known size/time · last 7 days','dim')],
+              [S(' Recorded sizes and times; integrity is checked separately.','dim')]]
+    return View(lines)
+
+
+def search_map_screen(d,ctx):
+    """Isometric character landscape from a configured, read-only map snapshot."""
+    from ..textsafe import clean_text
+    data=d.get('map',{});points=data.get('points',[]);w=ctx.width;scope=data.get('scope',{})
+    lines=[[S(' Search map','accent'),S(' · m compare · z density/score · Enter model','dim')]]
+    if data.get('error'):
+        return View(lines+[[S(' '+clean_text(data['error'],w-2),'warn')]])
+    if not points:
+        return View(lines+[[S(' No map snapshot indexed.','dim')],
+                           [S(' Build with ants map build; set ANTS_SEARCH_MAP.','dim')]])
+    selected=min(max(ctx.sel,0),len(points)-1);chosen=points[selected]
+    wide=w>=120;mw=int(w*.62) if wide else w;ch=max(8,min(18,ctx.height-(8 if wide else 14)))
+    cw=max(20,mw-2);gw,gh=12,8;sx=(cw-4)/(gw+gh);sy=max(.15,(ch-6)/(gw+gh))
+    us=[p['u'] for p in points];vs=[p['v'] for p in points];lo,hi=min(us),max(us);vl,vh=min(vs),max(vs)
+    cells={};positions={}
+    for i,p in enumerate(points):
+        gx=min(gw-1,int((p['u']-lo)/(hi-lo or 1)*gw));gy=min(gh-1,int((p['v']-vl)/(vh-vl or 1)*gh))
+        cells.setdefault((gx,gy),[]).append(i);positions[i]=(gx,gy)
+    ymax=max(len(v) for v in cells.values());scorelo=min(p['value'] for p in points);scorehi=max(p['value'] for p in points)
+    mode=ctx.filt.get('map_height','density');canvas=[[(' ','none') for _ in range(cw)] for _ in range(ch)]
+    tops={}
+    def put(x,y,char,style='dim'):
+        if 0<=x<cw and 0<=y<ch:canvas[y][x]=(char,style)
+    for (gx,gy),indices in sorted(cells.items(),key=lambda kv:sum(kv[0])):
+        n=len(indices);best=min(points[i]['value'] for i in indices)
+        z=1+round(3*(math.log1p(n)/math.log1p(ymax) if mode=='density' else (scorehi-best)/(scorehi-scorelo or 1)))
+        x=round(2+gh*sx+(gx-gy)*sx);base=round(4+(gx+gy)*sy);top=base-z
+        for y in range(top+1,base+1):put(x,y,':' if ctx.ascii_only else '░')
+        shade='.' if ctx.ascii_only else pixel.shade(z,4)
+        put(x,top,shade,'accent');put(x+1,top,shade,'accent')
+        for i in indices:tops[i]=(x,top)
+    # Highlight only recorded, earlier same-source parents; do not join neighbours.
+    child=selected;seen=set();edges=0
+    while edges<12 and child not in seen:
+        seen.add(child);p=points[child]
+        parent=next((i for i,q in enumerate(points) if q['source']==p['source'] and q['spec_key']==p.get('parent_key') and q['cpu_s']<p['cpu_s']),None)
+        if parent is None:break
+        x0,y0=tops[parent];x1,y1=tops[child];steps=max(abs(x1-x0),abs(y1-y0),1)
+        for t in range(steps+1):put(round(x0+(x1-x0)*t/steps),round(y0+(y1-y0)*t/steps),'.','none')
+        child=parent;edges+=1
+    arms=list(dict.fromkeys(p['arm'] for p in points));glyphs='abcdef'
+    for arm in arms:
+        i=max((i for i,p in enumerate(points) if p['arm']==arm),key=lambda i:points[i]['cpu_s'])
+        put(*tops[i],glyphs[arms.index(arm)] if arms.index(arm)<6 else '+','none')
+    put(*tops[selected],'@','bold')
+    body=[[(char,style) for char,style in row] for row in canvas]
+    variance=(data.get('projection') or {}).get('encoded_variance')
+    scope=data.get('scope',{})
+    lines.append([S(f" {len(points)} {clean_text(scope.get('stage','deep'),12)} observations · {len(cells)} view bins · {mode}",'dim')])
+    lines.append([S((' Fixed retrospective PCA · height: 0-'+str(ymax)+' evals/bin') if mode=='density' else f' Fixed retrospective PCA · height: score {scorehi:.3f} to {scorelo:.3f}', 'dim')])
+    sp=chosen['spec'];details=[rule(max(20,w-mw-3) if wide else w,'Selected model'),
+        [S(' '+clean_text(chosen['arm'],40),'bold')],
+        [S(f" #{chosen.get('trial','?')} · {chosen['n_params']:g} nominal params",'none')],
+        [S(f" {clean_text(scope.get('metric','score'),25)} {chosen['value']:.5f}",'accent')],
+        [S(f" {chosen['cpu_s']:.0f} CPU-s · {edges} parent edges",'dim')],
+        [S(' '+clean_text(' / '.join(str(sp.get(k,'?')) for k in ('core','lookback','period','pretrain')),100),'none')]]
+    if wide:
+        lines+=pixel.side_by_side(body,details,gap=3,valign='top')
+    else:
+        lines+=body+[[]]+details[:5]
+    lines += [[S(' @ selected · a/b latest evaluations · blank = unobserved','dim')],
+              [S(' ↑↓ select model · z changes height · cached, not live','dim')]]
+    return View(lines,len(points),3,True)
+
+
+def saved_forecast(d,ctx):
+    from .charts import scatter
+    from ..textsafe import clean_text
+    rows=d['catalog']['models'];selected=min(max(ctx.sel,0),len(rows)-1);row=rows[selected]
+    evaluation=(row.get('refit') or {}).get('validation')
+    lines=[[S(' Saved-weight validation · t list · v Live','accent')]]
+    if not evaluation:
+        return View(lines+[[S(' No validation trace recorded for this weight variant.','dim')],
+                           [S(' Run ants candidates evaluate explicitly; opening this view does not evaluate.','dim')]],len(rows),0,True)
+    t=evaluation.get('trace');metrics=evaluation['metrics'];protocol=evaluation['protocol']
+    if not t:
+        return View(lines+[[S(f" Refit dev MSE {metrics['mse_std']:.5f} · rel_mse {metrics['rel_mse']:.5f}",'none')],
+                           [S(' Raw forecast trace is not included in this catalog.','dim')],
+                           [S(' Open the local validation receipt to inspect its data.','dim')]],len(rows),0,True)
+    lines += [[S(' '+clean_text(evaluation['dataset'],40)+f" · h{evaluation['horizon']} · dev validation · {protocol['evaluated_windows']} windows",'dim')]]
+    series=[('actual','a',list(zip(t['steps'],t['actual']))),('forecast','f',list(zip(t['steps'],t['forecast']))),
+            ('seasonal naive','.',list(zip(t['steps'],t['seasonal_naive'])))]
+    plot=scatter(series,ctx.width-2,max(4,min(10,ctx.height-13)),xlabel='forecast step',ylabel='Value (raw dataset units)',ascii_only=ctx.ascii_only,connect=True)
+    lines += [[S(' '+line,'accent' if i==0 else 'dim')] for i,line in enumerate(plot)]
+    lines += [[S(f" MSE(std) {metrics['mse_std']:.5f} · rel_mse {metrics['rel_mse']:.5f}",'none')],
+              [S(f" Trace channel {t['channel']} · target row {t['target_start']} · one example window",'dim')],
+              [S(' New saved-weight result; different protocol from the historical search score.','dim')]]
+    return View(lines,len(rows),0,True)

@@ -158,7 +158,7 @@ def verdict(s, alpha):
         return f"evidence for H43a (exact Wilcoxon p < {alpha})"
     if s["median_diff"] >= 0:
         return "futility at this look: the median paired difference is not in favour of the screen"
-    return "inconclusive: the effect, if there is one, is not larger than the minimum detectable effect"
+    return "inconclusive: superiority is unresolved; the minimum detectable effect is not a confidence bound"
 
 
 def main():
@@ -234,7 +234,7 @@ def main():
             P(f"\nMann-Whitney p (unpaired, sensitivity) {s_['mannwhitney_p']:.4f}; sd of the paired differences {s_['sd_d']:.4f}; approximate minimum detectable effect at 80% power {s_['mde80']:.3f}.\n")
             P(f"**Reading: {verdict(s_, a.alpha)}.**")
         P("\n## Secondary (exploratory; intervals, not confirmations; the family has "
-          f"{len(CAPS) * 3 + len(CAPS) * 2} rows)\n")
+          f"{len(CAPS) * 4} rows)\n")
         P("| endpoint | pairs | median diff | Hodges-Lehmann (exact interval) | exact Wilcoxon p | exact permutation p (mean) | A12 (95% interval) |")
         P("|---|---|---|---|---|---|---|")
         pooled = {c: np.nanmin([value_at(r, c, a.budget) for r in runs.values()] or [np.nan]) for c in CAPS}

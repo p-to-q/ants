@@ -1,0 +1,2063 @@
+{
+  "schema": 1,
+  "label": "E43 research shortlist",
+  "epoch": "5da6eeee6527",
+  "scope": "Development-selected per-run/cap winners only; not every evaluated model. Physical bundle caps are checked separately.",
+  "pool": {
+    "records": 128,
+    "unique_specs": 112,
+    "core_counts": {
+      "fourier": 1,
+      "period": 111
+    }
+  },
+  "policy": {
+    "active_limit": 10,
+    "quality_tolerance": 0.03,
+    "core_representatives_may_exceed_quality_tolerance": true,
+    "distance": "mean normalized active-parameter distance; unvalidated curation heuristic",
+    "old_versions": "retain; do not delete on replacement"
+  },
+  "models": [
+    {
+      "slot": 1,
+      "candidate_id": "536e82163848e4afecd6f765504f498760163f841c53e1892610aab2243159cb",
+      "reason": "Best recorded development score at nominal cap 100",
+      "candidate": {
+        "cap": 100,
+        "direction": "min",
+        "finished_at": 1793218154.2163284,
+        "identity": {
+          "arm": "portfolio",
+          "arm_def_hash": "67618a671563",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_s11",
+          "run_source_id": "28c5a1026e9d6a8403b35ff30d594309466ac3fbc3b54339d878cc59543ef066"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 392,
+          "fit_s": 34.04452037811279,
+          "horizon_decay": 0.377869232440895,
+          "n_params": 98,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.9696355210980714,
+          "rel_mse": 0.8247184727604968,
+          "robustness_index": 1.3506437210252562,
+          "seasonal_fidelity": 0.4605019509421308,
+          "val_mse": 0.6345897867380834
+        },
+        "n_params": 98,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 2,
+          "aug_sigma": 0.05,
+          "augment": false,
+          "clip": true,
+          "clip_z": 4.202813981350751,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.15934732432918147,
+          "ens": 1,
+          "fourier_k": 16,
+          "lookback": 538,
+          "norm": "last",
+          "period": 48,
+          "pretrain": "pool",
+          "prior_alpha": 0.11702962960874087,
+          "prune": 0.525914432866111,
+          "quant": "fp32",
+          "rank": 8,
+          "recency": 0.26244003437087937,
+          "ridge": 0.012248891202499789,
+          "robust": true,
+          "snaive": false,
+          "trend_k": 25,
+          "trend_stride": 24
+        },
+        "spec_key": "e004122e366c89c0",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 6312,
+        "value": 0.8247184727604968,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/01-e004122e366c89c0",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 36,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "2c3b5d58df420b18115ea7a8cbc94619b997bcbaa66fe32e61763f5f7599b4aa",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.4003682,
+          "bundle_manifest_sha256": "cc7cfce55a80f5e6e44af330d99448ad35a55be34d8f432f0932ac74b9fec70b",
+          "weights_sha256": "2c3b5d58df420b18115ea7a8cbc94619b997bcbaa66fe32e61763f5f7599b4aa",
+          "candidate_id": "536e82163848e4afecd6f765504f498760163f841c53e1892610aab2243159cb",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.7407589265688383,
+            "mae_std": 0.5753622286674377,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.8134488147842908
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.664248691888426
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.9131105396551392
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.6696232469569193
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.8644880141247097
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 1.0184854048023266
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.9569111553487982
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.0984454332055497
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              2,
+              26,
+              37,
+              103,
+              190,
+              380,
+              658,
+              1571,
+              4953,
+              6994,
+              3098,
+              1061,
+              497,
+              208,
+              185,
+              86,
+              51,
+              36,
+              17,
+              7
+            ],
+            "edges": [
+              -4.507276255144989,
+              -4.019195180621035,
+              -3.531114106097082,
+              -3.043033031573128,
+              -2.5549519570491745,
+              -2.066870882525221,
+              -1.5787898080012672,
+              -1.0907087334773138,
+              -0.6026276589533603,
+              -0.1145465844294069,
+              0.37353449009454653,
+              0.8616155646185,
+              1.3496966391424543,
+              1.8377777136664077,
+              2.325858788190361,
+              2.8139398627143146,
+              3.302020937238268,
+              3.7901020117622224,
+              4.278183086286175,
+              4.766264160810129,
+              5.254345235334082
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 2,
+      "candidate_id": "98909c7525bf168399011d3eb71c3c0434a7ff1a581ba8fac394376339c5e387",
+      "reason": "Best recorded development score at nominal cap 300",
+      "candidate": {
+        "cap": 300,
+        "direction": "min",
+        "finished_at": 1793249347.864368,
+        "identity": {
+          "arm": "portfolio_screen",
+          "arm_def_hash": "975051784e2d",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_screen_s12",
+          "run_source_id": "ca6c7ebcc535600c92c70838a8f4ddd614e539f4e930e26e87e47af68c00fa8b"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 1180,
+          "fit_s": 25.163414478302002,
+          "horizon_decay": 0.4046795382548479,
+          "n_params": 295,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.9513896970228599,
+          "rel_mse": 0.8069308390564908,
+          "robustness_index": 1.3324792181470475,
+          "seasonal_fidelity": 0.4693542715029133,
+          "val_mse": 0.6201504335396898
+        },
+        "n_params": 295,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 3,
+          "aug_sigma": 0.05,
+          "augment": false,
+          "clip": true,
+          "clip_z": 3.733373640652462,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.17250966443939325,
+          "ens": 1,
+          "fourier_k": 55,
+          "lookback": 507,
+          "norm": "last",
+          "period": 24,
+          "pretrain": "none",
+          "prior_alpha": 0.07002419889260188,
+          "prune": 0.6428310666269764,
+          "quant": "fp32",
+          "rank": 8,
+          "recency": 0.0,
+          "ridge": 0.06479016200801445,
+          "robust": false,
+          "snaive": false,
+          "trend_k": 25,
+          "trend_stride": 24
+        },
+        "spec_key": "ad911a12101554ba",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 144,
+        "value": 0.8069308390564908,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/02-ad911a12101554ba",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 98,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "22a3fb208a72520423a816cee26272c7d75e647f159c92d594dab4d8c1b922b1",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.416692,
+          "bundle_manifest_sha256": "fcc966c44dc5e8f35d08fda4cefdc34aa1501c9295f35d4fb007b9e1299e61c7",
+          "weights_sha256": "22a3fb208a72520423a816cee26272c7d75e647f159c92d594dab4d8c1b922b1",
+          "candidate_id": "98909c7525bf168399011d3eb71c3c0434a7ff1a581ba8fac394376339c5e387",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.7372541381878944,
+            "mae_std": 0.5653713132829032,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.8096001052348101
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.752688408159141
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.9090478628146794
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.7731471119134166
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.8558147244859039
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 0.9081491806330086
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.8708536912587053
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.09107798805040622
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              2,
+              20,
+              47,
+              111,
+              243,
+              344,
+              825,
+              2531,
+              7104,
+              5465,
+              1822,
+              719,
+              392,
+              202,
+              168,
+              60,
+              45,
+              41,
+              13,
+              6
+            ],
+            "edges": [
+              -4.349151374949408,
+              -3.854816008550819,
+              -3.3604806421522295,
+              -2.8661452757536403,
+              -2.3718099093550506,
+              -1.8774745429564614,
+              -1.3831391765578722,
+              -0.8888038101592826,
+              -0.39446844376069334,
+              0.09986692263789632,
+              0.5942022890364855,
+              1.0885376554350747,
+              1.582873021833664,
+              2.077208388232253,
+              2.5715437546308433,
+              3.0658791210294325,
+              3.5602144874280217,
+              4.054549853826612,
+              4.548885220225201,
+              5.04322058662379,
+              5.53755595302238
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 3,
+      "candidate_id": "1fb35f5103b67158a0629605c3c27fa1567d21654d7bb15aca671732bcf5d2be",
+      "reason": "Best recorded development score at nominal cap 1000",
+      "candidate": {
+        "cap": 1000,
+        "direction": "min",
+        "finished_at": 1793472975.1408114,
+        "identity": {
+          "arm": "portfolio_screen",
+          "arm_def_hash": "975051784e2d",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_screen_s15",
+          "run_source_id": "b6bc043f1ed2ba0d16afa8470d7b34d875adae034f4fe1350a9eb9e2194099aa"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 3600,
+          "fit_s": 88.45866298675537,
+          "horizon_decay": 0.39138260612933207,
+          "n_params": 900,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.9290173854934104,
+          "rel_mse": 0.7799061050769476,
+          "robustness_index": 1.428187704616407,
+          "seasonal_fidelity": 0.45591198157901514,
+          "val_mse": 0.5962963195642672
+        },
+        "n_params": 900,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 2,
+          "aug_sigma": 0.3,
+          "augment": true,
+          "clip": true,
+          "clip_z": 3.5802399872840875,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.023916014182593544,
+          "ens": 1,
+          "fourier_k": 16,
+          "lookback": 720,
+          "norm": "last",
+          "period": 24,
+          "pretrain": "none",
+          "prior_alpha": 0.12084017613105734,
+          "prune": 0.0,
+          "quant": "fp32",
+          "rank": 8,
+          "recency": 0.0,
+          "ridge": 0.1428681475702764,
+          "robust": true,
+          "snaive": false,
+          "trend_k": 25,
+          "trend_stride": 24
+        },
+        "spec_key": "2d0edeb051d74dc4",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 5170,
+        "value": 0.7799061050769476,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/03-2d0edeb051d74dc4",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 134,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "1048fe9fec70b315260bcdd738a3a9b2b3eb00956725e91e40434b981ec4defe",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.4307451,
+          "bundle_manifest_sha256": "c90095587e486bbfb9edea4c18a7a55458def2790d408a9b1e4099806e69c3c3",
+          "weights_sha256": "1048fe9fec70b315260bcdd738a3a9b2b3eb00956725e91e40434b981ec4defe",
+          "candidate_id": "1fb35f5103b67158a0629605c3c27fa1567d21654d7bb15aca671732bcf5d2be",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.7554748747068868,
+            "mae_std": 0.582715598620965,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.8296088233133411
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.6194067825963849
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.9564992199409144
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.6322177980306677
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.9056463790427474
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 1.0871585802117012
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.9941262123032637
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.09326915082252805
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              3,
+              28,
+              31,
+              103,
+              138,
+              327,
+              585,
+              1343,
+              3729,
+              7321,
+              3924,
+              1357,
+              636,
+              237,
+              180,
+              108,
+              41,
+              44,
+              17,
+              8
+            ],
+            "edges": [
+              -4.6771657949202075,
+              -4.184586734514664,
+              -3.69200767410912,
+              -3.1994286137035757,
+              -2.706849553298032,
+              -2.214270492892488,
+              -1.721691432486944,
+              -1.2291123720814001,
+              -0.7365333116758563,
+              -0.24395425127031256,
+              0.24862480913523122,
+              0.741203869540775,
+              1.2337829299463197,
+              1.7263619903518634,
+              2.218941050757407,
+              2.711520111162951,
+              3.2040991715684948,
+              3.6966782319740394,
+              4.189257292379582,
+              4.681836352785127,
+              5.17441541319067
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 4,
+      "candidate_id": "14bb6352fc39e0ee50787f6f5b00308d568a91d4d4f314325de4b653b26cdb4c",
+      "reason": "Best recorded development score at nominal cap 3000",
+      "candidate": {
+        "cap": 3000,
+        "direction": "min",
+        "finished_at": 1792810154.7271872,
+        "identity": {
+          "arm": "portfolio_screen",
+          "arm_def_hash": "975051784e2d",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_screen_s8",
+          "run_source_id": "ac1ef16deac04de90fbab3e4cbcaf5db505d93172d6b648fc94ca7a57f0fba62"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 3000,
+          "fit_s": 58.62314558029175,
+          "horizon_decay": 0.40657923082232744,
+          "n_params": 3000,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.9240461033981997,
+          "rel_mse": 0.7763022047786436,
+          "robustness_index": 1.365216586063713,
+          "seasonal_fidelity": 0.47821085352839265,
+          "val_mse": 0.5932362741923508
+        },
+        "n_params": 3000,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 3,
+          "aug_sigma": 0.3,
+          "augment": true,
+          "clip": true,
+          "clip_z": 3.587164424696917,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.1650353065798881,
+          "ens": 1,
+          "fourier_k": 18,
+          "lookback": 606,
+          "norm": "last",
+          "period": 12,
+          "pretrain": "none",
+          "prior_alpha": 0.5001289601067589,
+          "prune": 0.07082115004316021,
+          "quant": "int8",
+          "rank": 13,
+          "recency": 0.0,
+          "ridge": 0.1215923204702337,
+          "robust": true,
+          "snaive": false,
+          "trend_k": 11,
+          "trend_stride": 25
+        },
+        "spec_key": "04a5f3151c6c04f7",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 6118,
+        "value": 0.7763022047786436,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/04-04a5f3151c6c04f7",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 414,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "43575545ecb8a4f3fc9c76f675eee58f72cae36eb3b3dc5c342aee7e4b8a1ca7",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.4450939,
+          "bundle_manifest_sha256": "bf43b6cb3b1192d809791e4fe121f67fd1492572fddfd56b3fde2937fb4d5aba",
+          "weights_sha256": "43575545ecb8a4f3fc9c76f675eee58f72cae36eb3b3dc5c342aee7e4b8a1ca7",
+          "candidate_id": "14bb6352fc39e0ee50787f6f5b00308d568a91d4d4f314325de4b653b26cdb4c",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.7312057468578486,
+            "mae_std": 0.5713911339307969,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.8029581916752032
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.6204174167514783
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.9215432637618944
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.6246925601198889
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.8783498314576212
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 1.0434561315196125
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.9387295910905036
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.0912514333039411
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              1,
+              25,
+              38,
+              105,
+              141,
+              361,
+              693,
+              1568,
+              4662,
+              7295,
+              3185,
+              1063,
+              473,
+              217,
+              155,
+              76,
+              33,
+              43,
+              16,
+              10
+            ],
+            "edges": [
+              -4.612989309079796,
+              -4.116844861928705,
+              -3.620700414777613,
+              -3.1245559676265215,
+              -2.6284115204754297,
+              -2.1322670733243383,
+              -1.6361226261732469,
+              -1.139978179022155,
+              -0.6438337318710636,
+              -0.14768928471997178,
+              0.3484551624311196,
+              0.844599609582211,
+              1.3407440567333024,
+              1.8368885038843938,
+              2.333032951035486,
+              2.8291773981865775,
+              3.325321845337669,
+              3.8214662924887604,
+              4.317610739639853,
+              4.813755186790943,
+              5.309899633942035
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 5,
+      "candidate_id": "582ddc776fe7705ac4924be6ac12785e712f342cb1bbd5c40040d19819b6494f",
+      "reason": "Best available representative of core fourier; exploratory technical route",
+      "candidate": {
+        "cap": 100,
+        "direction": "min",
+        "finished_at": 1793520392.7525187,
+        "identity": {
+          "arm": "portfolio",
+          "arm_def_hash": "67618a671563",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_s16",
+          "run_source_id": "9ee700d0cb595ca9159728b347f223b8e1099190f44d7fc552ee0ee6d9e0ec21"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 62,
+          "fit_s": 20.300806283950806,
+          "horizon_decay": 0.3104453358832874,
+          "n_params": 62,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 1.0730011445717387,
+          "rel_mse": 0.9737979815112725,
+          "robustness_index": 1.0835116793314137,
+          "seasonal_fidelity": 0.6493420500109628,
+          "val_mse": 0.7749256831663681
+        },
+        "n_params": 62,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 2,
+          "aug_sigma": 0.05,
+          "augment": false,
+          "clip": false,
+          "clip_z": 4.0,
+          "core": "fourier",
+          "decomp": "none",
+          "distill_lambda": 0.030095357695295963,
+          "ens": 1,
+          "fourier_k": 2,
+          "lookback": 105,
+          "norm": "last",
+          "period": 24,
+          "pretrain": "pool",
+          "prior_alpha": 0.07420424794350766,
+          "prune": 0.774934522384684,
+          "quant": "int8",
+          "rank": 12,
+          "recency": 1.0802011179959705,
+          "ridge": 0.0059176634619690725,
+          "robust": false,
+          "snaive": false,
+          "trend_k": 30,
+          "trend_stride": 24
+        },
+        "spec_key": "1a3b6fbba0c3f9bd",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 3308,
+        "value": 0.9737979815112725,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/05-1a3b6fbba0c3f9bd",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 46,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "cb2af320e6463e655e2f20d0732db538e4249b07c4c00ec73368dc5b5bc0c4ef",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.4619641,
+          "bundle_manifest_sha256": "e281856ecc659a810555d6f92dddc6ca5bc75f8ec5a9da0a016588746004f959",
+          "weights_sha256": "cb2af320e6463e655e2f20d0732db538e4249b07c4c00ec73368dc5b5bc0c4ef",
+          "candidate_id": "582ddc776fe7705ac4924be6ac12785e712f342cb1bbd5c40040d19819b6494f",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 1.1482454038336158,
+            "mae_std": 0.7454518553439539,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 1.2609215081030338
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 1.6248724682166578
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 1.1175452930466077
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 1.77461075609881
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 1.085928099396049
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 1.2636408566142951
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 1.0646020322063752
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.10651832125651642
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              3,
+              12,
+              66,
+              198,
+              302,
+              631,
+              1375,
+              2735,
+              4875,
+              4842,
+              2414,
+              972,
+              476,
+              411,
+              315,
+              243,
+              145,
+              80,
+              42,
+              23
+            ],
+            "edges": [
+              -4.264387623306887,
+              -3.7939385053314645,
+              -3.323489387356042,
+              -2.8530402693806196,
+              -2.382591151405197,
+              -1.9121420334297743,
+              -1.441692915454352,
+              -0.9712437974789294,
+              -0.5007946795035068,
+              -0.030345561528084097,
+              0.44010355644733856,
+              0.9105526744227612,
+              1.381001792398183,
+              1.8514509103736057,
+              2.3219000283490283,
+              2.792349146324451,
+              3.2627982642998736,
+              3.7332473822752963,
+              4.203696500250719,
+              4.674145618226141,
+              5.144594736201564
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 6,
+      "candidate_id": "caf167198501c2e2e71189b9c54c55f466bd5ff1ac1e60e3938926ba26154f43",
+      "reason": "Active-parameter diversity among candidates within 3% of the best in their nominal cap; heuristic selection, not evidence of superiority",
+      "candidate": {
+        "cap": 3000,
+        "direction": "min",
+        "finished_at": 1793123310.266337,
+        "identity": {
+          "arm": "portfolio",
+          "arm_def_hash": "67618a671563",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_s9",
+          "run_source_id": "e0cd7611f9c20d929eff8cb433834e870628dbf2ea39bc29e8f0cb2e306afd99"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 2100,
+          "fit_s": 123.83676719665527,
+          "horizon_decay": 0.40103387208190866,
+          "n_params": 2100,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.9277766394581801,
+          "rel_mse": 0.781948729065559,
+          "robustness_index": 1.2915784410746352,
+          "seasonal_fidelity": 0.45694559858466693,
+          "val_mse": 0.5962375276787255
+        },
+        "n_params": 2100,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 4,
+          "aug_sigma": 0.05,
+          "augment": true,
+          "clip": true,
+          "clip_z": 3.595806628353019,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.40844328701572913,
+          "ens": 3,
+          "fourier_k": 16,
+          "lookback": 651,
+          "norm": "last",
+          "period": 24,
+          "pretrain": "pool",
+          "prior_alpha": 0.03632779354435322,
+          "prune": 0.34927440070480387,
+          "quant": "int8",
+          "rank": 19,
+          "recency": 0.0,
+          "ridge": 0.003296495418184304,
+          "robust": false,
+          "snaive": true,
+          "trend_k": 39,
+          "trend_stride": 26
+        },
+        "spec_key": "c94205ccc80e507d",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 2762,
+        "value": 0.781948729065559,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/06-c94205ccc80e507d",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 294,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "15461dcbb20e56d98b416905df38a00f220206050a4149a800abacf86edc7723",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.477449,
+          "bundle_manifest_sha256": "f3032e625cbbbfa217abbfde08b0af68c76a5f3c6c91cecee86f6f48044caf8d",
+          "weights_sha256": "15461dcbb20e56d98b416905df38a00f220206050a4149a800abacf86edc7723",
+          "candidate_id": "caf167198501c2e2e71189b9c54c55f466bd5ff1ac1e60e3938926ba26154f43",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.733104191043825,
+            "mae_std": 0.5693078435114183,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.8050429281766851
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.6253507993852369
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.932947048805336
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.6294616587167887
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.8867735966710741
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 1.015541786937277
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.9471785739435865
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.09447587284747537
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              10,
+              25,
+              34,
+              94,
+              183,
+              392,
+              714,
+              1715,
+              5416,
+              6930,
+              2846,
+              882,
+              398,
+              210,
+              165,
+              49,
+              44,
+              35,
+              15,
+              3
+            ],
+            "edges": [
+              -4.60489243316019,
+              -4.102344388382618,
+              -3.599796343605046,
+              -3.0972482988274748,
+              -2.594700254049903,
+              -2.092152209272331,
+              -1.5896041644947596,
+              -1.0870561197171877,
+              -0.5845080749396159,
+              -0.081960030162044,
+              0.42058801461552786,
+              0.9231360593930997,
+              1.4256841041706707,
+              1.9282321489482426,
+              2.4307801937258144,
+              2.9333282385033863,
+              3.435876283280958,
+              3.938424328058529,
+              4.440972372836102,
+              4.943520417613673,
+              5.446068462391246
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 7,
+      "candidate_id": "c20b50467718b5378328e01d184f1ece2196386eded0c05c6fa35c50ed83073f",
+      "reason": "Active-parameter diversity among candidates within 3% of the best in their nominal cap; heuristic selection, not evidence of superiority",
+      "candidate": {
+        "cap": 1000,
+        "direction": "min",
+        "finished_at": 1793097482.3662078,
+        "identity": {
+          "arm": "portfolio",
+          "arm_def_hash": "67618a671563",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_s9",
+          "run_source_id": "e0cd7611f9c20d929eff8cb433834e870628dbf2ea39bc29e8f0cb2e306afd99"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 810,
+          "fit_s": 36.96138381958008,
+          "horizon_decay": 0.4051610942314646,
+          "n_params": 810,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.9386137779487036,
+          "rel_mse": 0.7977115281806966,
+          "robustness_index": 1.4127899638874288,
+          "seasonal_fidelity": 0.45332166134171814,
+          "val_mse": 0.6052003396960884
+        },
+        "n_params": 810,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 2,
+          "aug_sigma": 0.05,
+          "augment": false,
+          "clip": true,
+          "clip_z": 5.8360825207007405,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.6089941534451592,
+          "ens": 1,
+          "fourier_k": 16,
+          "lookback": 662,
+          "norm": "last",
+          "period": 24,
+          "pretrain": "pool",
+          "prior_alpha": 0.024317299768006367,
+          "prune": 0.28212946704864456,
+          "quant": "int8",
+          "rank": 8,
+          "recency": 0.3497077241867431,
+          "ridge": 0.005129791323277418,
+          "robust": false,
+          "snaive": true,
+          "trend_k": 25,
+          "trend_stride": 24
+        },
+        "spec_key": "b0a48536b003d368",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 1560,
+        "value": 0.7977115281806966,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/07-b0a48536b003d368",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 122,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "2425999c867f08fd9ff07b7fac90875e81d81f5a0c8477243d8b237c1c635e89",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.493011,
+          "bundle_manifest_sha256": "d42c539d29887b3df8acdd6af51b8c6407f866db86f49adcfea743dbaa12fc4d",
+          "weights_sha256": "2425999c867f08fd9ff07b7fac90875e81d81f5a0c8477243d8b237c1c635e89",
+          "candidate_id": "c20b50467718b5378328e01d184f1ece2196386eded0c05c6fa35c50ed83073f",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.7520869745921882,
+            "mae_std": 0.5782083705439024,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.8258884721517639
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.6353417696033824
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.9356535258945674
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.6402212506295026
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.8898726668277154
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 1.1002741163317509
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.9640553476174205
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.09919014524097829
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              4,
+              26,
+              41,
+              99,
+              165,
+              380,
+              768,
+              1821,
+              5342,
+              6836,
+              2767,
+              911,
+              416,
+              236,
+              162,
+              71,
+              58,
+              34,
+              18,
+              5
+            ],
+            "edges": [
+              -4.557818531433116,
+              -4.060583306371208,
+              -3.5633480813092993,
+              -3.0661128562473903,
+              -2.5688776311854817,
+              -2.071642406123573,
+              -1.5744071810616642,
+              -1.0771719559997557,
+              -0.5799367309378471,
+              -0.08270150587593861,
+              0.41453371918596993,
+              0.9117689442478785,
+              1.409004169309788,
+              1.9062393943716964,
+              2.403474619433605,
+              2.9007098444955135,
+              3.397945069557422,
+              3.8951802946193306,
+              4.392415519681239,
+              4.889650744743148,
+              5.386885969805056
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 8,
+      "candidate_id": "5dbdf90491b2068dc9c269c6fc39da4dc0815f059bbeda3904c7d2f04bff2fd7",
+      "reason": "Active-parameter diversity among candidates within 3% of the best in their nominal cap; heuristic selection, not evidence of superiority",
+      "candidate": {
+        "cap": 1000,
+        "direction": "min",
+        "finished_at": 1792741895.4372528,
+        "identity": {
+          "arm": "portfolio_screen",
+          "arm_def_hash": "975051784e2d",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_screen_s7",
+          "run_source_id": "7146011dceb35ea78b776721b6b0ea44e83dfb431303634e323b63ebdcb5b5a5"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 3680,
+          "fit_s": 41.97828769683838,
+          "horizon_decay": 0.41669840074295356,
+          "n_params": 920,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.9467893815065352,
+          "rel_mse": 0.8025416394726583,
+          "robustness_index": 1.3350270444075756,
+          "seasonal_fidelity": 0.4939101831840762,
+          "val_mse": 0.6177364693063562
+        },
+        "n_params": 920,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 2,
+          "aug_sigma": 0.01,
+          "augment": true,
+          "clip": true,
+          "clip_z": 4.022489360129547,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.20218413375662214,
+          "ens": 1,
+          "fourier_k": 18,
+          "lookback": 419,
+          "norm": "last",
+          "period": 18,
+          "pretrain": "pool",
+          "prior_alpha": 0.021610068590701494,
+          "prune": 0.12104730959094961,
+          "quant": "fp32",
+          "rank": 8,
+          "recency": 0.0,
+          "ridge": 0.001,
+          "robust": false,
+          "snaive": false,
+          "trend_k": 23,
+          "trend_stride": 24
+        },
+        "spec_key": "c972736ec76f873c",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 5099,
+        "value": 0.8025416394726583,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/08-c972736ec76f873c",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 152,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "16d806dc7a1c920f3a7586bc5630801f2cd6d025d21d50b76ee86d5d713feb9e",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.507693,
+          "bundle_manifest_sha256": "b69265350fb6d605701d8e51c04d8f7e5e7c607aaf467876baa6e86a739e3106",
+          "weights_sha256": "16d806dc7a1c920f3a7586bc5630801f2cd6d025d21d50b76ee86d5d713feb9e",
+          "candidate_id": "5dbdf90491b2068dc9c269c6fc39da4dc0815f059bbeda3904c7d2f04bff2fd7",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.7745543660127272,
+            "mae_std": 0.5946324091722524,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.8505605648756223
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.7006723383150809
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.9405919830997643
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.7103903808884954
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.90441874808649
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 1.0936228317249852
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.9738721975253859
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.09831208244888935
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              1,
+              3,
+              29,
+              72,
+              111,
+              284,
+              520,
+              1082,
+              3199,
+              7195,
+              4751,
+              1580,
+              655,
+              272,
+              174,
+              130,
+              37,
+              44,
+              13,
+              8
+            ],
+            "edges": [
+              -5.004293965456036,
+              -4.486876765423464,
+              -3.9694595653908915,
+              -3.452042365358319,
+              -2.9346251653257474,
+              -2.4172079652931755,
+              -1.8997907652606032,
+              -1.382373565228031,
+              -0.864956365195459,
+              -0.3475391651628872,
+              0.16987803486968467,
+              0.6872952349022574,
+              1.2047124349348293,
+              1.7221296349674011,
+              2.239546834999974,
+              2.7569640350325457,
+              3.2743812350651176,
+              3.7917984350976894,
+              4.309215635130261,
+              4.826632835162833,
+              5.344050035195406
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 9,
+      "candidate_id": "03960866d63a903eccbd76ef30de0df77405704ef8930e52ee82a6567f89ae64",
+      "reason": "Active-parameter diversity among candidates within 3% of the best in their nominal cap; heuristic selection, not evidence of superiority",
+      "candidate": {
+        "cap": 300,
+        "direction": "min",
+        "finished_at": 1792486793.8026717,
+        "identity": {
+          "arm": "portfolio_screen",
+          "arm_def_hash": "975051784e2d",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_screen_s3",
+          "run_source_id": "5a71b6d946a8b7efdfd25b2a63acd49cc35947b97ae0afc796ebed6f91b24d14"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 1200,
+          "fit_s": 24.131354093551636,
+          "horizon_decay": 0.4132214171968254,
+          "n_params": 300,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.9637861649623168,
+          "rel_mse": 0.8305393334102134,
+          "robustness_index": 1.328224630874433,
+          "seasonal_fidelity": 0.4769435456969748,
+          "val_mse": 0.6302965272008343
+        },
+        "n_params": 300,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 2,
+          "aug_sigma": 0.05,
+          "augment": true,
+          "clip": false,
+          "clip_z": 4.0,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.0,
+          "ens": 1,
+          "fourier_k": 16,
+          "lookback": 394,
+          "norm": "last",
+          "period": 24,
+          "pretrain": "none",
+          "prior_alpha": 1.0,
+          "prune": 0.511473242191064,
+          "quant": "fp32",
+          "rank": 8,
+          "recency": 0.0,
+          "ridge": 0.04891497948123271,
+          "robust": false,
+          "snaive": false,
+          "trend_k": 25,
+          "trend_stride": 24
+        },
+        "spec_key": "6eb8d69e3f0a198a",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 2718,
+        "value": 0.8305393334102134,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/09-6eb8d69e3f0a198a",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 78,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "85468f55044fe93c1d12e9277955492e604fdb92f5a212f5f8bbee6faafd739b",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.522367,
+          "bundle_manifest_sha256": "40908e58195d4b7d303cb0dbd599ebd585216fcc8e91360cdc3578892941d6fd",
+          "weights_sha256": "85468f55044fe93c1d12e9277955492e604fdb92f5a212f5f8bbee6faafd739b",
+          "candidate_id": "03960866d63a903eccbd76ef30de0df77405704ef8930e52ee82a6567f89ae64",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.7270938957042502,
+            "mae_std": 0.5658318499336982,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.7984428489267102
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.678358196235838
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.8994047677418747
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.6900899520662502
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.8519904816519843
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 0.9828622896090157
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.8926314109347266
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.09432017169006157
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              1,
+              7,
+              33,
+              77,
+              151,
+              319,
+              603,
+              1638,
+              5249,
+              7143,
+              2920,
+              954,
+              467,
+              215,
+              192,
+              79,
+              49,
+              43,
+              12,
+              8
+            ],
+            "edges": [
+              -4.633117699307452,
+              -4.129307474913308,
+              -3.6254972505191625,
+              -3.1216870261250174,
+              -2.6178768017308727,
+              -2.114066577336728,
+              -1.6102563529425828,
+              -1.1064461285484377,
+              -0.602635904154293,
+              -0.09882567976014833,
+              0.40498454463399636,
+              0.9087947690281419,
+              1.4126049934222866,
+              1.9164152178164313,
+              2.420225442210577,
+              2.9240356666047216,
+              3.4278458909988663,
+              3.931656115393012,
+              4.435466339787156,
+              4.939276564181301,
+              5.443086788575447
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    },
+    {
+      "slot": 10,
+      "candidate_id": "3f44336ddcae890fdca3f23961de4bbd06b7d3e0b5aae5efa6b923b0d41470f7",
+      "reason": "Active-parameter diversity among candidates within 3% of the best in their nominal cap; heuristic selection, not evidence of superiority",
+      "candidate": {
+        "cap": 300,
+        "direction": "min",
+        "finished_at": 1793147230.8269706,
+        "identity": {
+          "arm": "portfolio",
+          "arm_def_hash": "67618a671563",
+          "contract_sha256": "9c8dceb0668681d98b3f8377da8768bce4ceaa1bbb4167e05689794fcc56c93a",
+          "epoch": "5da6eeee6527",
+          "gym": "tinyts",
+          "run": "portfolio_s10",
+          "run_source_id": "04ed2b3dcb926803eb487cb43374da091f32e94fd7263c2e338259c6a682bca1"
+        },
+        "metric": "rel_mse",
+        "metrics": {
+          "bytes": 1200,
+          "fit_s": 19.573351860046387,
+          "horizon_decay": 0.4124233247112936,
+          "n_params": 300,
+          "n_skipped": 0,
+          "n_tasks": 48,
+          "rel_mae": 0.953205445739122,
+          "rel_mse": 0.8113828597723913,
+          "robustness_index": 1.2609266702804234,
+          "seasonal_fidelity": 0.48291052928166145,
+          "val_mse": 0.6162141139605781
+        },
+        "n_params": 300,
+        "release_ready": false,
+        "spec": {
+          "adapter": "none",
+          "adapter_rank": 2,
+          "aug_sigma": 0.05294601721745967,
+          "augment": false,
+          "clip": true,
+          "clip_z": 3.9086302845128644,
+          "core": "period",
+          "decomp": "none",
+          "distill_lambda": 0.0,
+          "ens": 1,
+          "fourier_k": 19,
+          "lookback": 244,
+          "norm": "last",
+          "period": 24,
+          "pretrain": "pool",
+          "prior_alpha": 0.02729492638724454,
+          "prune": 0.004754838904488408,
+          "quant": "fp32",
+          "rank": 7,
+          "recency": 0.0,
+          "ridge": 0.0095380073827722,
+          "robust": false,
+          "snaive": true,
+          "trend_k": 25,
+          "trend_stride": 25
+        },
+        "spec_key": "9cabc5b0d5fb1cb8",
+        "stage": "s2",
+        "status": "development_candidate",
+        "trial": 2557,
+        "value": 0.8113828597723913,
+        "weights_preserved": false
+      },
+      "checkpoint_status": "historical_weights_unavailable",
+      "refit_status": "verified_local",
+      "release_ready": false,
+      "refit": {
+        "bundle": "models/10-9cabc5b0d5fb1cb8",
+        "dataset": "etth1",
+        "horizon": 96,
+        "origin": "refitted_train_only",
+        "stored_numeric_values": 54,
+        "parity": {
+          "absolute_tolerance": 1e-10,
+          "max_abs_error": 0.0,
+          "probe_role": "training inputs only",
+          "rows": 7
+        },
+        "weights_sha256": "c2ee89ae6ff7436c323f514418a4520cb0287bc7a70c49e7cbfac55bfaae6e41",
+        "validation": {
+          "schema": 1,
+          "kind": "saved_refit_dev_validation",
+          "created_at": 1793569684.53648,
+          "bundle_manifest_sha256": "4b225907e382ff1dbbac46d658c68c729a955a6c86aa461d9bca3a003b8d5159",
+          "weights_sha256": "c2ee89ae6ff7436c323f514418a4520cb0287bc7a70c49e7cbfac55bfaae6e41",
+          "candidate_id": "3f44336ddcae890fdca3f23961de4bbd06b7d3e0b5aae5efa6b923b0d41470f7",
+          "dataset": "etth1",
+          "horizon": 96,
+          "role": "dev",
+          "split": "val",
+          "protocol": {
+            "sampling": "nonoverlapping H-step origins, deterministic uniform channel/window subsample",
+            "seed": 20261102,
+            "available_windows": 210,
+            "evaluated_windows": 210,
+            "max_windows": 2048,
+            "target_bounds": [
+              8640,
+              11520
+            ],
+            "training_data_sha256": "9220a01b18d49551693e320a564c16cfcb4ce37ea9fa36e4dfe102ba67f16d0e",
+            "note": "Descriptive saved-weight check; not the historical S2 score, confirm evaluation or a published benchmark."
+          },
+          "metrics": {
+            "mse_std": 0.7386799221600235,
+            "mae_std": 0.5669816362950597,
+            "seasonal_naive_mse_std": 0.9106398744526683,
+            "rel_mse": 0.8111657998767079
+          },
+          "per_channel": [
+            {
+              "channel": 0,
+              "windows": 30,
+              "mse_std": 0.6434117815169478
+            },
+            {
+              "channel": 1,
+              "windows": 30,
+              "mse_std": 0.9514954284346067
+            },
+            {
+              "channel": 2,
+              "windows": 30,
+              "mse_std": 0.6418943025732666
+            },
+            {
+              "channel": 3,
+              "windows": 30,
+              "mse_std": 0.9014342066891654
+            },
+            {
+              "channel": 4,
+              "windows": 30,
+              "mse_std": 0.966128716845613
+            },
+            {
+              "channel": 5,
+              "windows": 30,
+              "mse_std": 0.9712023205165647
+            },
+            {
+              "channel": 6,
+              "windows": 30,
+              "mse_std": 0.09519269854400073
+            }
+          ],
+          "trace": null,
+          "residual_histogram": {
+            "counts": [
+              9,
+              29,
+              36,
+              108,
+              242,
+              425,
+              840,
+              2250,
+              6762,
+              5883,
+              2152,
+              642,
+              303,
+              197,
+              145,
+              45,
+              40,
+              33,
+              14,
+              5
+            ],
+            "edges": [
+              -4.5004447063273405,
+              -3.9951759643470894,
+              -3.4899072223668384,
+              -2.9846384803865873,
+              -2.4793697384063362,
+              -1.9741009964260852,
+              -1.468832254445834,
+              -0.963563512465583,
+              -0.45829477048533196,
+              0.046973971494918665,
+              0.5522427134751702,
+              1.0575114554554217,
+              1.5627801974356723,
+              2.068048939415923,
+              2.5733176813961745,
+              3.078586423376426,
+              3.5838551653566766,
+              4.089123907336927,
+              4.594392649317178,
+              5.09966139129743,
+              5.604930133277681
+            ],
+            "units": "training-standardized residual"
+          },
+          "quality_status": "development_only",
+          "release_ready": false
+        }
+      }
+    }
+  ]
+}

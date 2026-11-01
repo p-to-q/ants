@@ -1,5 +1,9 @@
 # proposers
 
+`agent2` and `portfolio_agent2` opt into v2 read-only tools and expectation
+records; existing agent arms remain v1. Both are model-calling arms, not
+deterministic baselines. See [agent](agent.md) for interfaces and limits.
+
 Baseline arms and the LLM proposer: random, evo (tournament + credit-weighted mutation), tpe (Optuna), llm.
 
 **Interface**

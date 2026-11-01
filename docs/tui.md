@@ -38,7 +38,8 @@ The phrase always sits next to the numbers it came from and always says why. It 
 ## Screens
 
 The final screen is **Past** (`9`). It groups past work by research round,
-not trial. Its subtitle explains the page in complete prose. Arrow and Page keys
+not trial. A compact count and cache notice replace the standing introduction;
+the tab supplies the page name. Empty/error states provide prose guidance. Arrow and Page keys
 select a round; Enter shows its evidence and parameters; Esc returns to the same
 selection. A cached receipt is not a live backup check. Operational snapshots
 omit results by default. See [the history/cache reference](modules/archive_index.md)
@@ -61,6 +62,11 @@ series are discovered one level below `/var/lib/ants/series` (override with
 | 8 | System | version and update, service state, model calls of this search and of every ledger with the cap (the cap applies to each ledger on its own) and where it comes from, calls per hour, backups on a 7-day axis and how many trials a restore of the newest one would lose |
 
 A trial opens to its levers, its metrics per stage with a bar, its error if any, and its lineage.
+On Leaderboard, `o` switches best/latest order. Best keeps deeper evaluations
+ahead of cheap-stage results; latest means recency only. The selected model's
+epoch, finish time and specification appear below the table. Preservation and
+train-only weight export are separate explicit `candidates` commands; opening
+this page does not write snapshots or retrain models.
 
 ## Keys
 
@@ -118,3 +124,21 @@ Drawing: the ant is a 23 × 12 pixel grid (`antslab.tui.pixel.ANT_GRID`) drawn t
 To add a screen: a loader branch in `App.load`, a view function in `views.py` returning `View(lines, rows, row0)`, an entry in `SCREENS`, `KEYS` and the key map, and a case in `tests/test_tui.py`.
 
 Not here, on purpose: a mouse, a web interface (`ants serve` is the localhost board), and anything that changes a search beyond a hint or a pause.
+
+### Retained models
+
+On Leaderboard, `v` switches **Live / Saved**. Live keeps cap and best/latest controls. Saved reads `ANTS_MODEL_CATALOG` (or the personal `models/catalog.json`), shows original development scores and retention reasons, and opens full recorded model evidence with Enter. Its catalog does not depend on a live ledger. For an explicit local example:
+
+```sh
+ANTS_MODEL_CATALOG="$PWD/docs/models/e43-shortlist-20261102.json" ants ui
+```
+
+Press `2` for Leaderboard, then `v` for Saved. This example intentionally configures metadata only; it does not install, download, verify or train weights. `Refit recorded` is a historical receipt. Original development scores do not transfer to refitted weights. A missing catalog displays configuration guidance; a malformed catalog displays an error.
+
+Saved uses list/detail columns at 120+ characters and stacked sections on smaller terminals. Rows can exceed ten; navigation pages through the collection. The current implementation does not yet provide previous-collection navigation, export controls or automatic checkpoint capture.
+
+### Charts on screens 6, 7 and 8
+
+`v` switches details/charts on Health, Data and System. Health plots failure percentage and finished outcomes per half-hour over the last six hours for the current search/epoch. Data plots catalog-group counts and a metadata family matrix, without loading any dataset values. System plots the sizes/times of recorded backups over seven days. Axes identify units and windows. Missing rates are not zero, file presence is not a hash check, and a recorded backup is not a new integrity verification. See [the plotting contract and references](modules/tui-charts.md).
+
+Past keeps its date, round title/question and pilot arm summaries (including portfolio/LLM/agent when present in the original index). This copy pass does not remove historical records or replace them with the ten-model shortlist.
