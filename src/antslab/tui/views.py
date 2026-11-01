@@ -864,7 +864,7 @@ def search_map_screen(d,ctx):
     body=[[(char,style) for char,style in row] for row in canvas]
     variance=(data.get('projection') or {}).get('encoded_variance')
     scope=data.get('scope',{})
-    lines.append([S(f" {len(points)} {clean_text(scope.get("stage","deep"),12)} observations · {len(cells)} view bins · {mode}",'dim')])
+    lines.append([S(f" {len(points)} {clean_text(scope.get('stage','deep'),12)} observations · {len(cells)} view bins · {mode}",'dim')])
     lines.append([S((' Fixed retrospective PCA · height: 0-'+str(ymax)+' evals/bin') if mode=='density' else f' Fixed retrospective PCA · height: score {scorehi:.3f} to {scorelo:.3f}', 'dim')])
     sp=chosen['spec'];details=[rule(max(20,w-mw-3) if wide else w,'Selected model'),
         [S(' '+clean_text(chosen['arm'],40),'bold')],
