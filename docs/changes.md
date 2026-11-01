@@ -175,3 +175,11 @@ Changed: combined registered final analysis, refreshed development frontier and 
 Why: preserve recoverable candidates and accurately describe completed evidence.
 
 Forecloses: partial version files, clipped training targets, stale pilot results presented as the latest frontier, or exploratory cap results replacing the registered primary.
+
+## 2026-11-02 — next-version research navigation decisions
+
+Changed: dated ten-model research collection with full specifications and private weight receipts, plus implementation specifications for Leaderboard Live/Saved, a study/stage/run catalog and a compact Past view.
+
+Why: retained models and historical experiments need stable, distinct identities and actionable file availability without narrative-heavy screens.
+
+Forecloses: treating ten as a history limit, inheriting historical trial scores onto refitted weights, counting snapshots as new experiments, or showing proposed entries as executed results. The UI/catalog changes are planned for the next version, not claimed deployed.

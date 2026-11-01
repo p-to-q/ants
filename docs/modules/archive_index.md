@@ -51,3 +51,7 @@ failure never modifies a running experiment. Cache verification does not replace
 bundle verification or a restore drill; the original bundle remains the evidence.
 
 Tests: `tests/test_archive_index.py`, `tests/test_tui.py`. Status: experimental.
+
+## Next-version plan
+
+The current implementation still includes selected-round explanatory prose. [Past's next-version specification](../research/past-next-version.md) moves it into details/help and replaces the preview with structured facts. [The unified catalog](../research/experiment-catalog.md) adds study/stage/run identities and proposed-plan projections. These are planned schema/UI changes; the current index format, limits and behaviour above remain accurate.

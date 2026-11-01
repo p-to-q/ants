@@ -19,3 +19,7 @@ The November 2 E43 acceptance retained 128 candidate records over 32 completed r
 5. Back up bundles with ledger/source/environment identities to the local machine before deployment upgrades. Test restore and inference from a separate process. An archive file existing is not proof of recovery.
 
 This is an explicit remaining engineering gate, not a feature claimed to be installed on the E43 server. Complete it before the next series if that series is intended to yield releasable trained models. It can proceed independently of E43's concluded scientific question.
+
+## Next-version product decision
+
+The UI and harness implementation contract is [Saved models in Leaderboard](leaderboard-saved-models.md). Ten is an active research shortlist, never a destructive historical limit. Current and previous model records remain distinct from round-level Past history. This specification adds planned behavior and does not assert a deployed Saved screen or automatic checkpoint service.

@@ -601,3 +601,11 @@ How to add an operator, a gym, a data source, a ledger migration and an interfac
 ### Next runtime gate: trained-model retention
 
 Before a new model-producing series, accept [model retention](research/model-retention.md): actual evaluation-time weights, per-dataset/horizon/fold receipts, checked best pointers, pinned backups, and Leaderboard availability indicators. Candidate metadata preservation and train-only refit exports already exist on the acceptance branch; they are not evidence of historical checkpoint retention. Keep issue #8 open until the complete handoff is independently reproduced. Do not infer physical cap compliance from nominal evaluator counts.
+
+### Next-version Saved collection
+
+Adopt [Saved models in Leaderboard](research/leaderboard-saved-models.md): Live/Saved mode in the existing page, responsive list/detail layout, immutable current/previous shortlists, explicit weight and backup availability, and a bounded resumable retention job. Implement the record/API first, then UI, then the original-checkpoint runtime hook; deploy only after acceptance. The provisional E43 collection is development-selected, not held-out evidence. Ten is the active display target; old retained versions are not deleted.
+
+### Past and unified experiment catalog
+
+Implement [one study/stage/run catalog](research/experiment-catalog.md) shared by Home, Arms, Leaderboard and Past. Past gets History / Planned / All projections, a dense list/detail structure, protocol-compatible comparisons and route/evidence links per [the next-version specification](research/past-next-version.md). E43a/E43b remain stages of one E43 study; snapshots are artifacts. Preserve historical pilots and uncertainty. Strip standing narrative from the populated view, retain scoped status tags and detail/help explanations. Schema/API and migration precede UI; none of this registers or starts a proposed experiment.

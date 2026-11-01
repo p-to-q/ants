@@ -100,6 +100,8 @@ These are pooled minima selected on the same development data used for scoring. 
 
 **E43 final look:** the registered ≤300-parameter comparison gives a paired median difference of 0 and Wilcoxon p=0.5771 at the prespecified 0.0294 threshold. Screening is not adopted on this evidence. The ≤3,000-parameter improvement is exploratory. See the [final acceptance report](docs/experiments/E43-final-20261102.md).
 
+The [retained research collection](docs/models/E43-shortlist-20261102.md) records ten selected models, their full specifications, reasons and available local weight variants. The planned Saved interface is described there; it is not part of the installed server UI yet.
+
 Data and per-ledger SHA-256 identities: [frontier.json](assets/frontier.json). Regenerate the displayed figures with `python assets/make_figures.py`. The raw ledgers are backed up privately and are not shipped with this repository; a clone reproduces the figures from the checked-in data, not the full experiment. Candidate specifications are preserved separately. Refit bundles contain numeric weights, preprocessing, source and parity checks and are labelled as new train-only fits, not historical checkpoints.
 
 ## Benchmark
