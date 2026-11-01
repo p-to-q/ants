@@ -407,6 +407,10 @@ def test_tools_are_readonly(ledger, make_contract, tmp_path):
     from pathlib import Path
     before_bytes = Path(path).read_bytes()
     before_mtime = os.path.getmtime(path)
+    def counts():
+        return tuple(ledger.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                     for table in ("events", "trials"))
+    before_counts = counts()
     # run agent with all v2 tools
     client = Script([
         {"tool": "check", "args": {"spec": GOOD}},
@@ -423,6 +427,9 @@ def test_tools_are_readonly(ledger, make_contract, tmp_path):
     # What we test: the job's read-only connection does not write.
     from antslab.agent import _Job
     job = _Job(ledger.path, c, "arm")
+    import sqlite3
+    with pytest.raises(sqlite3.OperationalError):
+        job.led.conn.execute("DELETE FROM trials")
     for tool_call in [("check", {"spec": GOOD}), ("neighbors", {"ref": "1", "k": 2}),
                        ("effects", {}), ("scorecard", {})]:
         name, args = tool_call
@@ -431,8 +438,7 @@ def test_tools_are_readonly(ledger, make_contract, tmp_path):
     job.close()
     assert Path(path).read_bytes() == before_bytes
     assert os.path.getmtime(path) == before_mtime
-    # The read-only connection should not have modified the file
-    # (Note: the main ledger may have changed from events, but the job's connection is read-only)
+    assert counts() == before_counts  # includes changes that would live only in the WAL
 
 
 # ---- chain verification -------------------------------------------------------
