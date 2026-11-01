@@ -64,7 +64,7 @@ TOOLS_V2 = {
     "predict": '{"spec": {...}}  the surrogate predicted deepest-stage value and spread for a candidate, '
                'using ExtraTrees fitted on finished trials; returns "no model yet" with the row count when fewer than 150 rows exist',
     "scorecard": '{}  your track record under protocol v2: for your recorded expectations, the share that came true '
-                 'by (lever, direction), counted by deterministic comparison of child value with parent value. '
+                 'by expected direction, counted by deterministic comparison of child value with parent value. '
                  'Only expectations whose parent and child are both evaluated count.',
 }
 
@@ -87,8 +87,30 @@ RULES_V2 = (
 
 
 def _text(x, n=MAX_RESULT_CHARS) -> str:
-    s = x if isinstance(x, str) else json.dumps(x, default=str, separators=(",", ":"))
-    return clean_text(s, n)
+    if n < 2:
+        raise ValueError("tool result bound must allow valid JSON")
+    if isinstance(x, str):
+        return clean_text(x, n)
+    import copy
+    value = copy.deepcopy(x)
+    omitted = 0
+    while True:
+        encoded = json.dumps(value, default=str, separators=(",", ":"))
+        if len(encoded) <= n:
+            return encoded
+        lists = [v for v in value.values() if isinstance(v,list) and v] if isinstance(value,dict) else []
+        if lists:
+            max(lists,key=len).pop()
+            omitted += 1
+            value["truncated"] = True
+            value["omitted_rows"] = omitted
+        else:
+            summary = clean_text(str(x), max(0,n//8))
+            while True:
+                result=json.dumps({"truncated":True,"summary":summary},separators=(",", ":"))
+                if len(result)<=n:return result
+                if not summary:return "{}"
+                summary=summary[:len(summary)//2]
 
 
 class _Job:
@@ -135,7 +157,7 @@ class _SurrogateCache:
         deep_idx = len(contract.stages) - 1
         rows_x, rows_y = [], []
         if self.encoder is None:
-            self.encoder = Encoder(contract.space)
+            self.encoder = Encoder(contract.space, extra=())
         enc = self.encoder
 
         for key, rec in hist.best.items():
@@ -645,7 +667,8 @@ class AgentProposer(LLMStrict):
                         "why": prop_why or "",
                     })
                 except Exception:
-                    pass
+                    with self.lock:
+                        self.stats["expectation_write_failures"] = self.stats.get("expectation_write_failures", 0) + 1
         with self.lock:
             self.buf.extend(good)
             st = self.stats

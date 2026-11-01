@@ -154,7 +154,8 @@ def cmd_run(a):
         return 3
     wd, led, c = _open(a)
     client = None
-    if a.arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent", "agent2", "portfolio_agent2"):
+    from .seeds import MODEL_ARMS
+    if a.arm in MODEL_ARMS:
         from .llm import LLMClient, load_endpoints
         llm_budget = getattr(a, "llm_budget", None) or 0
         try:
@@ -564,10 +565,14 @@ def _first_run_done() -> bool:
     # An archive-only installation is still useful, including when its cache
     # needs repair. Show the read-only error, never offer an unrelated download.
     from .archive_index import index_path
-    try:
-        return index_path().is_file()
-    except OSError:
-        return False
+    from .saved_models import catalog_path
+    from .search_map import map_path
+    for locate in (index_path,catalog_path,map_path):
+        try:
+            if locate().is_file():return True
+        except OSError:
+            continue
+    return False
 
 
 def _first_run(ap) -> int:
@@ -852,11 +857,15 @@ def main(argv=None):
     tp.add_argument("--csv", default=None, help="write CSV to this file (also selects CSV format for stdout)")
     tp.add_argument("--json", action="store_true")
     tp.set_defaults(fn=lambda a: __import__("antslab.tiera", fromlist=["cmd_tier_a"]).cmd_tier_a(a))
-    ca = sub.add_parser("candidates", help="preserve versioned development candidates; no champion promotion or weight refitting")
+    ca = sub.add_parser("candidates", help="preserve versioned development candidates; versioned specs and explicit train-only refits; no champion promotion")
     cas = ca.add_subparsers(dest="action", required=True)
-    for action in ("sync", "watch", "list", "show", "refit"):
+    for action in ("sync", "watch", "list", "show", "refit", "evaluate"):
         cs = cas.add_parser(action)
-        cs.add_argument("--store", required=True, help="private candidate store directory")
+        if action != "evaluate":
+            cs.add_argument("--store", required=True, help="private candidate store directory")
+        else:
+            cs.add_argument("--bundle", required=True); cs.add_argument("--out", required=True)
+            cs.add_argument("--max-windows", type=int, default=2048)
         if action in ("sync", "watch"):
             cs.add_argument("--contract", required=True); cs.add_argument("--workdir", required=True)
             cs.add_argument("--arm", required=True)
@@ -869,6 +878,17 @@ def main(argv=None):
             cs.add_argument("--horizon", type=int, choices=[96,192,336,720], default=96)
             cs.add_argument("--out", required=True, help="new artifact directory; never overwrites an existing version")
     ca.set_defaults(fn=lambda a: __import__("antslab.candidates", fromlist=["cmd_candidates"]).cmd_candidates(a))
+    sm = sub.add_parser("map", help="build/read an explicit retrospective search-map snapshot")
+    ms = sm.add_subparsers(dest="action", required=True)
+    mb = ms.add_parser("build")
+    mb.add_argument("--contract", required=True); mb.add_argument("--workdir", action="append", required=True)
+    mb.add_argument("--out", required=True); mb.add_argument("--budget", type=float, default=50400)
+    mb.add_argument("--cap", type=float, default=3000)
+    mb.add_argument("--json", action="store_true")
+    mr = ms.add_parser("show"); mr.add_argument("--cache"); mr.add_argument("--json", action="store_true")
+    mr.add_argument("--width", type=int, default=100); mr.add_argument("--height", type=int, default=30)
+    mr.add_argument("--ascii", action="store_true"); mr.add_argument("--height-mode", choices=["density","score"], default="density")
+    sm.set_defaults(fn=lambda a: __import__("antslab.search_map",fromlist=["cmd_map"]).cmd_map(a))
     s = sub.add_parser("ui", help="the terminal interface (what plain `ants` opens on a terminal)")
     s.add_argument("--contract"); s.add_argument("--workdir"); s.add_argument("--arm", default=None); s.set_defaults(fn=cmd_ui)
     s = sub.add_parser("home", help="print one screen of the interface and exit (pipes, scripts)")

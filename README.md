@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-<a href="#start-here">Start here</a> · <a href="#news">News</a> · <a href="#how-it-works">How it works</a> · <a href="#first-measurement">Measurement</a> · <a href="#install">Install</a> · <a href="#quick-start">Quick start</a> · <a href="#documentation">Documentation</a> · <a href="#roadmap">Roadmap</a> · <a href="#cite">Cite</a>
+<a href="#start-here">Start here</a> · <a href="#news">News</a> · <a href="#how-it-works">How it works</a> · <a href="#development-frontier">Measurement</a> · <a href="#install">Install</a> · <a href="#quick-start">Quick start</a> · <a href="#documentation">Documentation</a> · <a href="#roadmap">Roadmap</a> · <a href="#cite">Cite</a>
 </p>
 
 **A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it.**
@@ -26,6 +26,12 @@ It runs unattended on a 2 vCPU / 2 GB machine, and the same loop grows with the 
 The first domain is time-series forecasting with models of 100 to 3 000 parameters; the loop does not care what the models are.
 
 <p align="center"><img src="assets/architecture.svg" alt="Propose, judge, execute" width="900"></p>
+
+## 0.6.3 research views
+
+Leaderboard now switches between Live and Saved (`v`), with explicit retained-model reasons and saved-weight validation traces (`t`, where locally available). Arms switches to a native terminal search map (`m`); `z` changes density/score height and Enter shows model provenance. Health, Data and System provide labelled coordinate charts (`v`). Past keeps dates, questions and pilot arm records in a compact history view.
+
+Map snapshots are built explicitly from verified ledgers; opening the viewer does not train models or rescan experiments. The current map is a retrospective configuration projection, not an online controller or a semantic-distance claim. [Terminal map instructions](docs/modules/search_map.md) and [saved-weight checks](docs/modules/model_validation.md).
 
 ## Start here
 

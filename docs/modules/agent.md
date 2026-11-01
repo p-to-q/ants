@@ -36,7 +36,7 @@ as model-calling arms; the existing explicit multi-seed model-call guard applies
 ## Protocol v2
 
 Each proposal may carry:
-- `parent`: trial id or spec key it was derived from (validated against the arm's ledger; wrong parent dropped, spec still considered)
+- `parent`: trial id it was derived from (validated against the arm's ledger; wrong parent dropped, spec still considered)
 - `expect`: one of `"better"`, `"worse"`, `"same"` for the primary metric versus the parent
 - `why`: up to 160 characters, cleaned with `textsafe.clean_text`
 
@@ -61,3 +61,5 @@ The existing arms `portfolio_agent` and `agent` are pinned: their tool set, prom
 - Every reply is validated like any other proposal (space, feasibility, novelty).
 - Hostile inputs (huge numbers, nested objects, long strings) produce text error answers, never exceptions.
 - The `why` field is stored but never read by scoring, gating, or decision code.
+
+0.6.3 acceptance: the v2 prediction tool uses spec-only encoder features for both training/querying, since new proposals have no observed s0 metrics. Structured results remain parseable JSON under the character bound and report truncated row counts. Expectation-write failures increment a visible proposer statistic. Tool results remain observational, and no v1 arm definition changes.

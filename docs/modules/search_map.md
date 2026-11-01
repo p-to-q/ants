@@ -1,0 +1,17 @@
+# search_map
+
+`ants map build --contract FILE --workdir DIR [--workdir DIR...] --out NEW.json --budget 50400 --cap 3000` explicitly snapshots compatible verified ledgers. Inputs are read-only consistent SQLite snapshots. Each has one gym/arm/epoch; duplicate ledger copies are rejected using first-event anchored source ids. Source ids and trial ids survive appended events. No run seed is inferred from per-trial RNG seeds. Retain run labels, source chain heads, exact epoch/contract/stage/metric, original specs and recorded parent spec keys.
+
+The retrospective clock is cumulative CPU of done trials in original finish order, matching E43's registered script. Stages contribute CPU even when not plotted; only completed deepest-stage feasible observations at/below budget/cap are shown. A different scientific budget convention requires a separately versioned builder, not a silent change.
+
+Projection uses active typed contract parameters, fixed-range numeric encoding, categorical one-hot values and activity flags. NumPy is needed only for explicit building. Each immutable generation stores centering/components, encoded variance and source identities. Replaying a generation never refits the projector. This is retrospective PCA on observed specs, not an online controller, semantic distance or complete search-space coverage. Building a new generation may change coordinates; prospective fixed-projector updates remain future work.
+
+Outputs use exclusive atomic publication; existing files are not overwritten. Maximum 5,000 observations and 2 MiB; choose a narrower cohort when over the limit. A reader rejects mixed epochs, invalid numeric values, future/over-cap points and non-regular/symlink files. This checks internal metadata consistency, not an independent audit of mutable trial rows against their events.
+
+`ants map show --cache FILE [--width 100 --height 30 --ascii --height-mode density|score]` renders the same native character map. `--json` gives the complete cache. The TUI Arms page uses `m` Compare/Map and `z` density/score. Arrows select exact models; Enter opens their cached record. Half-block/shade characters render height; @ marks the selection and a/b identify the latest completed evaluations. Heights and paths are schematic aggregations. Parent lines require recorded same-source earlier parents. Many-to-one cells are view bins, never a percentage of all possible models.
+
+Configure `ANTS_SEARCH_MAP`, personal `maps/current.json`, or server `/var/lib/ants/maps/current.json`. The viewer never scans live ledgers, trains, exports or mutates a controller. Maps work without a live Source. Historical controls cannot pause/hint an unrelated live experiment. Windowed views do not receive a second automatic scroll offset.
+
+The richer browser 2.5D prototype remains separate; no JavaScript/image terminal protocol is required. Use the [design contract](../research/search-map.md) for planned online/projector, snapshot and benchmark extensions.
+
+Tests: `tests/test_search_map.py`. Status: experimental.

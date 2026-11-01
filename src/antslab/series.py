@@ -129,7 +129,7 @@ def compute_epoch(contract_path: str | Path) -> str:
     data_hash = ""
     if c.code_paths:
         cand = Path(c.code_paths[0]).parents[3] / "data" / "MANIFEST.sha256"
-        if cand.exists():
+        if _accessible(cand):
             data_hash = hashlib.sha256(cand.read_bytes()).hexdigest()[:16]
 
     ident = {"code": code_fp, "contract": contract_hash, "data_manifest": data_hash}
@@ -145,7 +145,7 @@ def run_series(a) -> int:
         # find the series file by name
         for cand in (Path("deploy/series") / f"{a.name}.toml",
                      Path("/opt/ants/deploy/series") / f"{a.name}.toml"):
-            if cand.exists():
+            if _accessible(cand):
                 path = cand
                 break
         if path is None:
@@ -218,11 +218,18 @@ def run_series(a) -> int:
         lock.close()
 
 
+def _accessible(path):
+    try:
+        return path.exists()
+    except PermissionError:
+        return False
+
+
 def find_series_file(name: str, file: str | None = None) -> Path | None:
     if file:
         return Path(file)
     for cand in (Path("deploy/series") / f"{name}.toml", Path("/opt/ants/deploy/series") / f"{name}.toml"):
-        if cand.exists():
+        if _accessible(cand):
             return cand
     return None
 
@@ -312,6 +319,8 @@ def series_status(a) -> int:
         dh = "ok" if r["def_hash_constant"] else ("FAIL" if r["def_hash_constant"] is not None else "-")
         ch = "ok" if r["chain_ok"] else ("FAIL" if r["chain_ok"] is not None else "-")
         print(f"{r['arm']:<24} {r['seed']:>4}  {r['state']:<14}  {r['trials']:>6}  {r['cpu_s']:>8.1f}  {r['budget_s']:>7.0f}  {eo:>6}  {dh:>4}  {ch:>6}")
+        if getattr(a, "values", False):
+            print("  best per cap: " + json.dumps(r.get("best_per_cap", {}), sort_keys=True))
     if not getattr(a, "values", False):
         print("(values per cap are hidden between the looks of the protocol; --values shows them)")
     return 0
@@ -379,7 +388,7 @@ def series_check(a) -> int:
     if path is None:
         for cand in (Path("deploy/series") / f"{a.name}.toml",
                      Path("/opt/ants/deploy/series") / f"{a.name}.toml"):
-            if cand.exists():
+            if _accessible(cand):
                 path = cand
                 break
         if path is None:

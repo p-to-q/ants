@@ -257,18 +257,20 @@ def test_predict_with_enough_rows(ledger, make_contract):
     pytest.importorskip("numpy")
     c = make_contract()
     rng = random.Random(42)
-    # need at least 150 trials with stage_idx >= 1 (best entries with deepest stage)
+    specs=[]
+    # At least 150 distinct deepest-stage records are needed.
     # For the toy contract, s0 is the first stage; we need to simulate both s0 and s1
     for i in range(200):
         s = c.space.sample(rng)
+        specs.append(s)
         # s0 trial
         tid = ledger.enqueue(c.gym, "arm", i, s, "random")
         t = ledger.claim(60, arm="arm")
         ledger.finish(t["id"], 1, "done", metrics={"val_mse": 1.0 + rng.random(), "n_params": 50})
     # now add s1 trials for all of them
     for i in range(200):
-        s = c.space.sample(random.Random(42 + i))  # same specs
-        tid = ledger.enqueue(c.gym, "arm", i, s, "random", stage="s1")
+        s = specs[i]
+        tid = ledger.enqueue(c.gym, "arm", i, s, "random", stage=c.stages[-1])
         t = ledger.claim(60, arm="arm")
         ledger.finish(t["id"], 1, "done", metrics={"val_mse": 0.8 + random.Random(i).random(), "n_params": 50})
     client = Script([{"tool": "predict", "args": {"spec": GOOD}},
@@ -277,7 +279,7 @@ def test_predict_with_enough_rows(ledger, make_contract):
     p.refill(ledger, "arm", set())
     _drain(p, ledger)
     result_text = client.seen[1][-1]
-    assert "predicted_value" in result_text or "no model yet" in result_text
+    assert "predicted_value" in result_text and "no model yet" not in result_text
 
 
 # ---- v2 tool: scorecard -------------------------------------------------------
@@ -402,7 +404,8 @@ def test_tools_are_readonly(ledger, make_contract, tmp_path):
     _populate(ledger, c)
     # snapshot the ledger state
     path = ledger.path
-    before_bytes = open(path, "rb").read()
+    from pathlib import Path
+    before_bytes = Path(path).read_bytes()
     before_mtime = os.path.getmtime(path)
     # run agent with all v2 tools
     client = Script([
@@ -426,6 +429,8 @@ def test_tools_are_readonly(ledger, make_contract, tmp_path):
         result = p._tool(job, name, args)
         assert isinstance(result, str) and len(result) > 0
     job.close()
+    assert Path(path).read_bytes() == before_bytes
+    assert os.path.getmtime(path) == before_mtime
     # The read-only connection should not have modified the file
     # (Note: the main ledger may have changed from events, but the job's connection is read-only)
 
@@ -570,3 +575,13 @@ def test_effects_even_count_uses_the_middle_pair(ledger, make_contract):
         assert out["effects"][0]["median_s0"] == pytest.approx(-.3)
     finally:
         job.close()
+
+
+def test_structured_tool_results_stay_parseable_when_bounded():
+    from antslab.agent import _text
+    original={'effects':[{'lever':'x'*50,'value':i} for i in range(100)]}
+    result=_text(original,200)
+    value=json.loads(result)
+    assert len(result)<=200 and value['truncated'] and value['omitted_rows']>0
+    assert len(original['effects'])==100
+    assert isinstance(json.loads(_text({'long':'漢'*1000},80)),dict)

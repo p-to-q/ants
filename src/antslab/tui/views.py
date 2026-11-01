@@ -24,9 +24,9 @@ STATE_GLYPH = {"done": ("✓", "ok"), "failed": ("✗", "bad"), "timeout": ("⏱
 KEYS = {
     "home": "0-9 or ←→ screens · [ ] next/prev search · p pause/resume · h hint · / command · ? help · q quit",
     "overview": "←→ screens · r refresh · p pause/resume · h hint · [ ] search · space freeze · ? help",
-    "board": "v Live/Saved · o best/latest · Tab/< > cap · ↑↓ row · Enter open · ←→ screens · [ ] search · ? help",
+    "board": "v Live/Saved · t saved forecast · o best/latest · Tab/< > cap · ↑↓ row · Enter open · ←→ screens · [ ] search · ? help",
     "trials": "↑↓ row · Enter open · s state · t stage · g/G top/bottom · space freeze · ? help",
-    "fleet": "↑↓ row · Enter switch to that search · p pause/resume it · h hint · ? help",
+    "fleet": "m compare/map · z map height · ↑↓ row · Enter switch to that search · p pause/resume it · h hint · ? help",
     "events": "↑↓ scroll · k kind · space freeze · ? help",
     "health": "v checks/charts · r refresh · ? help",
     "data": "v catalog/charts · r refresh · ? help",
@@ -41,6 +41,7 @@ class View:
     lines: list
     rows: int = 0
     row0: int = 0          # index of the line that carries row 0
+    windowed: bool = False
 
 
 @dataclass
@@ -361,6 +362,8 @@ def detail(d, ctx: Ctx) -> View:
 
 
 def fleet_screen(d, ctx: Ctx) -> View:
+    if d.get("mode") == "map":
+        return search_map_screen(d, ctx)
     w = ctx.width
     rows = d["fleet"]
     lines = [[S(" Compare searches at equal evaluations, not equal time: they run at different speeds.", "dim")], []]
@@ -631,7 +634,7 @@ def afterlife_screen(d, ctx: Ctx) -> View:
     receipt = "off-host receipt" if row.get("offsite_note") else "local receipt only"
     lines += [[S(f" Checked {when} · {receipt} · recorded, not live", "dim")],
               [S(" Enter: results, parameters and evidence", "dim")]]
-    return View(lines, len(rounds), row0)
+    return View(lines, len(rounds), row0, True)
 
 
 def afterlife_detail(summary: dict, width: int) -> str:
@@ -699,12 +702,14 @@ def saved_board(d, ctx: Ctx) -> View:
     from ..saved_models import retention_label, weight_label
     catalog = d.get('catalog', {})
     w = ctx.width
-    lines = [[S(' Saved', 'accent'), S('   v Live · Enter evidence', 'dim')]]
+    lines = [[S(' Saved', 'accent'), S('   v Live · t forecast · Enter evidence', 'dim')]]
     if catalog.get('error'):
         return View(lines + [[S(' Model catalog unavailable', 'warn')],
                             [S(' '+clean_text(catalog['error'], max(10,w-2)), 'dim')],
                             [S(' Check ANTS_MODEL_CATALOG and its recorded schema.', 'dim')]])
     rows = catalog.get('models', [])
+    if rows and ctx.filt.get('saved_trace'):
+        return saved_forecast(d,ctx)
     if not rows:
         return View(lines + [[S(' No retained models indexed yet.', 'dim')],
                             [S(' Set ANTS_MODEL_CATALOG to a saved collection JSON.', 'dim')]])
@@ -735,7 +740,11 @@ def saved_board(d, ctx: Ctx) -> View:
     refit=row.get('refit')
     if isinstance(refit,dict):
         detail.append([S(f" {safe(refit.get('dataset','?'),25)} · h{safe(refit.get('horizon','?'),10)} · {refit.get('stored_numeric_values','?')} stored",'dim')])
-    detail.append([S(' Refit quality: not evaluated here','dim')])
+    evaluation=refit.get('validation') if isinstance(refit,dict) else None
+    if isinstance(evaluation,dict):
+        detail.append([S(f" Refit dev MSE {evaluation['metrics']['mse_std']:.4f} · t curve",'dim')])
+    else:
+        detail.append([S(' Refit quality: not evaluated here','dim')])
     if wide:
         for i in range(max(len(body),len(detail))):
             left=fit([body[i] if i<len(body) else []],lw)[0]
@@ -744,7 +753,7 @@ def saved_board(d, ctx: Ctx) -> View:
             lines.append(left+[S(' '*(lw-size)+' │ ','dim')]+right)
     else:
         lines += body+[[]]+detail
-    return View(lines,len(rows),3)
+    return View(lines,len(rows),3,True)
 
 
 def saved_detail(row: dict, width: int) -> str:
@@ -805,3 +814,93 @@ def system_charts(d,ctx):
     lines += [[],[S(f' {len(points)} backups plotted · known size/time · last 7 days','dim')],
               [S(' Recorded sizes and times; integrity is checked separately.','dim')]]
     return View(lines)
+
+
+def search_map_screen(d,ctx):
+    """Isometric character landscape from a configured, read-only map snapshot."""
+    from ..textsafe import clean_text
+    data=d.get('map',{});points=data.get('points',[]);w=ctx.width;scope=data.get('scope',{})
+    lines=[[S(' Search map','accent'),S(' · m compare · z density/score · Enter model','dim')]]
+    if data.get('error'):
+        return View(lines+[[S(' '+clean_text(data['error'],w-2),'warn')]])
+    if not points:
+        return View(lines+[[S(' No map snapshot indexed.','dim')],
+                           [S(' Build with ants map build; set ANTS_SEARCH_MAP.','dim')]])
+    selected=min(max(ctx.sel,0),len(points)-1);chosen=points[selected]
+    wide=w>=120;mw=int(w*.62) if wide else w;ch=max(8,min(18,ctx.height-(8 if wide else 14)))
+    cw=max(20,mw-2);gw,gh=12,8;sx=(cw-4)/(gw+gh);sy=max(.15,(ch-6)/(gw+gh))
+    us=[p['u'] for p in points];vs=[p['v'] for p in points];lo,hi=min(us),max(us);vl,vh=min(vs),max(vs)
+    cells={};positions={}
+    for i,p in enumerate(points):
+        gx=min(gw-1,int((p['u']-lo)/(hi-lo or 1)*gw));gy=min(gh-1,int((p['v']-vl)/(vh-vl or 1)*gh))
+        cells.setdefault((gx,gy),[]).append(i);positions[i]=(gx,gy)
+    ymax=max(len(v) for v in cells.values());scorelo=min(p['value'] for p in points);scorehi=max(p['value'] for p in points)
+    mode=ctx.filt.get('map_height','density');canvas=[[(' ','none') for _ in range(cw)] for _ in range(ch)]
+    tops={}
+    def put(x,y,char,style='dim'):
+        if 0<=x<cw and 0<=y<ch:canvas[y][x]=(char,style)
+    for (gx,gy),indices in sorted(cells.items(),key=lambda kv:sum(kv[0])):
+        n=len(indices);best=min(points[i]['value'] for i in indices)
+        z=1+round(3*(math.log1p(n)/math.log1p(ymax) if mode=='density' else (scorehi-best)/(scorehi-scorelo or 1)))
+        x=round(2+gh*sx+(gx-gy)*sx);base=round(4+(gx+gy)*sy);top=base-z
+        for y in range(top+1,base+1):put(x,y,':' if ctx.ascii_only else '░')
+        shade='.' if ctx.ascii_only else pixel.shade(z,4)
+        put(x,top,shade,'accent');put(x+1,top,shade,'accent')
+        for i in indices:tops[i]=(x,top)
+    # Highlight only recorded, earlier same-source parents; do not join neighbours.
+    child=selected;seen=set();edges=0
+    while edges<12 and child not in seen:
+        seen.add(child);p=points[child]
+        parent=next((i for i,q in enumerate(points) if q['source']==p['source'] and q['spec_key']==p.get('parent_key') and q['cpu_s']<p['cpu_s']),None)
+        if parent is None:break
+        x0,y0=tops[parent];x1,y1=tops[child];steps=max(abs(x1-x0),abs(y1-y0),1)
+        for t in range(steps+1):put(round(x0+(x1-x0)*t/steps),round(y0+(y1-y0)*t/steps),'.','none')
+        child=parent;edges+=1
+    arms=list(dict.fromkeys(p['arm'] for p in points));glyphs='abcdef'
+    for arm in arms:
+        i=max((i for i,p in enumerate(points) if p['arm']==arm),key=lambda i:points[i]['cpu_s'])
+        put(*tops[i],glyphs[arms.index(arm)] if arms.index(arm)<6 else '+','none')
+    put(*tops[selected],'@','bold')
+    body=[[(char,style) for char,style in row] for row in canvas]
+    variance=(data.get('projection') or {}).get('encoded_variance')
+    scope=data.get('scope',{})
+    lines.append([S(f" {len(points)} {clean_text(scope.get("stage","deep"),12)} observations · {len(cells)} view bins · {mode}",'dim')])
+    lines.append([S((' Fixed retrospective PCA · height: 0-'+str(ymax)+' evals/bin') if mode=='density' else f' Fixed retrospective PCA · height: score {scorehi:.3f} to {scorelo:.3f}', 'dim')])
+    sp=chosen['spec'];details=[rule(max(20,w-mw-3) if wide else w,'Selected model'),
+        [S(' '+clean_text(chosen['arm'],40),'bold')],
+        [S(f" #{chosen.get('trial','?')} · {chosen['n_params']:g} nominal params",'none')],
+        [S(f" {clean_text(scope.get('metric','score'),25)} {chosen['value']:.5f}",'accent')],
+        [S(f" {chosen['cpu_s']:.0f} CPU-s · {edges} parent edges",'dim')],
+        [S(' '+clean_text(' / '.join(str(sp.get(k,'?')) for k in ('core','lookback','period','pretrain')),100),'none')]]
+    if wide:
+        lines+=pixel.side_by_side(body,details,gap=3,valign='top')
+    else:
+        lines+=body+[[]]+details[:5]
+    lines += [[S(' @ selected · a/b latest evaluations · blank = unobserved','dim')],
+              [S(' ↑↓ select model · z changes height · cached, not live','dim')]]
+    return View(lines,len(points),3,True)
+
+
+def saved_forecast(d,ctx):
+    from .charts import scatter
+    from ..textsafe import clean_text
+    rows=d['catalog']['models'];selected=min(max(ctx.sel,0),len(rows)-1);row=rows[selected]
+    evaluation=(row.get('refit') or {}).get('validation')
+    lines=[[S(' Saved-weight validation · t list · v Live','accent')]]
+    if not evaluation:
+        return View(lines+[[S(' No validation trace recorded for this weight variant.','dim')],
+                           [S(' Run ants candidates evaluate explicitly; opening this view does not evaluate.','dim')]],len(rows),0,True)
+    t=evaluation.get('trace');metrics=evaluation['metrics'];protocol=evaluation['protocol']
+    if not t:
+        return View(lines+[[S(f" Refit dev MSE {metrics['mse_std']:.5f} · rel_mse {metrics['rel_mse']:.5f}",'none')],
+                           [S(' Raw forecast trace is not included in this catalog.','dim')],
+                           [S(' Open the local validation receipt to inspect its data.','dim')]],len(rows),0,True)
+    lines += [[S(' '+clean_text(evaluation['dataset'],40)+f" · h{evaluation['horizon']} · dev validation · {protocol['evaluated_windows']} windows",'dim')]]
+    series=[('actual','a',list(zip(t['steps'],t['actual']))),('forecast','f',list(zip(t['steps'],t['forecast']))),
+            ('seasonal naive','.',list(zip(t['steps'],t['seasonal_naive'])))]
+    plot=scatter(series,ctx.width-2,max(4,min(10,ctx.height-13)),xlabel='forecast step',ylabel='Value (raw dataset units)',ascii_only=ctx.ascii_only,connect=True)
+    lines += [[S(' '+line,'accent' if i==0 else 'dim')] for i,line in enumerate(plot)]
+    lines += [[S(f" MSE(std) {metrics['mse_std']:.5f} · rel_mse {metrics['rel_mse']:.5f}",'none')],
+              [S(f" Trace channel {t['channel']} · target row {t['target_start']} · one example window",'dim')],
+              [S(' New saved-weight result; different protocol from the historical search score.','dim')]]
+    return View(lines,len(rows),0,True)

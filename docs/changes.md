@@ -2,6 +2,46 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 0.6.3 — native map and saved-weight checks
+
+Changed: native Arms map and explicit verified snapshot builder; actual saved-weight dev-validation receipts and forecast curves; fold coverage/target clipping fixes; valid bounded agent-tool JSON and spec-only prediction; historical context controls and paging corrections; restricted-cwd series lookup and recursive predeploy ledger backup.
+
+Why: make retained models and search history inspectable in a terminal, and resolve acceptance findings before publishing or replacing installed code.
+
+Forecloses: presenting a browser-only prototype as a terminal feature, treating a cached refit score as its historical search score, clipping training labels, hiding missing folds, truncating tool JSON mid-object, blanking paged selections, accidentally controlling an unrelated live search, and missing nested series ledgers during deployment backup. Historical E43 evaluator/search snapshots and scientific results are preserved separately.
+
+## 2026-11-02 — coordinate charts for operational pages
+
+Changed: `v` chart/detail modes on Health, Data and System; current-search failure/throughput axes, catalog group counts and family matrix, recorded backup size/time scatter. Past retains dates, questions and original pilot arm summaries.
+
+Why: show observable distributions and trends without displacing existing operational details.
+
+Forecloses: treating missing samples as zero failure, opening protected data to draw a chart, confusing presence with integrity, or interpreting recorded backup sizes as freshly verified copies. Plot references and scope are documented; no plotting dependency is added.
+
+## 2026-11-02 — retained-model browsing and quieter history
+
+Changed: read-only saved-model catalog and Leaderboard Live/Saved switch; wide/narrow list/detail layouts; full cached evidence on Enter; Past replaces preview paragraphs with compact scope/coverage/receipt tags.
+
+Why: let researchers inspect retained models even when no live search exists, and keep dense experiment history readable.
+
+Forecloses: resolving historical model ids against a current unrelated ledger, treating recorded parity as fresh verification or model quality, or marking an off-host note as a verified live backup. Export, prior collections and runtime checkpoint capture remain planned and are not implicitly triggered by this viewer.
+
+## 2026-11-02 — next-version research navigation decisions
+
+Changed: dated ten-model research collection with full specifications and private weight receipts, plus implementation specifications for Leaderboard Live/Saved, a study/stage/run catalog and a compact Past view.
+
+Why: retained models and historical experiments need stable, distinct identities and actionable file availability without narrative-heavy screens.
+
+Forecloses: treating ten as a history limit, inheriting historical trial scores onto refitted weights, counting snapshots as new experiments, or showing proposed entries as executed results. The UI/catalog changes are planned for the next version, not claimed deployed.
+
+## 2026-11-02 — E43 final acceptance and preservation hardening
+
+Changed: combined registered final analysis, refreshed development frontier and README, atomic candidate version publication, and input-only clipping during refit.
+
+Why: preserve recoverable candidates and accurately describe completed evidence.
+
+Forecloses: partial version files, clipped training targets, stale pilot results presented as the latest frontier, or exploratory cap results replacing the registered primary.
+
 ## 2026-10-27 · Preserve candidate versions and export explicit train-only refits
 Changed: added best/latest leaderboard order, an independent candidate detector/watcher with version records and scoped atomic pointers, and a train-only TinyTS weight/preprocessing/source exporter with reload parity.
 Why: a useful model needs a traceable saved version, while the existing gym did not preserve its original fitted weights.
@@ -167,35 +207,3 @@ Forecloses: citing private notes as justification inside public docs.
 Changed: parameter caps gate candidates instead of entering the objective; stages S1/S2 use expanding-window folds across several families.
 Why: a single fixed validation segment reversed model rankings on ETTh1; a penalty term lets over-cap models lead.
 Forecloses: a scalar "accuracy minus lambda × size" headline.
-
-## 2026-11-02 — E43 final acceptance and preservation hardening
-
-Changed: combined registered final analysis, refreshed development frontier and README, atomic candidate version publication, and input-only clipping during refit.
-
-Why: preserve recoverable candidates and accurately describe completed evidence.
-
-Forecloses: partial version files, clipped training targets, stale pilot results presented as the latest frontier, or exploratory cap results replacing the registered primary.
-
-## 2026-11-02 — next-version research navigation decisions
-
-Changed: dated ten-model research collection with full specifications and private weight receipts, plus implementation specifications for Leaderboard Live/Saved, a study/stage/run catalog and a compact Past view.
-
-Why: retained models and historical experiments need stable, distinct identities and actionable file availability without narrative-heavy screens.
-
-Forecloses: treating ten as a history limit, inheriting historical trial scores onto refitted weights, counting snapshots as new experiments, or showing proposed entries as executed results. The UI/catalog changes are planned for the next version, not claimed deployed.
-
-## 2026-11-02 — retained-model browsing and quieter history
-
-Changed: read-only saved-model catalog and Leaderboard Live/Saved switch; wide/narrow list/detail layouts; full cached evidence on Enter; Past replaces preview paragraphs with compact scope/coverage/receipt tags.
-
-Why: let researchers inspect retained models even when no live search exists, and keep dense experiment history readable.
-
-Forecloses: resolving historical model ids against a current unrelated ledger, treating recorded parity as fresh verification or model quality, or marking an off-host note as a verified live backup. Export, prior collections and runtime checkpoint capture remain planned and are not implicitly triggered by this viewer.
-
-## 2026-11-02 — coordinate charts for operational pages
-
-Changed: `v` chart/detail modes on Health, Data and System; current-search failure/throughput axes, catalog group counts and family matrix, recorded backup size/time scatter. Past retains dates, questions and original pilot arm summaries.
-
-Why: show observable distributions and trends without displacing existing operational details.
-
-Forecloses: treating missing samples as zero failure, opening protected data to draw a chart, confusing presence with integrity, or interpreting recorded backup sizes as freshly verified copies. Plot references and scope are documented; no plotting dependency is added.

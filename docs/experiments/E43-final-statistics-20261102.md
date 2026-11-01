@@ -1,5 +1,8 @@
 # E43 registered final statistical output
 
+> Presentation erratum (November 2): the original generated secondary heading below says 20 rows, but the displayed family contains 16 rows (four rows × four caps). The original output is retained unchanged; no endpoint, statistic or decision changes. Future output is corrected separately.
+
+
 32 runs; arms ['portfolio', 'portfolio_screen']; seeds [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; budget 50400 CPU-s; control `portfolio`, treatment `portfolio_screen`.
 
 ## Validity checks

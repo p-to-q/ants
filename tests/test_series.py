@@ -689,3 +689,13 @@ def test_make_refuses_a_workdir_name_verify_would_reject_before_writing_anything
         with pytest.raises(bundle.BundleError, match="plain names"):
             bundle.make_bundle("b", out, [wd])
         assert not out.exists() or not list(out.iterdir())
+
+
+def test_series_lookup_skips_an_inaccessible_current_directory(monkeypatch):
+    from pathlib import Path
+    from antslab.series import find_series_file
+    def exists(path):
+        if not path.is_absolute():raise PermissionError('root cwd')
+        return str(path)=='/opt/ants/deploy/series/e43b.toml'
+    monkeypatch.setattr(Path,'exists',exists)
+    assert find_series_file('e43b')==Path('/opt/ants/deploy/series/e43b.toml')

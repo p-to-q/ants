@@ -1,7 +1,7 @@
 """Tests for the Tier A validation report tool (src/antslab/tiera.py).
 
 Uses the real development data when present (data/raw), the toy gym for refusal tests.
-Each test stays under ~30 s on 4 dev datasets."""
+Real-data reports use uncapped validation windows and may take minutes. A module fixture shares the baseline report."""
 import json
 import os
 import sys
@@ -84,8 +84,8 @@ def test_refuses_invalid_lookback_before_loading_data(lookback):
 
 # ---- never touches the ledger's unseals table or the gate -----------
 
-def test_tier_a_never_touches_unseals_or_gate(tmp_path):
-    """Verify that running tier_a_report does not import gate or write to any ledger."""
+def test_tier_a_import_does_not_import_gate():
+    """Import graph only; execution isolation is tested separately below."""
     import importlib
     # We only check the import graph: gate must not be loaded
     mods_before = set(sys.modules.keys())
@@ -97,15 +97,22 @@ def test_tier_a_never_touches_unseals_or_gate(tmp_path):
     assert not any("gate" in m for m in new_mods), f"tiera imported gate: {[m for m in new_mods if 'gate' in m]}"
 
 
+@pytest.fixture(scope="module")
+def baseline_report():
+    from antslab.tiera import tier_a_report
+    from antslab.gyms.tinyts import baseline_specs
+    return tier_a_report([baseline_specs()["period_linear"]])
+
+
 # ---- determinism: same inputs, same numbers -------------------------
 
 @needs_data
-def test_tier_a_is_deterministic():
+def test_tier_a_is_deterministic(baseline_report):
     from antslab.tiera import tier_a_report
     from antslab.gyms.tinyts import baseline_specs
     spec = baseline_specs()["period_linear"]
     # run twice with the same spec
-    r1 = tier_a_report([spec])
+    r1 = baseline_report
     r2 = tier_a_report([spec])
     for row1, row2 in zip(r1["specs"][0]["rows"], r2["specs"][0]["rows"]):
         assert row1["mse_std"] == row2["mse_std"], "tier-a must be deterministic"
@@ -117,11 +124,11 @@ def test_tier_a_is_deterministic():
 # ---- report content: protocol lines, per-dataset rows ---------------
 
 @needs_data
-def test_tier_a_report_structure():
+def test_tier_a_report_structure(baseline_report):
     from antslab.tiera import tier_a_report, format_markdown
     from antslab.gyms.tinyts import baseline_specs
     spec = baseline_specs()["period_linear"]
-    report = tier_a_report([spec])
+    report = baseline_report
     assert "NOT comparable" in report["protocol"]
     assert "validation" in report["protocol"].lower()
     sr = report["specs"][0]
@@ -145,12 +152,12 @@ def test_tier_a_report_structure():
 # ---- CSV output parses correctly ------------------------------------
 
 @needs_data
-def test_tier_a_csv_output():
+def test_tier_a_csv_output(baseline_report):
     from antslab.tiera import tier_a_report, format_csv
     from antslab.gyms.tinyts import baseline_specs
     import csv, io
     spec = baseline_specs()["period_linear"]
-    report = tier_a_report([spec])
+    report = baseline_report
     text = format_csv(report)
     reader = csv.DictReader(io.StringIO(text))
     rows = list(reader)
@@ -173,3 +180,36 @@ def test_tier_a_lookback_override():
     assert r336["specs"][0]["lookback"] == 336
     # different lookbacks should produce different numbers (not exact same)
     assert r96["specs"][0]["rows"][0]["mse_std"] != r336["specs"][0]["rows"][0]["mse_std"]
+
+
+def test_report_executes_without_opening_a_ledger_or_gate(monkeypatch):
+    from types import SimpleNamespace
+    from antslab import tiera,gate
+    from antslab.ledger import Ledger
+    from antslab.gyms import tinyts
+    def fail(*a,**k):pytest.fail('report entered ledger/gate')
+    monkeypatch.setattr(Ledger,'__init__',fail);monkeypatch.setattr(gate,'seal',fail)
+    cat=SimpleNamespace(meta={'demo':{'role':'dev'}},names=lambda role:['demo'],load=lambda name:SimpleNamespace(name=name,horizons=[96],n_val=100))
+    monkeypatch.setattr(tinyts,'catalog',lambda:cat)
+    monkeypatch.setattr(tiera,'_fit_and_score',lambda *a,**k:[])
+    report=tiera.tier_a_report([tinyts.baseline_specs()['period_linear']])
+    assert report['specs'][0]['coverage']==[{'dataset':'demo','horizon':96,'folds_evaluated':0,'folds_expected':3}]
+    assert '0/3 folds' in tiera.format_markdown(report)
+
+
+def test_report_clips_inputs_but_not_training_targets(monkeypatch):
+    import numpy as np
+    from antslab.data import Series
+    from antslab.gyms import tinyts as T
+    from antslab.tiera import _fit_and_score
+    values=np.sin(np.arange(1776)/24.)[:,None];values[::25]+=20
+    ser=Series('demo','demo','dev',values,1000,576,24,[96])
+    spec={**T.baseline_specs()['period_linear'],'clip':True,'clip_z':2.5}
+    original=T.Model.fit;seen=[]
+    def fit(self,x,y,*a,**k):
+        assert np.max(abs(x))<=2.500001 and np.max(abs(y))>2.5
+        seen.append(len(x));return original(self,x,y,*a,**k)
+    monkeypatch.setattr(T.Model,'fit',fit)
+    rows=_fit_and_score(spec,ser,object(),[96,720],3)
+    assert seen and rows[0]['folds_evaluated']==3 and rows[0]['folds_expected']==3
+    assert len(rows)==1  # h720 unavailable, represented in report-level coverage

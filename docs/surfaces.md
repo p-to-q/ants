@@ -62,3 +62,6 @@ November 2 acceptance: candidate versions publish atomically; refit targets are 
 |---|---|---|---|
 | Saved model catalog and Leaderboard view | experimental | `tests/test_saved_models.py` | bounded read-only schema-1 metadata, Live/Saved navigation and scoped receipts; no live weight verification, export controls, previous-collection navigation or automated checkpoint service |
 | Health/Data/System coordinate charts | experimental | `tests/test_terminal_charts.py` | explicit windows/units, scoped observations and catalog metadata; no persistent host monitoring or live backup verification |
+
+| Native terminal search-map snapshot | experimental | `tests/test_search_map.py` | explicit retrospective PCA, bounded compatible caches, native Arms view; no automatic online projection refresh |
+| Saved-weight dev validation and traces | experimental | `tests/test_model_validation.py` | exact-weight checksum/data-role and split checks; descriptive dev scores only, no confirm evidence |

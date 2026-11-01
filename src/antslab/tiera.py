@@ -90,6 +90,8 @@ def _fit_and_score(spec, ser, cat, horizons, folds, split="val"):
                     cd32, 0, tr_end, L, H,
                     cap=None, seed=11 + fi, with_t=True,
                 )
+                if clip:
+                    _, Yt = sample_windows(d32, 0, tr_end, L, H, cap=None, seed=11 + fi)
                 w = np.exp(g(ms, "recency") * (tt - 1.0)) if g(ms, "recency") else None
                 aug = (np.random.default_rng(12345), g(ms, "aug_sigma")) if g(ms, "augment") else None
                 prior = None
@@ -122,6 +124,8 @@ def _fit_and_score(spec, ser, cat, horizons, folds, split="val"):
         rows.append({
             "dataset": ser.name,
             "horizon": H,
+            "folds_evaluated": len(fold_mses),
+            "folds_expected": len(blocks),
             "mse_std": avg_mse,
             "mae_std": avg_mae,
             "naive_mse": avg_ref_mse,
@@ -152,7 +156,7 @@ def tier_a_report(specs: list[dict], split: str = "val",
 
     protocol_lines = [
         "Protocol: Tier A validation report",
-        f"  Split: validation ({folds} expanding-window folds)",
+        f"  Split: validation (up to {folds} expanding-window folds; actual coverage is reported)",
         "  Standardisation: z-score with training-set statistics",
         "  Windows: uncapped (all validation windows scored)",
         "  No dropped last batch",
@@ -175,6 +179,7 @@ def tier_a_report(specs: list[dict], split: str = "val",
         nbytes = int(npar * bits(spec) / 8)
         lb = spec["lookback"]
         all_rows = []
+        coverage = []
         t0 = time.time()
         for name in dev_names:
             ser = cat.load(name)
@@ -183,6 +188,8 @@ def tier_a_report(specs: list[dict], split: str = "val",
                 horizons = ser.horizons
             rows = _fit_and_score(spec, ser, cat, horizons, folds, split)
             all_rows.extend(rows)
+            observed={r["horizon"]:r for r in rows}
+            coverage.extend({"dataset":name,"horizon":h,"folds_evaluated":observed.get(h,{}).get("folds_evaluated",0),"folds_expected":folds} for h in horizons)
         fit_s = time.time() - t0
 
         # per-dataset averages
@@ -204,6 +211,7 @@ def tier_a_report(specs: list[dict], split: str = "val",
             "n_params": npar,
             "bytes": nbytes,
             "rows": all_rows,
+            "coverage": coverage,
             "dataset_avgs": ds_avgs,
             "fit_s": round(fit_s, 1),
         })
@@ -226,7 +234,8 @@ def format_markdown(report: dict) -> str:
             lines.append(f"| {r['dataset']} | {r['horizon']} | {r['mse_std']:.4f} | {r['mae_std']:.4f} "
                          f"| {r['naive_mse']:.4f} | {r['naive_mae']:.4f} | {r['rel_mse']:.4f} | {r['rel_mae']:.4f} |")
         lines.append("")
-        lines.append("Per-dataset averages (mean over horizons):")
+        lines.append("Coverage: " + "; ".join(f"{r['dataset']} h{r['horizon']}: {r['folds_evaluated']}/{r['folds_expected']} folds" for r in sr.get("coverage", [])))
+        lines.append("Per-dataset averages (mean over available horizons):")
         lines.append("")
         lines.append("| dataset | MSE (std.) | MAE (std.) | rel_mse | rel_mae |")
         lines.append("|---------|------------|------------|---------|---------|")
@@ -241,14 +250,14 @@ def format_csv(report: dict) -> str:
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["spec_idx", "lookback", "n_params", "bytes", "dataset", "horizon",
-                "mse_std", "mae_std", "naive_mse", "naive_mae", "rel_mse", "rel_mae"])
+                "mse_std", "mae_std", "naive_mse", "naive_mae", "rel_mse", "rel_mae", "folds_evaluated", "folds_expected"])
     for si, sr in enumerate(report["specs"]):
         for r in sr["rows"]:
             w.writerow([si, sr["lookback"], sr["n_params"], sr["bytes"],
                         r["dataset"], r["horizon"],
                         f"{r['mse_std']:.6f}", f"{r['mae_std']:.6f}",
                         f"{r['naive_mse']:.6f}", f"{r['naive_mae']:.6f}",
-                        f"{r['rel_mse']:.6f}", f"{r['rel_mae']:.6f}"])
+                        f"{r['rel_mse']:.6f}", f"{r['rel_mae']:.6f}",r.get("folds_evaluated"),r.get("folds_expected")])
     return out.getvalue()
 
 

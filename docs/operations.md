@@ -270,3 +270,6 @@ Manual drills (documented, not scripted):
 - `pull_backups.sh` fails when it finds and verifies no backup at all (the layout after a pull is `DIR/backups/<arm>/`).
 - A bundle is never rewritten (`ants bundle make` refuses an existing name), names are plain file names, two workdirs with one basename are
   kept apart, files are mode 600, and a ledger with an unmerged write-ahead log is refused rather than read without it.
+
+
+0.6.3 predeployment backup walks nested series ledgers as well as top-level runs, excluding existing backup/archive trees. Each backup failure aborts replacement. Preserve a separately verified frozen source/environment receipt before changing installed code; updating a package does not update historical scientific identity.

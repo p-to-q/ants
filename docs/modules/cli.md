@@ -30,3 +30,5 @@ Command line (`ants`, entry `antslab.cli:main`). Flag-by-flag reference: [docs/c
 - `ants run` does not call the maintainer, judge, registry, gate, report; arms using `dream` run it every `--dream-every` finished trials (default 100).
 - LLM endpoints for the `llm*` and `portfolio_llm` arms come from `--llm-env`, else the first existing of `~/.config/ants/llm.env`, `/etc/ants/llm.env`; the file must be mode 600.
 - `janitor` passes no keep list to the cleaner (see [janitor](janitor.md)).
+
+0.6.3 also recognises saved-catalog/map-only installations without triggering onboarding. `ants map build/show` and `candidates evaluate` are explicit offline commands; viewer actions never start them implicitly. Missing/invalid artifact inputs produce bounded errors.

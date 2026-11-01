@@ -11,3 +11,5 @@ The default list shows original development score, nominal parameter count and r
 This is a first read-only collection view, not the complete planned retention system. Automatic capture, export/verification controls, Previous collections, comparison operations, previous-best transitions and the unified study/stage catalog are still future work. No service is installed and no bundled catalog is automatically assumed to exist on a server.
 
 Tests: `tests/test_saved_models.py`. Status: experimental.
+
+The installed global fallback is `/var/lib/ants/models/catalog.json`. A matching development-only validation receipt may add a saved-weight MSE and optional raw forecast trace. `t` toggles its curve view; a public catalog without raw trace gives explicit guidance instead. Both short controls and ledger commands in cached historical contexts are separated from unrelated live searches.

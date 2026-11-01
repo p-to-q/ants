@@ -41,3 +41,5 @@ Viewing never triggers candidate preservation, refitting or model adoption.
 Leaderboard also has a read-only Saved mode (`v`), backed by [saved_models](saved_models.md). It is global to its configured collection, independent of the current live search. Recorded refit/parity availability is explicitly separate from original development scores and live backup verification.
 
 Health, Data and System use `v` for explicit chart/detail modes. [The plotting contract](tui-charts.md) defines axes, windows and missingness. Health trends are queried only in chart mode; data distributions use metadata without opening raw series. Saved/Past short copy follows [the interface copy rules](../research/interface-copy.md).
+
+0.6.3 integrates a native character-map view in Arms (`m`, `z`) and saved-weight forecast curves (`t` in Saved). Cached Historical/Saved/Map contexts display their actual label and cannot pause/hint an unrelated current search; ledger commands require switching back to Live. Already paged views declare `windowed` so drawing a large selection does not apply a second scroll offset. See [map](search_map.md) and [model validation](model_validation.md).

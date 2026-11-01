@@ -20,3 +20,5 @@ two-worker E43 server. It is not a finalist exporter or promotion decision.
 
 Tests: `test_tiera.py` (real-dev-data checks skip if unavailable),
 `test_metrics_display.py`. Status: experimental.
+
+0.6.3 acceptance reports actual fold coverage and requested-but-unavailable horizons, rather than claiming every row used three folds. Training clipping affects inputs only; targets remain unclipped. CSV includes evaluated/expected fold columns. These reports remain descriptive development refits and are not a paper-standard benchmark.

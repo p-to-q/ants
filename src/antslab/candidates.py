@@ -218,7 +218,12 @@ def sync(workdir, contract_path, arm, store):
         os.close(lock_fd)
 
 
-def cmd_candidates(a):
+def _cmd_candidates(a):
+    if a.action == "evaluate":
+        from .model_validation import evaluate
+        result=evaluate(a.bundle,a.out,a.max_windows)
+        print(json.dumps({"out":a.out,"metrics":result["metrics"],"quality_status":result["quality_status"]},indent=2))
+        return 0
     if a.action == "refit":
         from .model_artifact import refit
         print(json.dumps(refit(a.store,a.id,a.contract,a.dataset,a.horizon,a.out),indent=2))
@@ -251,3 +256,12 @@ def cmd_candidates(a):
         return 0
     print(json.dumps(sync(a.workdir, a.contract, a.arm, a.store), indent=2))
     return 0
+
+
+def cmd_candidates(a):
+    try:
+        return _cmd_candidates(a)
+    except (OSError,ValueError,KeyError,TypeError) as exc:
+        from .textsafe import clean_text
+        print(json.dumps({"error":clean_text(str(exc),200)}))
+        return 1

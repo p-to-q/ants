@@ -196,7 +196,8 @@ def doctor(led, c, arm: str, workdir) -> list[tuple[str, str]]:
             from .proposers import make_proposer
             from .experiments import _StubClient
             client = None
-            if arm in ("llm", "llm_dream", "portfolio_llm", "portfolio_dream", "portfolio_agent", "agent"):
+            from .seeds import MODEL_ARMS
+            if arm in MODEL_ARMS:
                 client = _StubClient()
             try:
                 from .campaign import Campaign

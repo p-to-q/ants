@@ -14,7 +14,9 @@ HEX = re.compile(r"[0-9a-f]{16,64}\Z")
 
 def catalog_path():
     from .home import home
-    return Path(os.environ.get('ANTS_MODEL_CATALOG', str(home() / 'models/catalog.json'))).expanduser()
+    explicit=os.environ.get('ANTS_MODEL_CATALOG')
+    personal=home()/'models/catalog.json'
+    return Path(explicit).expanduser() if explicit else personal if personal.exists() else Path('/var/lib/ants/models/catalog.json')
 
 
 def _number(value):
@@ -60,6 +62,20 @@ def read_catalog(path=None):
                 count = refit.get('stored_numeric_values')
                 if count is not None and (not _number(count) or count < 0 or count > c['cap']):
                     raise ValueError('refit receipt exceeds its physical cap')
+                evaluation=refit.get('validation')
+                if evaluation is not None:
+                    if not isinstance(evaluation,dict) or evaluation.get('kind')!='saved_refit_dev_validation' or evaluation.get('weights_sha256')!=refit.get('weights_sha256') or evaluation.get('dataset')!=refit.get('dataset') or evaluation.get('horizon')!=refit.get('horizon'):
+                        raise ValueError('validation receipt differs from its weight variant')
+                    metrics=evaluation.get('metrics',{});trace=evaluation.get('trace')
+                    if not isinstance(metrics,dict) or not all(_number(metrics.get(k)) for k in ('mse_std','rel_mse')):
+                        raise ValueError('invalid saved-weight validation metrics')
+                    protocol=evaluation.get('protocol')
+                    if not isinstance(protocol,dict) or not isinstance(protocol.get('evaluated_windows'),int) or protocol['evaluated_windows']<=0:
+                        raise ValueError('missing validation sample count')
+                    length=evaluation['horizon']
+                    if not isinstance(length,int) or isinstance(length,bool) or not 1<=length<=720 or trace is not None and (not isinstance(trace,dict) or any(not isinstance(trace.get(k),list) or len(trace[k])!=length or not all(_number(v) for v in trace[k]) for k in ('steps','actual','forecast','seasonal_naive'))):
+                        raise ValueError('invalid saved-weight forecast trace')
+
         return {**data, 'path':str(path), 'recorded_only':True}
     except FileNotFoundError:
         return {'schema':1,'models':[], 'path':str(path),'missing':True,'recorded_only':True}

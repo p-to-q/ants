@@ -85,6 +85,14 @@ pruner, reward and warm start and attribute the gain to one. E43 definitions
 remain frozen. New controller development is deferred, not silently authorized
 by retaining its research question.
 
+November 2 implementation audit: Optuna TPE already participates in portfolio,
+and evo already uses binary tournament parent selection. The server pins Optuna
+5.0.0, whose TPE defaults differ from the older univariate-default description
+in step 16 below. The next task is adapter quality and explicit configuration,
+not adding a duplicate operator. See [E44's audited sequence](experiments/E44-calibration-20261102.md#optuna-and-two-choice-selection-implementation-audit-november-2)
+for standalone-reference, portfolio-replacement and later two-choice-allocator
+contrasts. No existing E43 definition or E44a arm is changed by this note.
+
 Configuration reuse can later be tested independently of weight continuation.
 LLM proposals and Jev remain optional comparisons after baseline/evidence gates,
 not mandatory next-series components. Policy and data-role changes need their
@@ -613,3 +621,7 @@ Implement [one study/stage/run catalog](research/experiment-catalog.md) shared b
 ### Evidence-grounded search map
 
 Explore [the Arms Compare/Map view](research/search-map.md), beginning with a fixed 2.5D active-configuration landscape and an actual seed-8 historical replay; retain parameter-count/relative-MSE as the numeric drill-down. Height toggles observed density versus cell-best development score, with unobserved regions left unknown. Separate completed observations, pending proposals and recorded lineage. Keep projection and replay budget identities fixed; no synthetic score terrain or inferred Agent motion. Implement as a bounded read-only cache/view after the unified identities and retention interfaces are accepted. This is a prototype/design, not a deployed map or a change to search policy.
+
+### E44 follows the closed E43 study
+
+Use [the E44 calibration and research decision](experiments/E44-calibration-20261102.md). E44a is a six-run, one-hour-per-run engineering calibration of random/plain TPE/portfolio under 0.6.3, with artifact/cap/coverage checks and no efficacy claim. E44b remains unregistered until reference settings, finite confirmation looks and physical-cap accounting are settled. Do not append E43c seeds or combine new sampler, warm-start, LLM and evaluator changes. The new variables initially record evidence and cost rather than enlarging the search grammar.

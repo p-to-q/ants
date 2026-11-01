@@ -458,7 +458,9 @@ def scatter():
     ly = Y(1.0) + 22
     for dx in (-5, 5):                            # the cloud: two of its dots, with air between them
         o.append(f'<circle cx="{cx + dx:.1f}" cy="{ly - 4:.1f}" r="2.3" fill="{MINT_3}" fill-opacity="0.5"/>')
-    label(o, tx, ly, f"{len(cloud):,} evaluations across E43 runs", 11.5, MUTE, "start", 500, halo=False)
+    sources = d["ants_demo"].get("sources")
+    source_label = f" / {len(sources)} runs" if isinstance(sources,list) and sources else " / one run" if d["ants_demo"].get("ledger_sha256") else ""
+    label(o, tx, ly, f"{len(cloud):,} evaluations{source_label}", 11.5, MUTE, "start", 500, halo=False)
     y2 = ly + 20
     yc = y2 - 4.5
     o.append(f'<rect x="{cx - 12:.1f}" y="{yc - 3:.1f}" width="6" height="6" rx="1.8" fill="{MINT_3}" stroke="{INK}" stroke-width="0.7"/>')

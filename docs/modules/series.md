@@ -17,3 +17,5 @@ of the current workload. Service CPU quota is not detected. Memory pressure is
 a warning, not a prediction that the kernel necessarily swaps.
 
 Tests: `test_series.py`, `test_series_plan.py`. Status: experimental.
+
+0.6.3 skips inaccessible relative candidates when resolving a named series from a restricted working directory. This lets the installed absolute registry be found under the service wrapper. Explicit files retain normal read errors. Text `status --values` now prints the same requested cap values exposed in JSON.

@@ -82,6 +82,24 @@ def test_saved_layout_scopes_scores_and_paginates_every_record(catalog,width,hei
     v=views.saved_board({'catalog':catalog},ctx)
     text=render.plain(views.fit(v.lines,width))
     assert v.rows==35 and '/ 35' in text and 'Refit recorded' in text
-    assert 'not evaluated here' in text and 'recorded receipts' in text
+    assert 'Refit dev MSE' in text and 'recorded receipts' in text
     assert ('│' in text)==(width>=120)
     assert len(v.lines)<=height-3
+
+
+def test_recorded_views_do_not_pause_or_hint_a_live_search():
+    import curses
+    for screen,filt in [('board',{'board_mode':'saved'}),('fleet',{'fleet_mode':'map'}),('afterlife',{})]:
+        a=app.App.__new__(app.App);a.ctx=views.Ctx();a.screen=screen;a.filt=filt;a.help=False
+        a.view=lambda:views.View([])
+        a.toggle_pause=lambda:pytest.fail('paused unrelated live search')
+        a.prompt=lambda *a,**k:pytest.fail('hinted unrelated live search')
+        a.say=lambda text:None
+        a.on_key(ord('p'),curses);a.on_key(ord('h'),curses)
+
+
+def test_validation_curve_is_never_fabricated_when_trace_not_bundled(catalog):
+    d={'catalog':catalog}
+    v=views.saved_forecast(d,views.Ctx(width=100,height=30))
+    text=render.plain(v.lines)
+    assert 'trace is not included' in text and 'Refit dev MSE' in text

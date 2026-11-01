@@ -12,7 +12,7 @@ def number(x):
     return f'{x:.2f}'.rstrip('0').rstrip('.')
 
 
-def scatter(series,width=80,height=7,xlim=None,ylim=None,xlabel='x',ylabel='y',ascii_only=False):
+def scatter(series,width=80,height=7,xlim=None,ylim=None,xlabel='x',ylabel='y',ascii_only=False,connect=False):
     """series = [(label, marker, [(x,y), ...])]. Missing points are not joined."""
     points=[(x,y) for _,_,ps in series for x,y in ps if finite(x) and finite(y)]
     if not points:return [ylabel, 'No observations in this window.']
@@ -26,11 +26,20 @@ def scatter(series,width=80,height=7,xlim=None,ylim=None,xlabel='x',ylabel='y',a
         pad=max(abs(ymin)*.1,1);ymin-=pad;ymax+=pad
     h=max(3,min(height,16));pw=width-12
     cells=[[' ']*pw for _ in range(h)]
+    def paint(col,row,marker):
+        previous=cells[row][col]
+        cells[row][col]=marker[:1] if previous in (' ',marker[:1]) else '+'
     for _,marker,ps in series:
+        previous=None
         for x,y in ps:
-            if not finite(x) or not finite(y) or not(xmin<=x<=xmax and ymin<=y<=ymax):continue
+            if not finite(x) or not finite(y) or not(xmin<=x<=xmax and ymin<=y<=ymax):
+                previous=None
+                continue
             col=round((x-xmin)/(xmax-xmin)*(pw-1));row=h-1-round((y-ymin)/(ymax-ymin)*(h-1))
-            cells[row][col]=marker[:1] if cells[row][col]==' ' else '+'
+            if connect and previous is not None:
+                pc,pr=previous;steps=max(abs(col-pc),abs(row-pr),1)
+                for t in range(steps+1):paint(round(pc+(col-pc)*t/steps),round(pr+(row-pr)*t/steps),marker)
+            paint(col,row,marker);previous=(col,row)
     vert,corner,horiz=('|','+','-') if ascii_only else ('│','└','─')
     lines=[ylabel]
     for i,c in enumerate(cells):

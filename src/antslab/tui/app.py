@@ -101,18 +101,26 @@ class App:
             return (self.screen, tuple(sorted(self.filt.items())), self.detail_id, self.wd_i, self.arm)
 
     def load(self, screen: str, filt: dict, detail_id: int | None) -> dict:
+        if screen == "fleet" and filt.get("fleet_mode") == "map":
+            self.label="Map · recorded snapshot"
+            from ..search_map import read_map
+            return {"mode":"map", "map":read_map()}
         if screen == "afterlife":
+            self.label="Past · cached records"
             from ..archive_index import read_index
             return {"catalog": read_index()}
         if screen == "board" and filt.get("board_mode") == "saved":
+            self.label="Saved · recorded models"
             from ..saved_models import read_catalog
             return {"mode":"saved", "catalog":read_catalog()}
         if screen == "data":
+            self.label="Data catalog"
             try:
                 return {"data": model.data_overview()}
             except Exception as e:
                 return {"error": model.human_error(e, "The Data screen")}
         if screen == "home" or screen == "fleet":
+            self.label="All searches"
             srcs, errors = self.fleet_sources()
             out = {"fleet": model.fleet(srcs) + errors}
             if screen == "fleet" and srcs:
@@ -184,6 +192,8 @@ class App:
                 self.ctx.sel = getattr(self, "afterlife_selection", 0)
             elif self.screen == "board" and self.filt.get("board_mode") == "saved":
                 self.ctx.sel = getattr(self, "saved_selection", 0)
+            elif self.screen == "fleet" and self.filt.get("fleet_mode") == "map":
+                self.ctx.sel = getattr(self, "map_selection", 0)
             self.refresh.set()
 
     def view(self) -> views.View:
@@ -217,6 +227,11 @@ class App:
     def run_command(self, text: str):
         from .. import cli
         raw = text.lstrip("/ ")
+        context=next((s for s in [self.screen,*reversed(getattr(self,"stack",[]))] if s!="pager"),self.screen)
+        recorded = context=="afterlife" or context=="board" and self.filt.get("board_mode")=="saved" or context=="fleet" and self.filt.get("fleet_mode")=="map"
+        if recorded and raw.split(None,1)[:1] and raw.split(None,1)[0] in NEEDS_CONTEXT | {"sql","query"}:
+            self.show_text("Switch to a live search for ledger commands; this view contains recorded evidence.",text)
+            return
         if raw.split(None, 1)[:1] == ["hint"]:                      # a hint is free text: quotes and apostrophes stay as typed
             argv = ["hint", raw.split(None, 1)[1] if len(raw.split(None, 1)) > 1 else ""]
         else:
@@ -283,6 +298,10 @@ class App:
             self.frozen = not self.frozen
             self.say("refresh frozen (space to continue)" if self.frozen else "refresh continues")
             self.refresh.set()
+        elif ch in (ord("p"),ord("h")) and (self.screen in ("pager","afterlife") or
+                self.screen=="board" and self.filt.get("board_mode")=="saved" or
+                self.screen=="fleet" and self.filt.get("fleet_mode")=="map"):
+            self.say("Recorded view: switch to a live search for controls.")
         elif ch == ord("p") and self.screen not in ("pager", "afterlife"):
             self.toggle_pause()
         elif ch == ord("h") and self.screen not in ("pager", "afterlife"):
@@ -317,6 +336,16 @@ class App:
             self.cycle_screen(-1)
         elif ch in (10, 13, K.KEY_ENTER):
             self.enter(v)
+        elif ch == ord("t") and self.screen == "board" and self.filt.get("board_mode")=="saved":
+            self.filt["saved_trace"] = not self.filt.get("saved_trace",False)
+            self.refresh.set()
+        elif ch == ord("m") and self.screen == "fleet":
+            self.filt["fleet_mode"] = "compare" if self.filt.get("fleet_mode") == "map" else "map"
+            c.sel = 0
+            self.refresh.set()
+        elif ch == ord("z") and self.screen == "fleet" and self.filt.get("fleet_mode") == "map":
+            self.filt["map_height"] = "score" if self.filt.get("map_height", "density") == "density" else "density"
+            self.refresh.set()
         elif ch == ord("v") and self.screen in ("health", "data", "system"):
             name = self.screen + "_charts"
             self.filt[name] = not self.filt.get(name, False)
@@ -434,6 +463,16 @@ class App:
             if c.sel < len(rows):
                 self.detail_id = int(rows[c.sel]["id"]); self.goto("detail")
         elif self.screen == "fleet":
+            if d.get("mode") == "map":
+                points=d.get("map",{}).get("points",[])
+                if c.sel < len(points):
+                    self.map_selection=c.sel
+                    import json
+                    from ..textsafe import clean_text
+                    self.pager_text=clean_text(json.dumps(points[c.sel],indent=2,ensure_ascii=True),50000)
+                    self.pager_title="Map model — recorded evaluation"
+                    self.goto("pager")
+                return
             rows = d.get("fleet", [])
             if c.sel < len(rows) and "error" not in rows[c.sel]:
                 wd = rows[c.sel]["workdir"]
@@ -484,7 +523,7 @@ class App:
         body_h = h - 2
         c = self.ctx
         top = self.scroll if self.screen == "pager" else 0
-        if v.rows and self.screen != "pager":
+        if v.rows and not v.windowed and self.screen != "pager":
             r = v.row0 + c.sel
             top = max(0, r - body_h + 3) if r >= body_h - 2 else 0
         for y, line in enumerate(v.lines[top: top + body_h]):
