@@ -106,7 +106,7 @@ These are pooled minima selected on the same development data used for scoring. 
 
 **E43 final look:** the registered ≤300-parameter comparison gives a paired median difference of 0 and Wilcoxon p=0.5771 at the prespecified 0.0294 threshold. Screening is not adopted on this evidence. The ≤3,000-parameter improvement is exploratory. See the [final acceptance report](docs/experiments/E43-final-20261102.md).
 
-The [retained research collection](docs/models/E43-shortlist-20261102.md) records ten selected models, their full specifications, reasons and available local weight variants. The planned Saved interface is described there; it is not part of the installed server UI yet.
+The [retained research collection](docs/models/E43-shortlist-20261102.md) records ten selected models, their full specifications, reasons and available weight variants. The 0.6.3 Saved interface displays this catalog and its explicit development-only weight checks; a fresh installation needs its own catalog or an imported collection.
 
 Data and per-ledger SHA-256 identities: [frontier.json](assets/frontier.json). Regenerate the displayed figures with `python assets/make_figures.py`. The raw ledgers are backed up privately and are not shipped with this repository; a clone reproduces the figures from the checked-in data, not the full experiment. Candidate specifications are preserved separately. Refit bundles contain numeric weights, preprocessing, source and parity checks and are labelled as new train-only fits, not historical checkpoints.
 
@@ -115,8 +115,7 @@ Data and per-ledger SHA-256 identities: [frontier.json](assets/frontier.json). R
 <p align="center"><img src="assets/benchmark.svg" alt="TinyTS-Bench, pending" width="900"></p>
 
 **TinyTS-Bench** is specified before it is run: arms, seeds, stopping rule and what counts as a null result are in the
-[protocol](docs/benchmark.md). Its bars are still empty on purpose. The full protocol is about 120,000 evaluations (about 350 core-hours), and the server's two cores
-are in use by the three running arms, so it will run on separate hardware once the arms' seed runs ([roadmap](docs/roadmap.md), steps 2, 4, 16 and 17) have set the budget; no number is drawn before then.
+[protocol](docs/benchmark.md). Its bars are still empty on purpose. The full protocol is about 120,000 evaluations (about 350 core-hours); the completed E43 screen comparison does not fill those broader benchmark cells. The next registered queue is E44a engineering calibration. A stronger Optuna/random comparison needs its own frozen settings and budget ([next experiment](docs/experiments/E44-calibration-20261102.md)); no unmeasured benchmark number is drawn here.
 
 ## Install
 
