@@ -367,9 +367,18 @@ def system_info(source: "Source | None", all_sources: "list[Source] | None" = No
         info["backup_dir"] = str(system.backup_dir(source.workdir))
         try:
             from ..backup import list_backups
-            info["backups"] = list_backups(info["backup_dir"]) if Path(info["backup_dir"]).exists() else []
-        except Exception:
+            directory=Path(info['backup_dir'])
+            with os.scandir(directory) as entries:
+                has_sidecars=any(e.name.startswith('ledger-') and e.name.endswith('.json') for e in entries)
+            info['backups']=list_backups(directory)
+            info['backup_state']='available' if info['backups'] else 'invalid_metadata' if has_sidecars else 'empty'
+        except FileNotFoundError:
+            info['backups']=[]
+            info['backup_state']='missing'
+        except OSError as e:
             info["backups"] = []
+            info['backup_state']='unreadable'
+            info['backup_error']=f'{type(e).__name__}: {e}'[:200]
         try:
             info["trials_now"] = source.led.conn.execute("SELECT COUNT(*) FROM trials").fetchone()[0]       # for "how much would a restore lose"
         except Exception:
@@ -410,7 +419,14 @@ def system_info(source: "Source | None", all_sources: "list[Source] | None" = No
         except Exception:
             info["llm_ep_states"] = {}
     try:
-        unit = f"ants@{source.arm}" if source and Path("/etc/systemd/system/ants@.service").exists() else None
+        unit=None
+        if source:
+            root=Path(os.environ.get('ANTS_SERVICE_ROOT','/var/lib/ants')).expanduser().resolve()
+            wd=source.workdir.resolve()
+            if wd.parent.parent==root/'series' and Path('/etc/systemd/system/ants-series@.service').exists():
+                unit=f'ants-series@{wd.parent.name}.service'
+            elif Path('/etc/systemd/system/ants@.service').exists():
+                unit=f'ants@{source.arm}'
         if unit:
             r = subprocess.run(["systemctl", "is-active", unit], capture_output=True, text=True, timeout=3)
             info["service"] = {"unit": unit, "state": r.stdout.strip() or r.stderr.strip()}

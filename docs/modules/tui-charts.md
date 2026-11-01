@@ -13,3 +13,7 @@ System's `v` chart mode plots recorded archive sizes in decimal MB against days 
 References reviewed November 2, 2026: [plotext](https://github.com/piccolomo/plotext) and its [date axes](https://plotext.readthedocs.io/en/latest/date.html), [plotille](https://github.com/tammoippen/plotille), and [Rich Live](https://rich.readthedocs.io/en/latest/live.html). These informed the chart/refresh design; no code was copied and no runtime dependency was added.
 
 Tests: `tests/test_terminal_charts.py`. Status: experimental.
+
+## 0.6.4 default dashboards
+
+Health, Data and System now show essential data and plots together. `v` opens full details; it is not required to discover the charts. Layout is bounded for 80×24 and 100×30, with explicit detail hints when entries are condensed. Health queries scoped outcome bins in the default dashboard. System follows the series timer layout `backups/series/<series>/<workdir>` and the owning series service, with explicit env/config backup overrides taking priority. Backup plots show the actual available receipt span in minutes/hours/days, rather than assuming seven days. Missing directories, empty histories, unreadable paths and invalid sidecars have distinct wrapped messages. Incomplete time/size/file metadata is omitted and counted. Viewing does not verify the archive bytes. Earlier chart-mode descriptions above document 0.6.3.

@@ -2,6 +2,14 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 0.6.4 — readable dashboards and guarded deployment
+
+Changed: continuous density wireframe, observed-point/ancestry overlays and useful initial selection; one-screen map/model layout; default Health/Data/System dashboards; correct series backup/service paths and actual backup time axes; stable deployment gate, lock and readiness checks.
+
+Why: terminal views must explain observed state without hidden chart modes, confusing completed cohorts with live work, inventing an empty seven-day history, or importing a half-installed environment.
+
+Forecloses: disconnected column terrain, requiring a mode switch just to see operational plots, silently swallowing unreadable backup directories, treating an active series as an inactive standalone arm, concurrent installers, replacement during active scientific services, and onboarding during a failed deployment. A density surface is not an inferred score surface.
+
 ## 0.6.3 — native map and saved-weight checks
 
 Changed: native Arms map and explicit verified snapshot builder; actual saved-weight dev-validation receipts and forecast curves; fold coverage/target clipping fixes; valid bounded agent-tool JSON and spec-only prediction; historical context controls and paging corrections; restricted-cwd series lookup and recursive predeploy ledger backup.

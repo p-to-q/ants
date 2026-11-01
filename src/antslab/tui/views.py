@@ -28,9 +28,9 @@ KEYS = {
     "trials": "↑↓ row · Enter open · s state · t stage · g/G top/bottom · space freeze · ? help",
     "fleet": "m compare/map · z map height · ↑↓ row · Enter switch to that search · p pause/resume it · h hint · ? help",
     "events": "↑↓ scroll · k kind · space freeze · ? help",
-    "health": "v checks/charts · r refresh · ? help",
-    "data": "v catalog/charts · r refresh · ? help",
-    "system": "v details/charts · r refresh · ? help",
+    "health": "v full checks / dashboard · r refresh · ? help",
+    "data": "v dataset names / dashboard · r refresh · ? help",
+    "system": "v full details / dashboard · r refresh · ? help",
     "afterlife": "↑↓ round · Enter evidence / parameters · ←→ screens · r refresh cache · ? help",
     "detail": "Esc back · ? help",
 }
@@ -438,6 +438,8 @@ def health(d, ctx: Ctx) -> View:
     lines = [[S(" No checks available" if not rows else " all clear" if not (n_bad or n_warn) else f" {n_bad} failing, {n_warn} warnings", "dim" if not rows else "ok" if not (n_bad or n_warn) else "bad" if n_bad else "warn")]]
     if ctx.filt.get("health_charts"):
         return health_charts(d, ctx, lines)
+    if not ctx.filt.get('health_details'):
+        return health_dashboard(d,ctx,lines)
     lines[0].append(S("   v charts", "dim"))
     strip = [S(" ")]
     for level, _ in rows:
@@ -468,6 +470,8 @@ def data_screen(d, ctx: Ctx) -> View:
     if "error" in d:
         return View([[S(" " + clip(t, w - 2), "warn" if i == 0 else "dim")] for i, t in enumerate(d["error"].split("\n"))])
     o = d["data"]
+    if not ctx.filt.get('data_details') and not ctx.filt.get('data_charts'):
+        return data_dashboard(d,ctx)
     if ctx.filt.get("data_charts"):
         from .charts import role_bars
         lines = [[S(" Catalog coverage · v details", "accent")], []] + [
@@ -509,6 +513,8 @@ def system_screen(d, ctx: Ctx) -> View:
     w = ctx.width
     if ctx.filt.get("system_charts"):
         return system_charts(d, ctx)
+    if not ctx.filt.get('system_details'):
+        return system_dashboard(d,ctx)
     lines = [[S(f" ants {i['version']}", "accent"), S(f"   latest known {i['latest'] or '-'}", "dim"), S("   update available: `ants update`" if i.get("update") else "", "warn")], []]
     lines[0].append(S(" · v charts", "dim"))
     kv = [("home", i["home"]), ("config", i["config"] or "(none; `ants onboard`)"), ("workdir", i.get("workdir", "-")), ("backups in", i.get("backup_dir", "-"))]
@@ -555,7 +561,7 @@ def system_screen(d, ctx: Ctx) -> View:
                               S(f"  {clip(cause_str, max(10, w - 42))}" if cause_str else "", "dim"),
                               S(q_str, "warn") if q_str else S("", "none")])
     bk = i.get("backups") or []
-    lines.append([]); lines.append(rule(w, "Backups (7 days)"))
+    lines.append([]); lines.append(rule(w, "Recorded backups"))
     if not bk:
         lines.append([S(" none yet: `ants backup`, or `ants service install` for a daily one", "warn")])
     else:
@@ -774,6 +780,67 @@ def saved_detail(row: dict, width: int) -> str:
                      (textwrap.wrap(clean_text(line,50000),max(20,width-4),replace_whitespace=False,drop_whitespace=False) or ['']))
 
 
+def _dashboard(lines,ctx,hint):
+    budget=max(8,ctx.height-3)
+    if len(lines)>=budget:
+        lines=lines[:budget-1]
+        hint+=' · more details available'
+    return View(lines+[[S(' '+hint,'dim')]],windowed=True)
+
+
+def health_dashboard(d,ctx,header):
+    from .charts import scatter
+    ex=d.get('extra') or {};rows=d.get('rows',[])
+    ordered=sorted(rows,key=lambda r:{'FAIL':0,'WARN':1,'OK':2}.get(r[0],3))
+    lines=list(header)
+    if ex.get('disk_used_frac') is not None:
+        lines[0].append(S(f" · disk used {ex['disk_used_frac']:.0%}",'dim'))
+    for level,message in ordered[:2]:
+        lines.append([S(' '+level+' ','bad' if level=='FAIL' else 'warn' if level=='WARN' else 'ok'),S(clip(message,ctx.width-8),'none')])
+    rates=ex.get('failure_trend') or [];through=ex.get('finished_trend') or []
+    ph=3 if ctx.height<29 else 4
+    for title,ps,ymax in [('Failed / finished (%)',[(x,y) for x,y,n in rates],max(10,max([y for _,y,_ in rates] or [0]))),
+                          ('Finished trials / 30 min',through,max([y for _,y in through] or [1]) or 1)]:
+        plot=scatter([('observed','o',ps)],ctx.width-2,ph,xlim=(-6,0),ylim=(0,ymax),
+                     xlabel='hours before sample',ylabel=title,ascii_only=ctx.ascii_only)
+        lines.extend([[S(' '+line,'dim')] for line in plot])
+    return _dashboard(lines,ctx,f"v all {len(rows)} checks · current search, last 6 h · missing rates are unknown")
+
+
+def data_dashboard(d,ctx):
+    from .charts import role_bars
+    from ..textsafe import clean_text
+    o=d['data'];roles=o['roles'];w=ctx.width
+    lines=[[S(' Data catalog','accent'),S(f" · raw {o['raw_bytes']/1e6:.1f} MB · {o['processed']} processed files",'dim')]]
+    lines.extend([[S(' '+line,'dim')] for line in role_bars(roles,w-2,ctx.ascii_only)])
+    names=', '.join(clean_text(str(n),30) for n,ok in roles.get('dev',[]))
+    lines += [[S(' Development: '+clip(names,w-16),'none')]]
+    families=o.get('families') or {}
+    if families:
+        lines += [rule(w,'Dataset families'),[S(' family             dev  confirm  sealed  stress','dim')]]
+        ranked=sorted(families.items(),key=lambda kv:(-kv[1].get('dev',0),-sum(kv[1].values()),kv[0]))
+        remaining=max(0,ctx.height-5-len(lines))
+        for name,counts in ranked[:min(5,remaining)]:
+            lines.append([S(' '+clean_text(name,18).ljust(18)+''.join(str(counts.get(k,0)).rjust(8 if k!='dev' else 4) for k in ('dev','confirm','sealed','stress')),'dim')])
+    return _dashboard(lines,ctx,'v dataset names and role details · presence is not hash verification')
+
+
+def system_dashboard(d,ctx):
+    from ..textsafe import clean_text
+    i=d['info'];lines=[[S(' ants '+str(i.get('version','?')),'accent'),S(' · current search and recorded backups','dim')]]
+    if i.get('workdir'):lines.append([S(' Run '+clip(clean_text(i['workdir'],500),ctx.width-6),'none')])
+    service=i.get('service')
+    if service:lines.append([S(' Service '+clean_text(str(service.get('state','unknown')),50),'dim')])
+    spend=i.get('llm_24h')
+    if spend:lines.append([S(f" Model calls (24 h): {spend['calls']} · successful {spend['ok']} · per-ledger cap {spend['cap'] or 'none'}",'dim')])
+    per=i.get('llm_by_ledger') or []
+    if len(per)>1:
+        lines.append([S(f" All {len(per)} ledgers: {sum(x['calls'] or 0 for x in per)} calls · each ledger has its own cap",'dim')])
+    if i.get('backup_dir'):lines.append([S(' Backups '+clip(clean_text(i['backup_dir'],500),ctx.width-10),'dim')])
+    lines+=system_charts(d,ctx).lines
+    return _dashboard(lines,ctx,'v full paths, spend and backup receipts · r refresh')
+
+
 def health_charts(d, ctx, header=None):
     from .charts import scatter
     ex=d.get('extra') or {};rates=ex.get('failure_trend') or []
@@ -801,83 +868,64 @@ def health_charts(d, ctx, header=None):
 def system_charts(d,ctx):
     from .charts import scatter,finite
     i=d['info'];now=i.get('now',ctx.t)
-    points=[]
+    records=[]
     for b in i.get('backups') or []:
         created,size=b.get('created'),b.get('stored_bytes')
-        if finite(created) and finite(size) and size>=0 and finite(now) and 0<=now-created<=7*86400:
-            points.append(((created-now)/86400,size/1e6))
-    plot=scatter([('recorded backups','o',points)],ctx.width-2,7,xlim=(-7,0),
-                 ylim=(0,max([y for _,y in points] or [1]) or 1),xlabel='days before sample',
-                 ylabel='Backup archive size (MB, decimal)',ascii_only=ctx.ascii_only)
-    lines=[[S(' Backup history · v details','accent')],[]]
+        if finite(created) and finite(size) and size>0 and finite(now) and created<=now and b.get('present',True):
+            records.append((created,size))
+    lines=[rule(ctx.width,'Recorded backup history')]
+    if not records:
+        state=i.get('backup_state','unknown')
+        message={'missing':'Backup directory not created yet.', 'empty':'Directory is readable; no backup receipts yet.',
+                 'unreadable':'Cannot read the backup directory. v shows its path.',
+                 'invalid_metadata':'Backup sidecars exist, but none could be read.'}.get(state,
+                 'No plottable receipts: creation time, nonzero size and file presence are required.')
+        lines.extend([[S(' '+part,'warn' if state in ('unreadable','invalid_metadata') else 'dim')]
+                      for part in textwrap.wrap(message,max(20,ctx.width-3))])
+        lines.append([S(' No time range is inferred from an empty history.','dim')])
+        return View(lines)
+    age=max(now-created for created,_ in records)
+    unit,scale=('minutes',60) if age<7200 else ('hours',3600) if age<172800 else ('days',86400)
+    points=[((created-now)/scale,size/1e6) for created,size in records]
+    plot=scatter([('recorded backups','o',points)],ctx.width-2,4 if ctx.height<29 else 6,
+                 xlim=(-max(age/scale,1),0),ylim=(0,max(y for _,y in points)*1.1 or 1),
+                 xlabel=unit+' before sample',ylabel='Backup archive size (MB, decimal)',ascii_only=ctx.ascii_only)
     lines += [[S(' '+line,'accent' if i==0 else 'dim')] for i,line in enumerate(plot)]
-    lines += [[],[S(f' {len(points)} backups plotted · known size/time · last 7 days','dim')],
+    lines += [[S(f' {len(points)} backups plotted · {len(i.get("backups") or [])-len(points)} incomplete receipts omitted','dim')],
               [S(' Recorded sizes and times; integrity is checked separately.','dim')]]
     return View(lines)
 
 
-def search_map_screen(d,ctx):
-    """Isometric character landscape from a configured, read-only map snapshot."""
+def search_map_screen(d, ctx):
+    """A continuous observation-density survey with visible provenance and controls."""
     from ..textsafe import clean_text
+    from .landscape import draw
     data=d.get('map',{});points=data.get('points',[]);w=ctx.width;scope=data.get('scope',{})
-    lines=[[S(' Search map','accent'),S(' · m compare · z density/score · Enter model','dim')]]
+    lines=[[S(' Search map','accent'),S(' · m compare · z height · arrows select · Enter record','dim')]]
     if data.get('error'):
         return View(lines+[[S(' '+clean_text(data['error'],w-2),'warn')]])
     if not points:
-        return View(lines+[[S(' No map snapshot indexed.','dim')],
-                           [S(' Build with ants map build; set ANTS_SEARCH_MAP.','dim')]])
+        return View(lines+[[S(' No map snapshot. Build with ants map build.','dim')]])
     selected=min(max(ctx.sel,0),len(points)-1);chosen=points[selected]
-    wide=w>=120;mw=int(w*.62) if wide else w;ch=max(8,min(18,ctx.height-(8 if wide else 14)))
-    cw=max(20,mw-2);gw,gh=12,8;sx=(cw-4)/(gw+gh);sy=max(.15,(ch-6)/(gw+gh))
-    us=[p['u'] for p in points];vs=[p['v'] for p in points];lo,hi=min(us),max(us);vl,vh=min(vs),max(vs)
-    cells={};positions={}
-    for i,p in enumerate(points):
-        gx=min(gw-1,int((p['u']-lo)/(hi-lo or 1)*gw));gy=min(gh-1,int((p['v']-vl)/(vh-vl or 1)*gh))
-        cells.setdefault((gx,gy),[]).append(i);positions[i]=(gx,gy)
-    ymax=max(len(v) for v in cells.values());scorelo=min(p['value'] for p in points);scorehi=max(p['value'] for p in points)
-    mode=ctx.filt.get('map_height','density');canvas=[[(' ','none') for _ in range(cw)] for _ in range(ch)]
-    tops={}
-    def put(x,y,char,style='dim'):
-        if 0<=x<cw and 0<=y<ch:canvas[y][x]=(char,style)
-    for (gx,gy),indices in sorted(cells.items(),key=lambda kv:sum(kv[0])):
-        n=len(indices);best=min(points[i]['value'] for i in indices)
-        z=1+round(3*(math.log1p(n)/math.log1p(ymax) if mode=='density' else (scorehi-best)/(scorehi-scorelo or 1)))
-        x=round(2+gh*sx+(gx-gy)*sx);base=round(4+(gx+gy)*sy);top=base-z
-        for y in range(top+1,base+1):put(x,y,':' if ctx.ascii_only else '░')
-        shade='.' if ctx.ascii_only else pixel.shade(z,4)
-        put(x,top,shade,'accent');put(x+1,top,shade,'accent')
-        for i in indices:tops[i]=(x,top)
-    # Highlight only recorded, earlier same-source parents; do not join neighbours.
-    child=selected;seen=set();edges=0
-    while edges<12 and child not in seen:
-        seen.add(child);p=points[child]
-        parent=next((i for i,q in enumerate(points) if q['source']==p['source'] and q['spec_key']==p.get('parent_key') and q['cpu_s']<p['cpu_s']),None)
-        if parent is None:break
-        x0,y0=tops[parent];x1,y1=tops[child];steps=max(abs(x1-x0),abs(y1-y0),1)
-        for t in range(steps+1):put(round(x0+(x1-x0)*t/steps),round(y0+(y1-y0)*t/steps),'.','none')
-        child=parent;edges+=1
-    arms=list(dict.fromkeys(p['arm'] for p in points));glyphs='abcdef'
-    for arm in arms:
-        i=max((i for i,p in enumerate(points) if p['arm']==arm),key=lambda i:points[i]['cpu_s'])
-        put(*tops[i],glyphs[arms.index(arm)] if arms.index(arm)<6 else '+','none')
-    put(*tops[selected],'@','bold')
-    body=[[(char,style) for char,style in row] for row in canvas]
-    variance=(data.get('projection') or {}).get('encoded_variance')
-    scope=data.get('scope',{})
-    lines.append([S(f" {len(points)} {clean_text(scope.get('stage','deep'),12)} observations · {len(cells)} view bins · {mode}",'dim')])
-    lines.append([S((' Fixed retrospective PCA · height: 0-'+str(ymax)+' evals/bin') if mode=='density' else f' Fixed retrospective PCA · height: score {scorehi:.3f} to {scorelo:.3f}', 'dim')])
-    sp=chosen['spec'];details=[rule(max(20,w-mw-3) if wide else w,'Selected model'),
-        [S(' '+clean_text(chosen['arm'],40),'bold')],
-        [S(f" #{chosen.get('trial','?')} · {chosen['n_params']:g} nominal params",'none')],
-        [S(f" {clean_text(scope.get('metric','score'),25)} {chosen['value']:.5f}",'accent')],
-        [S(f" {chosen['cpu_s']:.0f} CPU-s · {edges} parent edges",'dim')],
-        [S(' '+clean_text(' / '.join(str(sp.get(k,'?')) for k in ('core','lookback','period','pretrain')),100),'none')]]
-    if wide:
-        lines+=pixel.side_by_side(body,details,gap=3,valign='top')
-    else:
-        lines+=body+[[]]+details[:5]
-    lines += [[S(' @ selected · a/b latest evaluations · blank = unobserved','dim')],
-              [S(' ↑↓ select model · z changes height · cached, not live','dim')]]
+    mode=ctx.filt.get('map_height','density')
+    wide=w>=140 and ctx.height<30
+    mw=w-47 if wide else w
+    # Reserve complete labels, model information and navigation on one screen.
+    ch=max(7,min(25,ctx.height-(8 if wide else 12)))
+    body,meta=draw(points,mw-2,ch,selected,mode,ctx.ascii_only,scope.get('direction','min'))
+    runs='/'.join(clean_text(s.get('run','?'),25) for s in data.get('sources',[])[:2])
+    lines.append([S(f" {len(points)} observations · {scope.get('stage','deep')} · {runs} · retrospective PCA",'dim')])
+    lines.append([S(' Height: smoothed visit density; dots are evaluated models' if mode=='density' else ' Height: observed score only; no score surface is interpolated','dim')])
+    arm=clean_text(chosen['arm'],32);sp=chosen['spec']
+    details=[rule(w-mw-3 if wide else w,'Selected model'),
+             [S(f" {arm} #{chosen.get('trial','?')}  {scope.get('metric','score')} {chosen['value']:.5f}",'accent')],
+             [S(f" {chosen['n_params']:g} nominal params · {chosen['cpu_s']:.0f} CPU-s · {meta['edges']} parent links",'none')],
+             [S(' '+clean_text(' / '.join(str(sp.get(k,'?')) for k in ('core','lookback','period','pretrain')),w-2),'dim')]]
+    if wide:lines+=pixel.side_by_side(body,details,gap=3,valign='top')
+    else:lines+=body+details
+    legend=' '.join(mark+' '+clean_text(arm,22) for mark,arm in meta['marks'])
+    lines.append([S(' @ selected · * best observed · '+legend,'dim')])
+    lines.append([S(' Lines: density mesh + recorded ancestry. Cached snapshot, not live.','dim')])
     return View(lines,len(points),3,True)
 
 

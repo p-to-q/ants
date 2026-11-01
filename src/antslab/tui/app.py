@@ -146,7 +146,7 @@ class App:
         if screen == "events":
             return {"rows": src.events(200, filt.get("kind")), "per_minute": src.events_per_minute(time.time())}
         if screen == "health":
-            return {"rows": src.health(), "extra": src.health_extra(trends=filt.get("health_charts", False))}
+            return {"rows": src.health(), "extra": src.health_extra(trends=True)}
         if screen == "system":
             return {"info": model.system_info(src, self.fleet_sources()[0])}
         return {}
@@ -342,12 +342,17 @@ class App:
         elif ch == ord("m") and self.screen == "fleet":
             self.filt["fleet_mode"] = "compare" if self.filt.get("fleet_mode") == "map" else "map"
             c.sel = 0
+            if self.filt['fleet_mode']=='map':
+                from ..search_map import read_map
+                data=read_map();points=data.get('points',[])
+                sign=1 if data.get('scope',{}).get('direction','min')=='min' else -1
+                if points:c.sel=min(range(len(points)),key=lambda i:sign*points[i]['value'])
             self.refresh.set()
         elif ch == ord("z") and self.screen == "fleet" and self.filt.get("fleet_mode") == "map":
             self.filt["map_height"] = "score" if self.filt.get("map_height", "density") == "density" else "density"
             self.refresh.set()
         elif ch == ord("v") and self.screen in ("health", "data", "system"):
-            name = self.screen + "_charts"
+            name = self.screen + "_details"
             self.filt[name] = not self.filt.get(name, False)
             c.sel = 0
             self.refresh.set()

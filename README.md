@@ -27,9 +27,9 @@ The first domain is time-series forecasting with models of 100 to 3 000 paramete
 
 <p align="center"><img src="assets/architecture.svg" alt="Propose, judge, execute" width="900"></p>
 
-## 0.6.3 research views
+## 0.6.4 research views
 
-Leaderboard now switches between Live and Saved (`v`), with explicit retained-model reasons and saved-weight validation traces (`t`, where locally available). Arms switches to a native terminal search map (`m`); `z` changes density/score height and Enter shows model provenance. Health, Data and System provide labelled coordinate charts (`v`). Past keeps dates, questions and pilot arm records in a compact history view.
+Leaderboard now switches between Live and Saved (`v`), with explicit retained-model reasons and saved-weight validation traces (`t`, where locally available). Arms switches to a continuous wireframe search map (`m`), with observed models and recorded ancestry. `z` changes height semantics and Enter shows the selected model record. Map and model data share one screen, stacked first; a short, wide terminal uses columns. Health, Data and System place key data and labelled charts together by default (`v` opens full details). Past keeps dates, questions and pilot arm records in a compact history view.
 
 Map snapshots are built explicitly from verified ledgers; opening the viewer does not train models or rescan experiments. The current map is a retrospective configuration projection, not an online controller or a semantic-distance claim. [Terminal map instructions](docs/modules/search_map.md) and [saved-weight checks](docs/modules/model_validation.md).
 
@@ -106,7 +106,7 @@ These are pooled minima selected on the same development data used for scoring. 
 
 **E43 final look:** the registered ≤300-parameter comparison gives a paired median difference of 0 and Wilcoxon p=0.5771 at the prespecified 0.0294 threshold. Screening is not adopted on this evidence. The ≤3,000-parameter improvement is exploratory. See the [final acceptance report](docs/experiments/E43-final-20261102.md).
 
-The [retained research collection](docs/models/E43-shortlist-20261102.md) records ten selected models, their full specifications, reasons and available weight variants. The 0.6.3 Saved interface displays this catalog and its explicit development-only weight checks; a fresh installation needs its own catalog or an imported collection.
+The [retained research collection](docs/models/E43-shortlist-20261102.md) records ten selected models, their full specifications, reasons and available weight variants. The Saved interface displays this catalog and its explicit development-only weight checks; a fresh installation needs its own catalog or an imported collection.
 
 Data and per-ledger SHA-256 identities: [frontier.json](assets/frontier.json). Regenerate the displayed figures with `python assets/make_figures.py`. The raw ledgers are backed up privately and are not shipped with this repository; a clone reproduces the figures from the checked-in data, not the full experiment. Candidate specifications are preserved separately. Refit bundles contain numeric weights, preprocessing, source and parity checks and are labelled as new train-only fits, not historical checkpoints.
 

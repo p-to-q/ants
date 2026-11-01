@@ -1,7 +1,6 @@
 # Operations: an unattended run on 2 vCPU / 2 GB
 
-Target: Ubuntu 24.04, 2 vCPU, 2 GB RAM, 2 GB swap as a buffer. Status: `experimental`. The units and scripts have **not been run on the target
-machine** ([surfaces.md](surfaces.md)); numbers below were measured on a macOS arm64 development machine unless a row says otherwise.
+Target: Ubuntu 24.04, 2 vCPU, 2 GB RAM, 2 GB swap as a buffer. Status: `experimental`. E43a/E43b completed on the target and E44a started on November 2, 2026. Historical measurements below retain their original scope; they are not fresh long-run reliability guarantees. The 0.6.4 [deployment gate](modules/deploy-gate.md) adds explicit maintenance/readiness state.
 Files: `deploy/install.sh`, `deploy/remote_deploy.sh`, `deploy/PREFLIGHT.md`, `deploy/ants@.service`, `ants-janitor@.*`, `ants-health@.*`, `ants-backup@.*`, `ants-board.service`.
 
 ## 1. Install
@@ -19,7 +18,7 @@ Files: `deploy/install.sh`, `deploy/remote_deploy.sh`, `deploy/PREFLIGHT.md`, `d
 rsyncs code to `/opt/ants` **excluding** `.venv runs *.sqlite* *.env data/raw data/processed data/MANIFEST.dev.sha256 contracts/tinyts.toml`; builds the venv from the hashed lock
 `requirements/server.txt` (`--require-hashes`); installs six units; warns if `/etc/ants/llm.env` is not `600 ants`. It starts nothing.
 
-`remote_deploy.sh` has been run against the server (install, data, llmkey, start, status, pull-backups untested). `install.sh` was read, not executed.
+The installer and series services have been run on the server. Before updating, stop scientific services gracefully, create verified SQLite backups and pull them off host. `ants deploy-status` is available during a guarded update; failed installation remains blocked until an explicit successful retry. The current in-place venv is not an atomic version-directory rollback.
 `remote_deploy.sh install` globs `dist/antslab-*.tar.gz`: build the package with `scripts/pack_public.sh` first.
 
 ## 2. Units and limits

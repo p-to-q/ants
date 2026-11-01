@@ -21,15 +21,15 @@ def test_catalog_counts_distinguish_present_missing_and_generated():
     assert 'not a hash check' in text and 'count (x)' in text
 
 
-def test_system_plot_uses_only_recent_recorded_sizes():
+def test_system_plot_uses_actual_recorded_history_and_labels_its_span():
     now=10*86400
     info={'now':now,'backups':[{'created':now-86400,'stored_bytes':2000000},
                              {'created':now-8*86400,'stored_bytes':999999999},
                              {'created':now-200,'stored_bytes':None}]}
     ctx=views.Ctx(width=90,filt={'system_charts':True})
     text=render.plain(views.system_screen({'info':info},ctx).lines)
-    assert '1 backups plotted' in text and '(MB, decimal)' in text and 'days before sample' in text
-    assert 'integrity is checked separately' in text and '999' not in text
+    assert '2 backups plotted' in text and '(MB, decimal)' in text and 'days before sample' in text
+    assert 'integrity is checked separately' in text and 'last 7 days' not in text
 
 
 def test_health_chart_no_outcomes_is_not_perfect_success():
@@ -72,3 +72,28 @@ def test_data_chart_uses_catalog_metadata_without_loading_any_dataset(monkeypatc
         text=render.plain(views.fit(v.lines,width))
         assert 'Family / catalog group' in text and 'not a hash check' in text
         assert len(v.lines)<=ctx.height-3
+
+
+def test_default_dashboards_include_data_and_plot_without_paging():
+    now=100000
+    data={'roles':{'dev':[('etth1',True)],'sealed':[('hidden',False)]},'raw_bytes':1e6,'processed':2,
+          'families':{'electricity':{'dev':1,'sealed':1}}}
+    health={'rows':[('FAIL','A failed check'),('OK','Another check')],
+            'extra':{'failure_trend':[(-.5,20,5)],'finished_trend':[(-.5,5)]}}
+    info={'version':'0.6.4','now':now,'workdir':'e44a/random_s101','backup_dir':'backups/series/e44a/random_s101',
+          'backup_state':'available','backups':[{'created':now-600,'stored_bytes':2e6,'present':True}]}
+    for width,height in [(80,24),(100,30),(150,40)]:
+        ctx=views.Ctx(width=width,height=height)
+        for v,words in [(views.health(health,ctx),['A failed check','Failed / finished','Finished trials']),
+                        (views.data_screen({'data':data},ctx),['etth1','count (x)']),
+                        (views.system_screen({'info':info},ctx),['e44a','1 backups plotted','minutes before sample'])]:
+            text=render.plain(v.lines)
+            assert all(word in text for word in words),text
+            assert len(v.lines)<=height-3
+
+
+def test_empty_backup_states_are_complete_and_do_not_claim_a_time_window():
+    for state,phrase in [('missing','not created'),('empty','readable'),('unreadable','Cannot read'),('invalid_metadata','sidecars')]:
+        text=render.plain(views.system_screen({'info':{'backup_state':state,'backups':[]}},views.Ctx(width=80,height=24)).lines)
+        assert phrase in text and 'No time range' in text
+        assert '7 days' not in text and 'No observations' not in text

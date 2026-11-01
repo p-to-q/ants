@@ -390,9 +390,9 @@ def test_every_screen_has_a_chart_or_gauge(run_dir):
     assert "Evaluations finished" in out["overview"] and any(0x2800 < ord(c) <= 0x28FF for c in out["overview"]) or "Best so far" not in out["overview"]
     assert "▮" in out["trials"] and "✓" in out["trials"]
     assert "Deepest-stage evaluations" in out["fleet"]
-    assert "Gauges" in out["health"] and "disk used" in out["health"]
+    assert "Failed / finished" in out["health"] and "disk used" in out["health"]
     assert "events per minute" in out["events"]
-    assert "Backups" in out["system"] and "Model spend" in out["system"]
+    assert "Backups" in out["system"] and "Model calls" in out["system"]
 
 
 def test_keys_pause_hint_freeze_and_step_through_searches(run_dir, tmp_path):
@@ -492,7 +492,7 @@ def test_the_system_page_counts_model_calls_in_every_ledger_and_says_where_the_c
         info = model.system_info(a, [a, b])
         assert [x["name"] for x in info["llm_by_ledger"]] == [f"{wd.name}/{a.arm}", f"other/{b.arm}"]
         assert "built-in default" in info["llm_cap_source"]
-        text = render.plain(views.system_screen({"info": info}, views.Ctx(width=100)).lines)
+        text = render.plain(views.system_screen({"info": info}, views.Ctx(width=100,filt={'system_details':True})).lines)
         assert "all 2 ledgers together" in text and "on its own" in text and "cap from:" in text
         monkeypatch.setenv("ANTS_LLM_MAX_CALLS_PER_DAY", "7")
         assert "ANTS_LLM_MAX_CALLS_PER_DAY=7" in model.system_info(a, [a])["llm_cap_source"]
