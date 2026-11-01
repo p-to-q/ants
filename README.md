@@ -82,7 +82,7 @@ search mechanisms (discovery rate)  qd 1.00  sweep 0.67  tpe 0.33  evo 0.25  sa 
 
 The eight evaluation layers: [docs/evaluation](docs/evaluation/README.md).
 
-## First measurement
+## Development frontier
 
 <p align="center"><img src="assets/scatter.svg" alt="Parameters versus error" width="900"></p>
 <p align="center"><img src="assets/frontier.svg" alt="Skill versus parameters" width="900"></p>
