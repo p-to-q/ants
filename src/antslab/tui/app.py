@@ -104,6 +104,9 @@ class App:
         if screen == "afterlife":
             from ..archive_index import read_index
             return {"catalog": read_index()}
+        if screen == "board" and filt.get("board_mode") == "saved":
+            from ..saved_models import read_catalog
+            return {"mode":"saved", "catalog":read_catalog()}
         if screen == "data":
             try:
                 return {"data": model.data_overview()}
@@ -135,7 +138,7 @@ class App:
         if screen == "events":
             return {"rows": src.events(200, filt.get("kind")), "per_minute": src.events_per_minute(time.time())}
         if screen == "health":
-            return {"rows": src.health(), "extra": src.health_extra()}
+            return {"rows": src.health(), "extra": src.health_extra(trends=filt.get("health_charts", False))}
         if screen == "system":
             return {"info": model.system_info(src, self.fleet_sources()[0])}
         return {}
@@ -179,6 +182,8 @@ class App:
             self.ctx.sel = self.scroll = 0
             if self.screen == "afterlife":
                 self.ctx.sel = getattr(self, "afterlife_selection", 0)
+            elif self.screen == "board" and self.filt.get("board_mode") == "saved":
+                self.ctx.sel = getattr(self, "saved_selection", 0)
             self.refresh.set()
 
     def view(self) -> views.View:
@@ -302,9 +307,9 @@ class App:
             c.sel = min(max(v.rows - 1, 0), c.sel + 10)
         elif ch == K.KEY_PPAGE:
             c.sel = max(0, c.sel - 10)
-        elif self.screen == "board" and ch in (9, ord("."), ord(">"), ord("c")):        # the cap tabs have their own keys: ←/→ always move between screens
+        elif self.screen == "board" and self.filt.get("board_mode") != "saved" and ch in (9, ord("."), ord(">"), ord("c")):        # the cap tabs have their own keys: ←/→ always move between screens
             c.tab += 1; c.sel = 0
-        elif self.screen == "board" and ch in (getattr(K, "KEY_BTAB", -2), ord(","), ord("<"), ord("C")):
+        elif self.screen == "board" and self.filt.get("board_mode") != "saved" and ch in (getattr(K, "KEY_BTAB", -2), ord(","), ord("<"), ord("C")):
             c.tab -= 1; c.sel = 0
         elif ch == K.KEY_RIGHT:
             self.cycle_screen(1)
@@ -312,7 +317,17 @@ class App:
             self.cycle_screen(-1)
         elif ch in (10, 13, K.KEY_ENTER):
             self.enter(v)
-        elif ch == ord("o") and self.screen == "board":
+        elif ch == ord("v") and self.screen in ("health", "data", "system"):
+            name = self.screen + "_charts"
+            self.filt[name] = not self.filt.get(name, False)
+            c.sel = 0
+            self.refresh.set()
+        elif ch == ord("v") and self.screen == "board":
+            self.filt["board_mode"] = "live" if self.filt.get("board_mode") == "saved" else "saved"
+            c.sel = c.tab = 0
+            self.ranks = {}
+            self.refresh.set()
+        elif ch == ord("o") and self.screen == "board" and self.filt.get("board_mode") != "saved":
             self.filt["board_order"] = "latest" if self.filt.get("board_order", "best") == "best" else "best"
             c.sel = 0
             self.ranks = {}
@@ -400,6 +415,14 @@ class App:
                 self.pager_title = "Past — preserved round details (read-only)"
                 self.goto("pager")
         elif self.screen == "board":
+            if d.get("mode") == "saved":
+                rows = d.get("catalog", {}).get("models", [])
+                if c.sel < len(rows):
+                    self.saved_selection = c.sel
+                    self.pager_text = views.saved_detail(rows[c.sel], c.width)
+                    self.pager_title = "Saved model — recorded evidence"
+                    self.goto("pager")
+                return
             lb = d.get("lb", {})
             caps = list(lb)
             if caps:

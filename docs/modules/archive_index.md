@@ -55,3 +55,5 @@ Tests: `tests/test_archive_index.py`, `tests/test_tui.py`. Status: experimental.
 ## Next-version plan
 
 The current implementation still includes selected-round explanatory prose. [Past's next-version specification](../research/past-next-version.md) moves it into details/help and replaces the preview with structured facts. [The unified catalog](../research/experiment-catalog.md) adds study/stage/run identities and proposed-plan projections. These are planned schema/UI changes; the current index format, limits and behaviour above remain accurate.
+
+The current populated Past preview now uses compact scope/coverage/snapshot tags and a single timestamped receipt line. Long interpretations and locations remain behind Enter. Off-host notes use neutral styling because recorded text is not a current verification. The existing cache schema and result semantics are unchanged; the broader catalog/route/plan redesign remains future work.

@@ -124,3 +124,21 @@ Drawing: the ant is a 23 × 12 pixel grid (`antslab.tui.pixel.ANT_GRID`) drawn t
 To add a screen: a loader branch in `App.load`, a view function in `views.py` returning `View(lines, rows, row0)`, an entry in `SCREENS`, `KEYS` and the key map, and a case in `tests/test_tui.py`.
 
 Not here, on purpose: a mouse, a web interface (`ants serve` is the localhost board), and anything that changes a search beyond a hint or a pause.
+
+### Retained models
+
+On Leaderboard, `v` switches **Live / Saved**. Live keeps cap and best/latest controls. Saved reads `ANTS_MODEL_CATALOG` (or the personal `models/catalog.json`), shows original development scores and retention reasons, and opens full recorded model evidence with Enter. Its catalog does not depend on a live ledger. For an explicit local example:
+
+```sh
+ANTS_MODEL_CATALOG="$PWD/docs/models/e43-shortlist-20261102.json" ants ui
+```
+
+Press `2` for Leaderboard, then `v` for Saved. This example intentionally configures metadata only; it does not install, download, verify or train weights. `Refit recorded` is a historical receipt. Original development scores do not transfer to refitted weights. A missing catalog displays configuration guidance; a malformed catalog displays an error.
+
+Saved uses list/detail columns at 120+ characters and stacked sections on smaller terminals. Rows can exceed ten; navigation pages through the collection. The current implementation does not yet provide previous-collection navigation, export controls or automatic checkpoint capture.
+
+### Charts on screens 6, 7 and 8
+
+`v` switches details/charts on Health, Data and System. Health plots failure percentage and finished outcomes per half-hour over the last six hours for the current search/epoch. Data plots catalog-group counts and a metadata family matrix, without loading any dataset values. System plots the sizes/times of recorded backups over seven days. Axes identify units and windows. Missing rates are not zero, file presence is not a hash check, and a recorded backup is not a new integrity verification. See [the plotting contract and references](modules/tui-charts.md).
+
+Past keeps its date, round title/question and pilot arm summaries (including portfolio/LLM/agent when present in the original index). This copy pass does not remove historical records or replace them with the ten-model shortlist.

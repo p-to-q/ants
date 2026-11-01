@@ -48,3 +48,7 @@ The index stores references, not duplicate weights or complete ledgers. Immutabl
 Implement catalog/schema and read/export API first; migrate existing verified round caches; produce fixture screens for E43, old pilots, proposed plans and failure states; then replace the populated Past preview with the compact layout. Finally connect route summaries and model links. Retain the old index reader during migration. Do not modify historical ledgers to manufacture the new schema.
 
 The page should feel useful through density and traceable relationships: one navigable study timeline, a small technical fingerprint and exact links to reports/models. More information belongs in structured drill-down, not more paragraphs.
+
+## Implementation receipt, November 2
+
+The initial copy reduction is implemented on the development branch: snapshot, exploratory and partial-coverage tags replace paragraphs; recorded verification time/receipt type fit one line; long explanations remain in Enter details. The richer study/stage catalog, routes, planned entries and new comparisons above remain planned. No historical cache is rewritten and no server deployment is implied.

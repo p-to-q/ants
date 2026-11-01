@@ -37,3 +37,7 @@ Viewing never triggers candidate preservation, refitting or model adoption.
 
 **Notes / failure behaviour**
 - Not checked by `doctor`: external anchors, the instance lock, state-vs-event audit of `trials`, judge calibration, registry integrity (`Registry.verify`). The 15-minute `ants-health.timer` only runs `ants doctor`.
+
+Leaderboard also has a read-only Saved mode (`v`), backed by [saved_models](saved_models.md). It is global to its configured collection, independent of the current live search. Recorded refit/parity availability is explicitly separate from original development scores and live backup verification.
+
+Health, Data and System use `v` for explicit chart/detail modes. [The plotting contract](tui-charts.md) defines axes, windows and missingness. Health trends are queried only in chart mode; data distributions use metadata without opening raw series. Saved/Past short copy follows [the interface copy rules](../research/interface-copy.md).

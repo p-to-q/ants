@@ -209,7 +209,7 @@ class Source:
     def events(self, n: int = 200, kind: str | None = None) -> list[dict]:
         return ui.log(self.led, n, kind)
 
-    def health_extra(self) -> dict:
+    def health_extra(self, trends=False) -> dict:
         import shutil
         out = {}
         try:
@@ -226,6 +226,19 @@ class Source:
             out["backup_age_h"] = (time.time() - bk[0]["created"]) / 3600 if bk else None
         except Exception:
             pass
+        if trends:
+            now = time.time()
+            # Half-hour buckets, one current arm/epoch; absent rates remain missing.
+            found = self.led.conn.execute(
+                "SELECT CAST((?-finished_at)/1800 AS INTEGER),COUNT(*),"
+                "SUM(CASE WHEN state!='done' THEN 1 ELSE 0 END) FROM trials "
+                "WHERE gym=? AND arm=? AND epoch=? AND finished_at>? AND finished_at<=? "
+                "AND state IN ('done','failed','timeout','crashed') GROUP BY 1",
+                (now,self.c.gym,self.arm,self.hist.epoch,now-21600,now)).fetchall()
+            buckets = {int(k):(int(n),int(bad)) for k,n,bad in found}
+            out['failure_trend'] = [(-(k+.5)/2,100*bad/n,n) for k,(n,bad) in sorted(buckets.items(),reverse=True) if n]
+            out['finished_trend'] = [(-(k+.5)/2,buckets.get(k,(0,0))[0]) for k in range(11,-1,-1)]
+            out['sampled_at'] = now
         return out
 
     def health(self) -> list[tuple[str, str]]:
@@ -299,8 +312,13 @@ def data_overview(catalog_path: str | None = None) -> dict:
     from ..home import find_catalog
     cat = Catalog(catalog_path or find_catalog())
     roles: dict = {}
+    families: dict = {}
     for n in cat.names():
         m = cat.meta[n]
+        group = "synthetic" if m["format"] == "synth" else m["role"]
+        family = m.get("family", "unknown")
+        counts = families.setdefault(family, {})
+        counts[group] = counts.get(group, 0) + 1
         if m["format"] == "synth":
             roles.setdefault("synthetic", []).append(n)
             continue
@@ -313,7 +331,7 @@ def data_overview(catalog_path: str | None = None) -> dict:
         processed = len(list((cat.base / "processed").glob("*.npz"))) if _ok(cat.base / "processed") else 0
     except OSError:
         processed = 0
-    return {"base": str(cat.base), "roles": roles, "raw_bytes": size, "processed": processed}
+    return {"base": str(cat.base), "roles": roles, "raw_bytes": size, "processed": processed, "families":families}
 
 
 def human_error(e: BaseException, what: str = "this screen") -> str:

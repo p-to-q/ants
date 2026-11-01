@@ -68,3 +68,7 @@ Recovering original historical weights is impossible when they were never writte
 4. Before a new model-quality claim, freeze candidate specs and evaluate a small, predefined comparison on appropriate roles. For research progress, establish missing random B/2B and tuned Optuna references first. The cap-3,000 screening effect can motivate a separately registered follow-up. Do not simultaneously change selection, sampler, warm start and LLM advice.
 
 README should expose a small development frontier and a link to a dated collection of retained models. Update those only from verified frozen manifests, with source identities and scope. Keep formal benchmark placeholders until their own protocol is run. Screenshots should match the released UI; no mock Saved screenshot presented as an installed feature.
+
+## Implementation receipt, November 2
+
+The development branch now implements the initial read-only Saved catalog/view and `v` navigation, including narrow/wide layouts, scoped original scores and cached receipt details independent of any live ledger. The schema is deliberately limited to one compatible collection. The proposed unified catalog, Previous mode, comparison/export controls, pinning and retention worker are not implemented. No server rollout is implied. See [the module contract](../modules/saved_models.md).

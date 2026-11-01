@@ -183,3 +183,19 @@ Changed: dated ten-model research collection with full specifications and privat
 Why: retained models and historical experiments need stable, distinct identities and actionable file availability without narrative-heavy screens.
 
 Forecloses: treating ten as a history limit, inheriting historical trial scores onto refitted weights, counting snapshots as new experiments, or showing proposed entries as executed results. The UI/catalog changes are planned for the next version, not claimed deployed.
+
+## 2026-11-02 — retained-model browsing and quieter history
+
+Changed: read-only saved-model catalog and Leaderboard Live/Saved switch; wide/narrow list/detail layouts; full cached evidence on Enter; Past replaces preview paragraphs with compact scope/coverage/receipt tags.
+
+Why: let researchers inspect retained models even when no live search exists, and keep dense experiment history readable.
+
+Forecloses: resolving historical model ids against a current unrelated ledger, treating recorded parity as fresh verification or model quality, or marking an off-host note as a verified live backup. Export, prior collections and runtime checkpoint capture remain planned and are not implicitly triggered by this viewer.
+
+## 2026-11-02 — coordinate charts for operational pages
+
+Changed: `v` chart/detail modes on Health, Data and System; current-search failure/throughput axes, catalog group counts and family matrix, recorded backup size/time scatter. Past retains dates, questions and original pilot arm summaries.
+
+Why: show observable distributions and trends without displacing existing operational details.
+
+Forecloses: treating missing samples as zero failure, opening protected data to draw a chart, confusing presence with integrity, or interpreting recorded backup sizes as freshly verified copies. Plot references and scope are documented; no plotting dependency is added.

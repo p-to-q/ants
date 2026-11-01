@@ -54,3 +54,11 @@ conversion is not implemented by this change.
 | Packaging scan (`scripts/scan_secrets.py`, `pack_public.sh`) | experimental | `tests/test_security_deploy.py` | scans the staging directory and the final tarball; pattern based |
 
 November 2 acceptance: candidate versions publish atomically; refit targets are not clipped. E43 final results and public development frontier are documented in `docs/experiments/E43-final-20261102.md`. Historical weights remain unavailable; refits are labelled and cap-checked independently.
+
+
+### Additional terminal surfaces
+
+| surface | status | evidence | limits |
+|---|---|---|---|
+| Saved model catalog and Leaderboard view | experimental | `tests/test_saved_models.py` | bounded read-only schema-1 metadata, Live/Saved navigation and scoped receipts; no live weight verification, export controls, previous-collection navigation or automated checkpoint service |
+| Health/Data/System coordinate charts | experimental | `tests/test_terminal_charts.py` | explicit windows/units, scoped observations and catalog metadata; no persistent host monitoring or live backup verification |
