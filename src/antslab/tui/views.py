@@ -836,6 +836,16 @@ def system_dashboard(d,ctx):
     per=i.get('llm_by_ledger') or []
     if len(per)>1:
         lines.append([S(f" All {len(per)} ledgers: {sum(x['calls'] or 0 for x in per)} calls · each ledger has its own cap",'dim')])
+    endpoints=(i.get('llm_summary') or {}).get('endpoints') or {}
+    if endpoints:
+        lines.append([S(' Per endpoint · v full failure details','accent')])
+        states=i.get('llm_ep_states') or {}
+        for name,ep in sorted(endpoints.items(),key=lambda kv:(states.get(kv[0],{}).get('state')!='quarantined',kv[0]))[:2]:
+            causes=' '.join(f'{k}:{v}' for k,v in sorted(ep.get('causes',{}).items(),key=lambda kv:-kv[1])[:2])
+            q=states.get(name,{})
+            status=' QUARANTINED' if q.get('state')=='quarantined' and (q.get('until') or 0)>i.get('now',ctx.t) else ''
+            text=f" {name}: {ep.get('ok',0)}/{ep.get('attempts',0)} ok{status} {causes}"
+            lines.append([S(clean_text(text,ctx.width-1),'warn' if status else 'dim')])
     if i.get('backup_dir'):lines.append([S(' Backups '+clip(clean_text(i['backup_dir'],500),ctx.width-10),'dim')])
     lines+=system_charts(d,ctx).lines
     return _dashboard(lines,ctx,'v full paths, spend and backup receipts · r refresh')
@@ -887,7 +897,7 @@ def system_charts(d,ctx):
     age=max(now-created for created,_ in records)
     unit,scale=('minutes',60) if age<7200 else ('hours',3600) if age<172800 else ('days',86400)
     points=[((created-now)/scale,size/1e6) for created,size in records]
-    plot=scatter([('recorded backups','o',points)],ctx.width-2,4 if ctx.height<29 else 6,
+    plot=scatter([('recorded backups','o',points)],ctx.width-2,3 if ctx.height<26 else 4 if ctx.height<29 else 6,
                  xlim=(-max(age/scale,1),0),ylim=(0,max(y for _,y in points)*1.1 or 1),
                  xlabel=unit+' before sample',ylabel='Backup archive size (MB, decimal)',ascii_only=ctx.ascii_only)
     lines += [[S(' '+line,'accent' if i==0 else 'dim')] for i,line in enumerate(plot)]
