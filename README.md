@@ -87,21 +87,20 @@ The eight evaluation layers: [docs/evaluation](docs/evaluation/README.md).
 <p align="center"><img src="assets/scatter.svg" alt="Parameters versus error" width="900"></p>
 <p align="center"><img src="assets/frontier.svg" alt="Skill versus parameters" width="900"></p>
 
-Same protocol for every bar: stage S2 (four development datasets, rolling origin, closed-form models). Baselines are hand-built and
-untuned. The ants bars are the best of the 1,072 stage-S2 evaluations that the plain `portfolio` arm had finished on the server by 2026-10-17
-(epoch `5da6eeee6527`, 17,613 finished trials in all, no model operators), chosen on the same development data they are scored on, so this
-is **not a claim**: one run, one seed. The two arms with a model operator did better at 100 and 300 parameters and the same at 1 000 and 3 000
-([open question 2](docs/open.md)); they are not drawn here because their model access was throttled. No sealed data was touched.
-**Reading the two figures** (every number below is in [frontier.json](assets/frontier.json); `rel_mse` is the error divided by that of seasonal naive, so 0.784 is a 21.6% reduction of the squared error):
+The figures now show the pooled development frontier from **all 32 completed E43 runs** (16 matched seeds, two arms), checked on November 2, 2026: 188,520 finished trials and 13,937 S2 evaluations. Both arms use epoch `5da6eeee6527`. The hand-built reference measurements are retained from the earlier evaluation under the same S2 protocol; they are untuned.
 
-* *Same skill at a fraction of the size.* The best model of at most 300 parameters has 145 parameters and `rel_mse` 0.851; the FITS-like baseline has 7,296 parameters and `rel_mse` 0.851. That is the same error with about 50 times fewer parameters.
-* *More skill than the biggest reference at a fraction of the size.* The best model of at most 3,000 parameters has 2,070 and `rel_mse` 0.784; ridge with a look-back of 720 has 518,400 and 0.790, so about 250 times fewer parameters and an error lower by 0.007 (21.6% against 21.0% reduction). The best model of at most 1,000 parameters (622, `rel_mse` 0.788, 21.2%) is also ahead of ridge 336 (241,920 parameters, 19.1%) and DLinear-like (483,840 parameters, 17.9%), by roughly 390 and 780 times in size.
-* *Where it is weak.* Under 100 parameters the best model only reaches a 7.8% reduction (`rel_mse` 0.922); going from 1,000 to 3,000 parameters buys 0.4 points (21.2% to 21.6%), so most of what the search found is already there at 1,000.
-* *Why this is not a result.* The ants numbers are the best of 1,072 evaluations picked on the same development data they are scored on, while the baselines are single hand-built settings that were not tuned; the comparison favours ants by construction. It is one run with one seed of the plain `portfolio` arm. The arms with a model operator are not drawn ([open question 2](docs/open.md)). The step that would make it a result, equal-budget comparisons against tuned references on data the search never saw, is [TinyTS-Bench](#benchmark).
+| nominal parameter cap | best recorded parameters | development rel_mse |
+|---|---:|---:|
+| 100 | 98 | 0.824718 |
+| 300 | 295 | 0.806931 |
+| 1,000 | 900 | 0.779906 |
+| 3,000 | 3,000 | 0.776302 |
 
-Data: [frontier.json](assets/frontier.json). Regenerate the figures: `python assets/measure_frontier.py [--ants-only --workdir DIR] && python assets/make_figures.py`.
+These are pooled minima selected on the same development data used for scoring. They include the completed budget-crossing trial and are descriptive model candidates, not independent generalization results or the paired endpoints of E43. Stored deployment weights plus preprocessing can exceed the evaluator's nominal parameter count; the exporter checks actual storage and refuses an over-cap bundle.
 
-**What is and is not reproducible from this repository.** The figures are rebuilt exactly from `frontier.json`, which records the SHA-256 and the chain head of the ledger snapshot it was read from (a verified server backup). That ledger is not shipped, and the raw time series are downloaded (pinned hashes, `ants data fetch`), not stored here, so the search cannot be re-run and checked from a clone. A results bundle that fixes this is planned ([roadmap](docs/roadmap.md), step 24).
+**E43 final look:** the registered ≤300-parameter comparison gives a paired median difference of 0 and Wilcoxon p=0.5771 at the prespecified 0.0294 threshold. Screening is not adopted on this evidence. The ≤3,000-parameter improvement is exploratory. See the [final acceptance report](docs/experiments/E43-final-20261102.md).
+
+Data and per-ledger SHA-256 identities: [frontier.json](assets/frontier.json). Regenerate the displayed figures with `python assets/make_figures.py`. The raw ledgers are backed up privately and are not shipped with this repository; a clone reproduces the figures from the checked-in data, not the full experiment. Candidate specifications are preserved separately. Refit bundles contain numeric weights, preprocessing, source and parity checks and are labelled as new train-only fits, not historical checkpoints.
 
 ## Benchmark
 

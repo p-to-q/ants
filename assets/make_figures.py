@@ -458,7 +458,7 @@ def scatter():
     ly = Y(1.0) + 22
     for dx in (-5, 5):                            # the cloud: two of its dots, with air between them
         o.append(f'<circle cx="{cx + dx:.1f}" cy="{ly - 4:.1f}" r="2.3" fill="{MINT_3}" fill-opacity="0.5"/>')
-    label(o, tx, ly, f"{len(cloud):,} evaluations of the ants run", 11.5, MUTE, "start", 500, halo=False)
+    label(o, tx, ly, f"{len(cloud):,} evaluations across E43 runs", 11.5, MUTE, "start", 500, halo=False)
     y2 = ly + 20
     yc = y2 - 4.5
     o.append(f'<rect x="{cx - 12:.1f}" y="{yc - 3:.1f}" width="6" height="6" rx="1.8" fill="{MINT_3}" stroke="{INK}" stroke-width="0.7"/>')

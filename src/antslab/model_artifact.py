@@ -190,7 +190,8 @@ def refit(store, record_id, contract_path, dataset, horizon, out):
     spec = c.space.validate(candidate["spec"])
     if T.count_params(spec) > candidate["cap"]:
         raise ValueError("candidate specification exceeds its reference-horizon cap")
-    data = (train - mean) / scale
+    raw = ((train - mean) / scale).astype(np.float32)
+    data = raw
     if g(spec, "clip"):
         data = np.clip(data, -g(spec, "clip_z"), g(spec, "clip_z"))
     data = data.astype(np.float32)
@@ -199,7 +200,8 @@ def refit(store, record_id, contract_path, dataset, horizon, out):
         length = min(T.eff_len(ms["lookback"], ms["period"]), max(ms["period"], (len(train)-horizon)//3))
         ms = {**ms, "lookback": length}
         cap_tr = max(64, min(T.CAT_STAGES["s2"]["cap_tr"], T.MAX_WINDOW_ELEMS // (4 * (length+horizon))))
-        x, y, tt = sample_windows(data, 0, len(train), length, horizon, cap_tr, 11, with_t=True)
+        x, _, tt = sample_windows(data, 0, len(train), length, horizon, cap_tr, 11, with_t=True)
+        _, y = sample_windows(raw, 0, len(train), length, horizon, cap_tr, 11)
         w = np.exp(g(ms,"recency")*(tt-1.)) if g(ms,"recency") else None
         aug = (np.random.default_rng(12345),g(ms,"aug_sigma")) if g(ms,"augment") else None
         prior = None

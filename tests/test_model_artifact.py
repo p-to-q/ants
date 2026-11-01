@@ -101,16 +101,18 @@ def test_refit_refuses_non_development_data_before_loading(monkeypatch,tmp_path)
         A.refit("unused","id",path,"sealed",96,tmp_path/"out")
 
 
-def test_train_only_refit_exports_real_weights_without_using_future_targets(monkeypatch,tmp_path):
+@pytest.mark.parametrize("clip", [False, True])
+def test_train_only_refit_exports_real_weights_without_using_future_targets(monkeypatch,tmp_path,clip):
     from pathlib import Path
     from antslab.data import Series
     from antslab.series import compute_epoch
     from antslab.gyms import tinyts
     path=Path(__file__).resolve().parents[1]/"contracts/tinyts_real.toml"
     candidate={"identity":{"epoch":compute_epoch(path),"contract_sha256":A._hash(path)},
-               "spec":baseline_specs()["period_linear"],"cap":1000}
+               "spec":{**baseline_specs()["period_linear"],"clip":clip,"clip_z":2.5},"cap":1000}
     monkeypatch.setattr(A,"read_record",lambda *a:{"candidate":candidate})
     train=np.sin(np.arange(600)/24.)[:,None]
+    train[::25] += 20
     values=np.concatenate([train,np.full((200,1),1e9)])
     class Cat:
         def require_roles(self,names,allowed):
@@ -120,6 +122,13 @@ def test_train_only_refit_exports_real_weights_without_using_future_targets(monk
         def protocol_hash(self):
             return "synthetic-test-catalog"
     monkeypatch.setattr(tinyts,"catalog",lambda:Cat())
+    original_fit=Model.fit
+    def checked_fit(self,x,y,*args,**kwargs):
+        if clip:
+            assert np.max(np.abs(x)) <= 2.500001
+            assert np.max(np.abs(y)) > 2.5
+        return original_fit(self,x,y,*args,**kwargs)
+    monkeypatch.setattr(Model,"fit",checked_fit)
     result=A.refit("unused","id",path,"demo",96,tmp_path/"out")
     model=A.load(tmp_path/"out")
     assert model.mean[0] == pytest.approx(train.mean())

@@ -1,3 +1,5 @@
+> November 2 E43 final look: all 32 runs complete and locally verified. Primary p=0.5771, paired median 0: screening stays optional. [Acceptance and next gates](experiments/E43-final-20261102.md). Prior dated plans below remain historical; E43b is no longer awaiting completion. Candidate export is undergoing acceptance, with physical-storage cap failures reported separately from nominal evaluator counts.
+
 # Roadmap
 
 ## Development is concurrent with the frozen experiment (2026-10-27)
@@ -595,3 +597,7 @@ Training results are kept in three places: the ledger (every trial, spec and met
 | a dataset | `data/catalog.toml`, `data/sources.toml`, the pinned manifest | yes | `tests/test_data.py`, `ants data verify` |
 
 How to add an operator, a gym, a data source, a ledger migration and an interface screen: [gyms](gyms.md), [contracts](contracts.md), `data/sources.toml` (one `[[source]]` per file, hash into `data/MANIFEST.sha256`), `ledger.MIGRATIONS` (append a step, bump `SCHEMA_VERSION`, never edit an old one; the first migration of existing data keeps a full copy), [tui](tui.md).
+
+### Next runtime gate: trained-model retention
+
+Before a new model-producing series, accept [model retention](research/model-retention.md): actual evaluation-time weights, per-dataset/horizon/fold receipts, checked best pointers, pinned backups, and Leaderboard availability indicators. Candidate metadata preservation and train-only refit exports already exist on the acceptance branch; they are not evidence of historical checkpoint retention. Keep issue #8 open until the complete handoff is independently reproduced. Do not infer physical cap compliance from nominal evaluator counts.

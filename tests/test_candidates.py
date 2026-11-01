@@ -145,3 +145,19 @@ def test_explicit_cli_sync_and_list(source,tmp_path,capsys):
     assert json.loads(capsys.readouterr().out)["caps"]
     assert cli.main(["candidates","list","--store",str(store)]) == 0
     assert len(json.loads(capsys.readouterr().out)["scopes"]) == 1
+
+
+def test_failed_version_publication_leaves_no_partial_record(source,tmp_path,monkeypatch):
+    led,contract,_,add=source
+    add(.8)
+    store=tmp_path/'saved'
+    original=C.os.link
+    def fail(*args,**kwargs):
+        raise OSError('simulated publication failure')
+    monkeypatch.setattr(C.os,'link',fail)
+    with pytest.raises(OSError,match='publication'):
+        C.sync(Path(led.path).parent,contract,'random',store)
+    assert not list((store/'versions').glob('*.json'))
+    assert not list((store/'versions').glob('.candidate-*'))
+    monkeypatch.setattr(C.os,'link',original)
+    assert C.sync(Path(led.path).parent,contract,'random',store)['saved']

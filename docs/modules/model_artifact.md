@@ -34,3 +34,5 @@ dependency/environment reproduction and publication review remain separate.
 Tests: `test_model_artifact.py`: four cores including trend heads, cap accounting,
 byte corruption, channel handling, role refusal and an actual synthetic-data
 train-only refit with future-target sentinels. Status: experimental.
+
+Clipping applies to sampled input windows only. Training targets retain their unclipped standardized values and deterministic sample alignment.

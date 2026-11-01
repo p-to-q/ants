@@ -52,3 +52,5 @@ conversion is not implemented by this change.
 | Existing-state startup detection | experimental | `tests/test_system.py` | shares viewer discovery; series and archive-only state skip first-run downloads; detection does not write or open ledgers ([module](modules/cli.md)) |
 | Shared activity animation | experimental | `tests/test_tui.py` | one six-frame token across all activity states; clock-driven, SSH slowdown, reduced motion and ASCII fallback ([module](modules/ui.md)) |
 | Packaging scan (`scripts/scan_secrets.py`, `pack_public.sh`) | experimental | `tests/test_security_deploy.py` | scans the staging directory and the final tarball; pattern based |
+
+November 2 acceptance: candidate versions publish atomically; refit targets are not clipped. E43 final results and public development frontier are documented in `docs/experiments/E43-final-20261102.md`. Historical weights remain unavailable; refits are labelled and cap-checked independently.

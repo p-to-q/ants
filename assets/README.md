@@ -17,3 +17,5 @@ Figures, their data and the code that draws them.
 The name and the banner headline are set in Martina Plantijn when it is installed and fall back to Crimson, Source Serif or Georgia otherwise. Martina Plantijn is a commercial typeface, so it is not embedded or redistributed here.
 
 Design rules are at the top of `make_figures.py`.
+
+November 2, 2026: `frontier.json` now pools the 32 completed E43 ledgers and records each source SHA-256. Its minima include completed boundary trials and are development-selected descriptive points, not the registered paired endpoints. The untuned reference measurements are retained. `make_figures.py` renders the checked-in data; the original single-ledger `measure_frontier.py` is not a multi-stage E43 aggregator.

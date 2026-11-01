@@ -35,3 +35,5 @@ creates a separate train-only artifact; see [model_artifact](model_artifact.md).
 No source record, trial artifact or Registry state is changed by preservation.
 
 Tests: `test_candidates.py`, `test_candidate_views.py`. Status: experimental.
+
+Version files are fully written and fsynced in a temporary file, then published by an exclusive hard link; interruption does not expose a partial final version.

@@ -194,11 +194,15 @@ def sync(workdir, contract_path, arm, store):
                 data = (canon(record) + "\n").encode()
                 if len(data) > MAX_BYTES:
                     raise ValueError("candidate record exceeds size limit")
-                fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
-                with os.fdopen(fd, "wb") as stream:
-                    stream.write(data)
-                    stream.flush()
-                    os.fsync(stream.fileno())
+                fd, temp = tempfile.mkstemp(prefix=".candidate-", dir=versions)
+                try:
+                    with os.fdopen(fd, "wb") as stream:
+                        stream.write(data)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.link(temp, path)
+                finally:
+                    Path(temp).unlink(missing_ok=True)
                 saved.append(record_id)
             scope["caps"][cap] = record_id
         directory_fd = os.open(versions, os.O_RDONLY)

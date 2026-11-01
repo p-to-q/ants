@@ -167,3 +167,11 @@ Forecloses: citing private notes as justification inside public docs.
 Changed: parameter caps gate candidates instead of entering the objective; stages S1/S2 use expanding-window folds across several families.
 Why: a single fixed validation segment reversed model rankings on ETTh1; a penalty term lets over-cap models lead.
 Forecloses: a scalar "accuracy minus lambda × size" headline.
+
+## 2026-11-02 — E43 final acceptance and preservation hardening
+
+Changed: combined registered final analysis, refreshed development frontier and README, atomic candidate version publication, and input-only clipping during refit.
+
+Why: preserve recoverable candidates and accurately describe completed evidence.
+
+Forecloses: partial version files, clipped training targets, stale pilot results presented as the latest frontier, or exploratory cap results replacing the registered primary.
