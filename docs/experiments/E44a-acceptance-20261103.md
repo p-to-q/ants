@@ -17,7 +17,7 @@ Values below use deepest-stage completed trials whose finish-ordered cumulative 
 | tpe_s101 | 294 | 1 | 3605.90 | 0.900739 | 0.826988 |
 | tpe_s102 | 181 | 2 | 3653.28 | 0.891912 | 0.809643 |
 
-All 1,448 evaluations finished successfully; eight queued entries remain across the six ledgers. All six have zero recorded LLM calls and zero unseals. The 100-parameter cap has no qualifying budget-scoped S2 observation for `tpe_s102`; missing coverage is not zero performance. Two seeds and an engineering-calibration protocol do not establish search superiority. No statistical adoption decision is made.
+All 1,448 completed trials have ledger state `done`; no failed/timeout/crashed trial rows are recorded. This does not establish complete task coverage. Eight queued entries remain across the six ledgers. All six have zero recorded LLM calls and zero unseals. The 100-parameter cap has no qualifying budget-scoped S2 observation for `tpe_s102`; missing coverage is not zero performance. Two seeds and an engineering-calibration protocol do not establish search superiority. No statistical adoption decision is made.
 
 ## Model handoff checks
 
