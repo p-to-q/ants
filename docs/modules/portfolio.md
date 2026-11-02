@@ -17,3 +17,5 @@ Operator portfolio and meta-controller: sweep, de, cem, aco, sa, qd, tpe, llm + 
 - Each operator gets the campaign's `History` (`hist=`), so under `ants run` the statistics are epoch-filtered; `LLMStrict` builds its own prompt history without a filter (see [history](history.md)).
 
 **Notes / failure behaviour:** Compared against single operators on `bench` landscapes; see docs/evaluation/E5-mechanism.md. No claim that it beats random at equal budget on real data.
+
+The independent `portfolio_optuna` arm installs the shared conditional Optuna-S1 generator. It is not a replacement of historical portfolio and is not an E44b arm.

@@ -1,0 +1,31 @@
+[task]
+name = "tiny_nn_synthetic"
+gym = "tiny_nn_synthetic"
+description = "Engineering-only chronological synthetic AR forecasting; fixed 16-step rollout, original S2 checkpoint."
+code_paths = ["../src/antslab/gyms/tiny_nn.py", "../src/antslab/checkpoint_store.py"]
+[budget]
+trial_timeout_s = 60
+max_attempts = 2
+unseal_limit = 0
+[objective]
+primary = "rel_mse"
+direction = "min"
+cap_metric = "n_params"
+caps = [300]
+[cascade]
+stages = ["s0", "s1", "s2"]
+promote_quantile = 0.5
+min_history = 2
+[record]
+full_stages = ["s2"]
+checkpoints = true
+[commands]
+eval = ["{python}", "-m", "antslab.gyms.tiny_nn", "--stage", "{stage}", "--spec", "{spec}", "--out", "{out}", "--seed", "{seed}", "--attempt", "{attempt}"]
+[space.kind]
+type = "cat"
+choices = ["ridge", "mlp"]
+[space.width]
+type = "int"
+low = 1
+high = 8
+when = {kind = ["mlp"]}

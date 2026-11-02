@@ -19,3 +19,5 @@ a warning, not a prediction that the kernel necessarily swaps.
 Tests: `test_series.py`, `test_series_plan.py`. Status: experimental.
 
 0.6.3 skips inaccessible relative candidates when resolving a named series from a restricted working directory. This lets the installed absolute registry be found under the service wrapper. Explicit files retain normal read errors. Text `status --values` now prints the same requested cap values exposed in JSON.
+
+`arm_cpu_s` optionally overrides positive finite CPU budgets by declared arm. It is pinned in seeds.json and checked on resume; status, planning and the viewer use the same per-arm value. E44b runs random once at 2B and derives its B endpoint from the prefix. Existing registrations without the map retain their old budgets.

@@ -1,0 +1,7 @@
+# TinyTS evidence profile
+
+`contracts/tinyts_evidence.toml` invokes the independent `tinyts_evidence` entry point with strict fold-prefix normalization. Original `tinyts.py` and historical contracts remain unchanged. The wrapper reuses their fitting/scoring primitives, evaluates each chronological fold with a training-prefix Series, and aggregates task error ratios with the same family weighting. S0/S1/S2 boundaries and candidate grammar remain fixed across E44b arms. Legacy secondary robustness/seasonal diagnostics are omitted in this strict profile.
+
+Legacy capture-only mode is tested for exact numerical equality with the old evaluator. Strict mode is separately tested by altering future values and asserting the earlier fold's weights and preprocessing are unchanged. Its values can differ from E43/E44a, and must not be pooled with them. Pool priors retain their declared other-family development training data policy; no confirm or sealed dataset is admitted.
+
+Only S2 retains original weights and compressed per-window loss diagnostics. Every task has a coverage record, including physically over-cap or parity-failing exports; no rejected state is called available. Snapshot source, catalog/pins and protocol context accompany the protected inventory. Capture uses a temporary scoring callback inside one isolated evaluation process; concurrent evaluation threads in one Python process are unsupported.

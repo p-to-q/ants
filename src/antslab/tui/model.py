@@ -296,7 +296,8 @@ def registered_budget(src):
         if wd.name not in {f'{src.arm}_s{seed}' for seed in s['seeds_parsed']}:return None
         cpu=src.led.conn.execute('SELECT COALESCE(SUM(cpu_s),0) FROM trials WHERE gym=? AND arm=? AND epoch=?',
                                  (src.c.gym,src.arm,src.hist.epoch)).fetchone()[0]
-        return {'used':cpu,'limit':s['max_cpu_s']} if cpu>=s['max_cpu_s'] else None
+        limit=s.get('arm_cpu_s',{}).get(src.arm,s['max_cpu_s'])
+        return {'used':cpu,'limit':limit} if cpu>=limit else None
     except (OSError,ValueError,sqlite3.Error):return None
 
 

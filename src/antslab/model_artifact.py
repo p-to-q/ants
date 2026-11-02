@@ -1,6 +1,6 @@
-"""Explicit train-only TinyTS refits and portable, parity-checked weights.
+"""Explicit TinyTS refits and captured evaluation states with parity-checked weights.
 
-No pickle, automatic promotion, historical-checkpoint claim or evaluator edits.
+No pickle or automatic promotion; refits and original evaluation checkpoints are distinct.
 """
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def load(path):
         raise ValueError("artifact must not be a symlink")
     path = path.resolve()
     meta = _read(path / "manifest.json")
-    if meta.get("schema") != 1 or meta.get("origin") != "refitted_train_only":
+    if meta.get("schema") != 1 or meta.get("origin") not in ("refitted_train_only", "evaluation_checkpoint"):
         raise ValueError("unsupported model artifact")
     files = meta.get("files", {})
     if not isinstance(files, dict) or "weights.npz" not in files or len(files) > 1000:
@@ -104,8 +104,9 @@ def load(path):
     return Predictor(models, mean, scale)
 
 
-def save_refit(models, mean, scale, probe, out, cap, provenance):
+def save_refit(models, mean, scale, probe, out, cap, provenance, *, origin="refitted_train_only", copy_source=True):
     """Persist fitted weights and preprocessing, verify reload predictions, publish once."""
+    if origin not in ("refitted_train_only", "evaluation_checkpoint"):raise ValueError("invalid artifact origin")
     out = Path(out)
     if out.exists() or out.is_symlink():
         raise FileExistsError("artifact destination already exists; use a new version")
@@ -128,20 +129,20 @@ def save_refit(models, mean, scale, probe, out, cap, provenance):
     try:
         np.savez_compressed(temp / "weights.npz", **arrays)
         source = Path(__file__).parent
-        for p in source.rglob("*.py"):
+        for p in (source.rglob("*.py") if copy_source else []):
             if p.is_symlink():
                 raise ValueError("source snapshot must not contain symlinks")
             target = temp / "source/antslab" / p.relative_to(source)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(p, target)
         (temp / "README.md").write_text(
-            "# Development refit\n\nThis is a newly fitted model on declared development training data, not the historical trial checkpoint.\n"
-            "No confirm/sealed result or publication readiness is implied.\n\n"
+            ("# Development refit\n\nThis is a newly fitted model on declared development training data, not the historical trial checkpoint.\n" if origin=="refitted_train_only" else "# Evaluation checkpoint\n\nActual fitted state captured during the declared evaluation task. See the parent coverage/source receipt.\n")
+            + "No confirm/sealed result or publication readiness is implied.\n\n"
             "Load with `antslab.model_artifact.load(PATH)` and call `.predict(raw_windows, channels)`; rows are channels/series and columns are lookback samples.\n"
-            "The source snapshot is under source/; set PYTHONPATH to that folder. Install the NumPy version recorded in manifest.json in an isolated environment.\n"
+            f"The source snapshot is under {'source/' if copy_source else '../../source/'}; set PYTHONPATH to that folder. Install the NumPy version recorded in manifest.json in an isolated environment.\n"
             "All stored dense weights and preprocessing scalars count toward the cap. Quantised/pruned values remain dense numeric arrays; this is not an int8 or sparse runtime.\n")
         files = {p.relative_to(temp).as_posix(): _hash(p) for p in temp.rglob("*") if p.is_file()}
-        meta = {"schema": 1, "origin": "refitted_train_only", "status": "development_refit",
+        meta = {"schema": 1, "origin": origin, "status": "development_refit" if origin=="refitted_train_only" else "evaluation_checkpoint",
                 "release_ready": False, "members": members, "cap": cap,
                 "stored_numeric_values": count, "numpy_version": np.__version__,
                 "python_version": sys.version.split()[0], "provenance": provenance,
@@ -152,7 +153,7 @@ def save_refit(models, mean, scale, probe, out, cap, provenance):
         if not np.allclose(expected, actual, rtol=0, atol=1e-10):
             raise ValueError("saved model failed load-predict parity")
         meta["parity"] = {"rows": len(probe), "max_abs_error": float(np.max(np.abs(expected - actual))),
-                          "absolute_tolerance": 1e-10, "probe_role": "training inputs only"}
+                          "absolute_tolerance": 1e-10, "probe_role": "training inputs only" if origin=="refitted_train_only" else "training-derived mean probe"}
         (temp / "manifest.json").write_text(canon(meta) + "\n")
         if out.exists():
             raise FileExistsError("artifact destination appeared during export")

@@ -2,6 +2,14 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 0.6.6 — audited references and original fitted-state evidence
+
+Changed: shared conditional Optuna-S1 adapter with durable intent recovery, scoped/pending/failure handling and overhead telemetry; opt-in original checkpoint inventories with restart-safe protected registration; strict fold-prefix TinyTS evidence profile; independent chronological neural gym; per-arm registered budgets and frozen E44b analysis.
+
+Why: the next server queue needs a credible reference, recoverable fitted models and explicit data boundaries rather than another repetition of the old campaign.
+
+Forecloses: mixing fidelities/epochs, silently changing old arms, losing intents at enqueue boundaries, claiming refits are old checkpoints, trusting unverified model paths, using later fold values for normalization, and presenting random B/2B as separate paid runs.
+
 ## Unreleased — E44a acceptance and isolated neural prototype
 
 Changed: dated E44a engineering acceptance, current roadmap execution table and Optuna-reference admission contract; synthetic 145-parameter NumPy MLP with physical-counted exports and reload/gradient checks.

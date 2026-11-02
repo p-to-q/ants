@@ -1,0 +1,7 @@
+# Original checkpoint evidence
+
+Opt in with `[record] checkpoints=true`. Full stages write a bounded inventory covering fitted arrays, source, protocol context and coverage receipts. The controller verifies paths, symlinks, hashes, sizes (≤500 files / 64 MiB total), then anchors the inventory digest before committing the completed score. Registration protects all verified files, with the inventory marker last. Recovery completes interrupted registration against the anchored digest; changed bytes fail verification. Old contracts without this flag retain their old behaviour.
+
+Checkpoint failure and scientific score are separate states: `checkpoint_inventory_ok=0` and a rejection event cannot claim a model exists. A valid inventory can include explicitly rejected over-cap task exports; use the coverage receipt's saved/rejected status, not inventory presence, to determine model availability. Checkpoint registration does not promote model quality or open held-out data.
+
+`model_artifact.load(task_directory)` supports both `refitted_train_only` and `evaluation_checkpoint`. A task checkpoint is actual evaluation-time state; no training occurs on load. Shared source is at the parent trial's `source/` tree; keep the whole trial bundle for export. Each task records bounds, dataset/horizon/fold, sampling identities, training-data hash, physical numeric count and scoring/reload parity. Arrays count toward the physical cap; diagnostic loss vectors and source code are not model parameters. Refit bundles remain distinctly labelled.

@@ -65,3 +65,15 @@ def test_plan_does_not_treat_oversubscribed_workers_as_extra_cpus():
     a = plan(_series(), workers=2, cpu_count=2)
     b = plan(_series(), workers=4, cpu_count=2)
     assert a["expected_wall_hours"] == b["expected_wall_hours"]
+
+
+def test_per_arm_budgets_are_validated_and_counted(tmp_path):
+    from antslab.series import SeriesError
+    p=tmp_path/'budgets.toml'
+    text='name="budgettest"\nquestion="q"\narms=["random","tpe_reference"]\nseeds="1-2"\nmax_cpu_s=3600\nworkers=2\nepoch="012345abcdef"\n'
+    p.write_text(text+'arm_cpu_s={random=7200}\n')
+    s=load_series(p);assert s['arm_cpu_s']['random']==7200
+    assert plan(s)['total_cpu_hours']==6
+    for bad in ['{other=1}','{random=-1}','{random=true}']:
+        p.write_text(text+'arm_cpu_s='+bad+'\n')
+        with pytest.raises(SeriesError):load_series(p)

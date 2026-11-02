@@ -1,0 +1,13 @@
+# Frozen before execution. Random B is a prefix endpoint of its uninterrupted 2B run.
+name = "e44b"
+question = "Does the unchanged portfolio justify its complexity against conditional Optuna-S1 and random B/2B at fixed charged evaluation CPU?"
+protocol = "docs/experiments/E44b-reference-comparison.md"
+contract = "contracts/tinyts_evidence.toml"
+arms = ["portfolio", "tpe_reference", "random"]
+seeds = "201-208"
+max_cpu_s = 7200
+arm_cpu_s = {random = 14400}
+workers = 2
+epoch = "d0e8164662d7"
+base = "/var/lib/ants/series/e44b"
+status = "planned"
