@@ -28,7 +28,7 @@ VALID_ARM = re.compile(r"^[a-z0-9_]{1,40}$")
 VALID_NAME = re.compile(r"^[a-z0-9_]{1,40}$")
 VALID_STATUS = {"planned", "running", "finished"}
 REQUIRED = {"name", "question", "arms", "seeds", "max_cpu_s", "workers", "epoch"}
-OPTIONAL = {"protocol", "contract", "base", "status"}
+OPTIONAL = {"protocol", "contract", "base", "status", "arm_cpu_s"}
 ALL_KEYS = REQUIRED | OPTIONAL
 
 
@@ -73,11 +73,18 @@ def load_series(path: str | Path) -> dict:
     except (ValueError, TypeError) as e:
         raise SeriesError(f"bad seeds spec {seeds!r}: {e}") from e
 
-    if not isinstance(raw["max_cpu_s"], (int, float)) or raw["max_cpu_s"] <= 0:
+    import math
+    if isinstance(raw["max_cpu_s"],bool) or not isinstance(raw["max_cpu_s"], (int, float)) or not math.isfinite(raw["max_cpu_s"]) or raw["max_cpu_s"] <= 0:
         raise SeriesError("max_cpu_s must be a positive number")
 
+    import math
+    arm_cpu_s=raw.get("arm_cpu_s", {})
+    if not isinstance(arm_cpu_s,dict) or set(arm_cpu_s)-set(arms):
+        raise SeriesError("arm_cpu_s must map declared arms to budgets")
+    if any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<=0 for v in arm_cpu_s.values()):
+        raise SeriesError("arm_cpu_s budgets must be finite positive numbers")
     workers = raw["workers"]
-    if not isinstance(workers, int) or workers < 1 or workers > 8:
+    if isinstance(workers,bool) or not isinstance(workers, int) or workers < 1 or workers > 8:
         raise SeriesError("workers must be an integer 1-8")
 
     epoch = raw["epoch"]
@@ -105,6 +112,7 @@ def load_series(path: str | Path) -> dict:
         "seeds": seeds,
         "seeds_parsed": parsed_seeds,
         "max_cpu_s": float(raw["max_cpu_s"]),
+        "arm_cpu_s": arm_cpu_s,
         "workers": workers,
         "base": base,
         "epoch": epoch,
@@ -193,6 +201,7 @@ def run_series(a) -> int:
         "contract": contract,
         "max_evals": None,
         "max_cpu_s": s["max_cpu_s"],
+        "arm_cpu_s": s.get("arm_cpu_s",{}),
         "workers": s["workers"],
         "dry_run": getattr(a, "dry_run", False),
         "llm_env": getattr(a, "llm_env", None),
@@ -249,7 +258,7 @@ def collect_status(s: dict, contract: str, base: Path, values: bool = False) -> 
         for seed in s["seeds_parsed"]:
             wd = base / _workdir_name(arm, seed)
             ledger_path = wd / "ledger.sqlite"
-            row = {"arm": arm, "seed": seed, "state": "not started", "trials": 0, "cpu_s": 0.0, "budget_s": s["max_cpu_s"],
+            row = {"arm": arm, "seed": seed, "state": "not started", "trials": 0, "cpu_s": 0.0, "budget_s": s.get("arm_cpu_s",{}).get(arm,s["max_cpu_s"]),
                    "epoch_ok": None, "def_hash_constant": None, "chain_ok": None}
             if ledger_path.exists():
                 led = None
@@ -268,7 +277,7 @@ def collect_status(s: dict, contract: str, base: Path, values: bool = False) -> 
                     row["chain_ok"] = led.verify_chain()[0]
                     running = led.conn.execute("SELECT COUNT(*) FROM trials WHERE state='running'").fetchone()[0]
                     if row["trials"] > 0:
-                        row["state"] = "done" if _budget_reached(ledger_path, None, s["max_cpu_s"], arm) else ("running" if running else "partial")
+                        row["state"] = "done" if _budget_reached(ledger_path, None, s.get("arm_cpu_s",{}).get(arm,s["max_cpu_s"]), arm) else ("running" if running else "partial")
                     elif running > 0:
                         row["state"] = "running"
                 except Exception as e:
@@ -329,7 +338,7 @@ def series_status(a) -> int:
 def plan(s: dict, workers: int | None = None, cpu_count: int | None = None, mem_available_mb: float | None = None) -> dict:
     """What a series will ask of the machine, in plain numbers: runs, CPU-hours, wall time, memory. Pure (testable); the CLI fills in the machine."""
     runs = len(s["arms"]) * len(s["seeds_parsed"])
-    total_cpu_h = runs * s["max_cpu_s"] / 3600
+    total_cpu_h = len(s["seeds_parsed"]) * sum(s.get("arm_cpu_s",{}).get(arm,s["max_cpu_s"]) for arm in s["arms"]) / 3600
     w = s["workers"] if workers is None else workers
     if not isinstance(w, int) or isinstance(w, bool) or not 1 <= w <= 8:
         raise SeriesError("workers must be an integer from 1 to 8")
@@ -343,7 +352,7 @@ def plan(s: dict, workers: int | None = None, cpu_count: int | None = None, mem_
         notes.append(f"{w} workers on {cpu_count} CPUs: they will share, and every run takes longer in wall time (its CPU budget is unchanged)")
     if mem_available_mb is not None and need_mb > mem_available_mb:
         notes.append(f"about {need_mb} MB estimated for {w} workers, {mem_available_mb:.0f} MB available: memory pressure is possible")
-    return {"runs": runs, "cpu_hours_per_run": round(s["max_cpu_s"] / 3600, 2), "total_cpu_hours": round(total_cpu_h, 1), "workers": w,
+    return {"runs": runs, "cpu_hours_per_run": round(s["max_cpu_s"] / 3600, 2), "cpu_hours_by_arm": {a:s.get("arm_cpu_s",{}).get(a,s["max_cpu_s"])/3600 for a in s["arms"]}, "total_cpu_hours": round(total_cpu_h, 1), "workers": w,
             "expected_wall_hours": round(wall_h, 1), "expected_wall_days": round(wall_h / 24, 1), "memory_mb_estimate": need_mb,
             "assumptions": {"cpu_efficiency": eff, "memory_mb_per_worker": peak_mb, "cpu_quota_detected": False}, "notes": notes}
 

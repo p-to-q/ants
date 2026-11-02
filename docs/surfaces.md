@@ -74,3 +74,12 @@ November 2 acceptance: candidate versions publish atomically; refit targets are 
 | surface | status | evidence | limits |
 |---|---|---|---|
 | Isolated tiny-neural training prototype | experimental | `tests/test_tiny_mlp_prototype.py` | synthetic-only bounded training and exact export/reload; no registered gym or search efficacy claim ([module](modules/tiny-mlp-prototype.md)) |
+
+### 0.6.6 admission surfaces
+
+| surface | status | evidence | limits |
+|---|---|---|---|
+| Conditional Optuna reference | experimental | `tests/test_optuna_reference.py` | pinned 5.0.0/group API; bounded terminal window; asynchronous completion can change subsequent observations |
+| Original checkpoint inventory | experimental | `tests/test_checkpoint_store.py`, `test_tinyts_evidence.py` | explicit physical-cap/parity rejections; no automatic model-quality promotion |
+| Chronological neural gym | experimental | `tests/test_tiny_nn_gym.py` | synthetic-only, 16-step rollout, no real-data or research-superiority claim |
+| Per-arm CPU budgets | experimental | `tests/test_series_plan.py` | charged evaluation CPU is separate from controller/end-to-end cost |

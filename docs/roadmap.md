@@ -1,3 +1,11 @@
+# Current queue preparation — November 3, 2026
+
+0.6.6 development adds a shared conditional Optuna reference, crash-recoverable proposal journals, original evaluation checkpoints, per-task evidence and a chronological synthetic neural gym. E44a is closed with disclosed historical limitations. E44b is the next registered deployment target: portfolio / Optuna-S1 / random, seeds 201–208, B=7,200 evaluation CPU-s and random=2B, two workers. Launch only after target-host and package acceptance. [Frozen protocol](experiments/E44b-reference-comparison.md). The new evidence contract fixes fold normalization; its scores are not pooled with E43/E44a.
+
+The neural gym remains independent engineering work; no neural model or LLM factor enters E44b. Earlier dated states below are historical.
+
+---
+
 # Current execution plan — November 3, 2026
 
 The dated history below remains evidence of earlier decisions. Use this table for current work; older “planned” UI descriptions are superseded.

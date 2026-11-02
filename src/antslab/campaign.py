@@ -106,6 +106,8 @@ class Campaign:
         self.static_mem = load_static_cost(c.static_mem)
         if hasattr(self.p, "accept"):                      # random / TPE: sample the feasible region instead of being starved by the filters
             self.p.accept = self._feasible
+        for op in (getattr(self.p,"ops",{}) or {}).values():
+            if getattr(op,"adapter_definition",None):op.accept=self._feasible
         self.rng = random.Random(seed * 7919 + 13)
         self.stats = {"static_rejected": 0, "stones_kept": 0, "db_errors": 0, "os_errors": 0, "step_errors": 0}
         self.required = [c.primary] + ([c.cap_metric] if c.cap_metric else [])
@@ -159,6 +161,8 @@ class Campaign:
             d["reserve"] = sorted([sorted(k), v] for k, v in proposer.reserve.items())
         if getattr(proposer, "use_discount", False):
             d["use_discount"] = True
+        if getattr(proposer, "adapter_definition", None):
+            d["proposal_adapter"] = proposer.adapter_definition
         promoter = getattr(proposer, "promoter", None)
         if promoter is not None:                                  # only when present: the definition (and its hash) of every older arm is unchanged
             d["promotion"] = promoter.definition()
@@ -207,6 +211,15 @@ class Campaign:
         ids = self.l.reclaim_stale(self.c.max_attempts, all_running=True)
         if ids:
             self.l.event("recovered", {"arm": self.arm, "trials": ids})
+        if self.c.raw.get("record",{}).get("checkpoints"):
+            from .checkpoint_store import register
+            prepared={(e['payload']['trial_id'],e['payload']['attempt']):e['payload']['sha256']
+                      for e in self.l.events('checkpoint_prepared') if e['payload'].get('epoch')==self.epoch}
+            for t in self.l.trials(self.c.gym,self.arm,states=("done",)):
+                if t['epoch']!=self.epoch or not t.get('out_dir'):continue
+                sha=prepared.get((t['id'],t['attempt']))
+                if sha and not self.l.artifact(str(Path(t['out_dir'])/'checkpoint_inventory.json')):
+                    register(self.l,t['id'],t['out_dir'],sha)
         return ids
 
     def evals_done(self) -> int:
@@ -346,6 +359,10 @@ class Campaign:
         out = self.workdir / "runs" / self.arm / f"{t['id']:07d}_a{t['attempt']}"
         out.mkdir(parents=True, exist_ok=True)
         (out / "spec.json").write_text(json.dumps(t["params"], sort_keys=True))
+        if self.c.raw.get("record",{}).get("checkpoints"):
+            (out/'context.json').write_text(json.dumps({'schema':1,'contract':self.c.raw,'epoch':self.epoch,
+                'arm':self.arm,'trial_id':t['id'],'attempt':t['attempt'],'evaluation_seed':t['seed'],
+                'version':self.start_record()['version'],'arm_definition':self.arm_definition()},sort_keys=True)+'\n')
         env = {k: os.environ[k] for k in self.c.env_passthrough if k in os.environ}
         env["ANTS_ALLOWED_ROLES"] = "dev"          # the search may only read development data (data.Catalog.load enforces it)
         res = run_command(self._cmd(t, out), out, self._timeout(t["stage"]), self.required, env_extra=env,
@@ -356,6 +373,17 @@ class Campaign:
             return "interrupted"
         if res.metrics is not None:
             full = t["stage"] in self.c.full_record_stages
+            checkpoint_hash=None
+            if full and self.c.raw.get("record",{}).get("checkpoints"):
+                from .checkpoint_store import verify_inventory
+                try:
+                    checkpoint_hash,_=verify_inventory(out)
+                    self.l.event('checkpoint_prepared',{'trial_id':t['id'],'attempt':t['attempt'],
+                        'epoch':self.epoch,'sha256':checkpoint_hash})
+                    res.metrics['checkpoint_inventory_ok']=1
+                except (OSError,ValueError,KeyError,TypeError) as e:
+                    self.l.event('checkpoint_rejected',{'trial_id':t['id'],'attempt':t['attempt'],'epoch':self.epoch,'reason':str(e)[:300]})
+                    res.metrics['checkpoint_inventory_ok']=0
             if not self._finish(t, "done", res.metrics, None, res.cpu_s, str(out) if full else None):
                 return "stale"
             if self._should_promote(t, res.metrics):      # right after the commit: the window in which a kill loses it is tiny
@@ -369,6 +397,9 @@ class Campaign:
                     self._db(self.l.add_artifact, t["id"], out / name, "metrics", protected=True)
                 for gz in compress_logs(out):
                     self._db(self.l.add_artifact, t["id"], gz, "log")
+                if checkpoint_hash:
+                    from .checkpoint_store import register
+                    self._db(register,self.l,t['id'],out,checkpoint_hash)
             else:
                 shutil.rmtree(out, ignore_errors=True)
             state = "done"
@@ -471,6 +502,7 @@ class Campaign:
             return user_stop()
         self._stop, self._sleep = stop, sleep
         n, last, streak, unexpected = 0, "idle", 0, 0
+        usage_start=time.monotonic()
         try:
             self.l.event("daemon_started", self.start_record(definition_changed=definition_changed, prev_hash=prev_hash))
         except Exception:
@@ -500,6 +532,14 @@ class Campaign:
         except Shutdown:
             pass
         sd_notify("STOPPING=1")
+        if self.c.raw.get("record",{}).get("checkpoints"):
+            import resource
+            usage=resource.getrusage(resource.RUSAGE_SELF);children=resource.getrusage(resource.RUSAGE_CHILDREN)
+            self.l.event('controller_usage',{'arm':self.arm,'epoch':self.epoch,'pid':os.getpid(),
+                'controller_cpu_process_total_s':usage.ru_utime+usage.ru_stime,
+                'children_cpu_process_total_s':children.ru_utime+children.ru_stime,
+                'run_wall_s':time.monotonic()-usage_start,'maxrss_native':usage.ru_maxrss,
+                'maxrss_unit':'bytes' if sys.platform=='darwin' else 'KiB','exit_reason':last})
         return last
 
     # ---- results --------------------------------------------------------

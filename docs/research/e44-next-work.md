@@ -1,3 +1,9 @@
+# Implementation update — 0.6.6
+
+The shared Optuna-S1 adapter, original checkpoint inventory/recovery, strict fold-prefix TinyTS profile and independent chronological neural gym are implemented in the 0.6.6 branch. E44b registration is [here](../experiments/E44b-reference-comparison.md); target-host admission and final package tests precede launch. The historical plan below explains their acceptance requirements and is superseded where it says implementation has not started.
+
+---
+
 # Next work after E44a — November 3, 2026
 
 Status: development plan, not a registered runtime protocol. Preserve the finished E43 and E44a identities. The system's objective is a reproducible small model and a measured reason to use its search procedure, under an explicit resource envelope.

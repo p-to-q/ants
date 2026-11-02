@@ -27,6 +27,10 @@ The first domain is time-series forecasting with models of 100 to 3 000 paramete
 
 <p align="center"><img src="assets/architecture.svg" alt="Propose, judge, execute" width="900"></p>
 
+## 0.6.6 research infrastructure
+
+A shared conditional Optuna-S1 reference, original evaluation checkpoints with protected inventories, per-task evidence and a separate chronological neural-training gym are documented in the [modules](docs/modules/optuna-reference.md). The [E44b protocol](docs/experiments/E44b-reference-comparison.md) fixes the next search comparison; it is not a new benchmark result. Its fold-prefix normalization has an independent evaluator identity, so the historical E43 frontier below remains separately labelled.
+
 ## 0.6.4 research views
 
 Leaderboard now switches between Live and Saved (`v`), with explicit retained-model reasons and saved-weight validation traces (`t`, where locally available). Arms switches to a continuous wireframe search map (`m`), with observed models and recorded ancestry. `o` rotates the view, `z` changes height semantics, `c` switches search/neutral colours, and Enter shows the selected model record. Map and model data share one screen, stacked first; a short, wide terminal uses columns. Health, Data and System place key data and labelled charts together by default (`v` opens full details). System includes a date/hour activity heatmap (`c`: recorded evaluation CPU minutes or completed trials), alongside separate backup receipts. Past keeps dates, questions and pilot arm records in a compact history view.

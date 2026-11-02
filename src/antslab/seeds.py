@@ -197,11 +197,17 @@ def run_seeds(a) -> int:
             print("ants seeds: no contract found; pass --contract", file=sys.stderr)
             return 1
 
+    budgets=getattr(a,"arm_cpu_s",{}) or {}
+    import math
+    if not isinstance(budgets,dict) or set(budgets)-set(arms) or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<=0 for v in budgets.values()):
+        print("ants seeds: invalid per-arm CPU budgets",file=sys.stderr);return 1
+    def cpu_budget(arm): return budgets.get(arm,a.max_cpu_s)
+
     from .update import current_version
     contract_hash = _contract_sha256(contract)
     meta = {
         "arms": arms, "seeds": seeds, "contract": contract, "contract_sha256": contract_hash,
-        "max_evals": a.max_evals, "max_cpu_s": a.max_cpu_s,
+        "max_evals": a.max_evals, "max_cpu_s": a.max_cpu_s, "arm_cpu_s": budgets,
         "version": current_version(), "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
 
@@ -220,6 +226,8 @@ def run_seeds(a) -> int:
             diffs.append(f"max_evals: {existing.get('max_evals')} vs {a.max_evals}")
         if existing.get("max_cpu_s") != a.max_cpu_s:
             diffs.append(f"max_cpu_s: {existing.get('max_cpu_s')} vs {a.max_cpu_s}")
+        if existing.get("arm_cpu_s",{}) != budgets:
+            diffs.append("arm_cpu_s differs")
         if diffs:
             print(f"ants seeds: {seeds_file} already exists with different parameters.\n"
                   f"  differences: {'; '.join(diffs)}\n"
@@ -282,15 +290,15 @@ def run_seeds(a) -> int:
     def _start_one(arm: str, seed: int) -> subprocess.Popen | None:
         wd = base / _workdir_name(arm, seed)
         ledger_path = wd / "ledger.sqlite"
-        if _budget_reached(ledger_path, a.max_evals, a.max_cpu_s, arm):
+        if _budget_reached(ledger_path, a.max_evals, cpu_budget(arm), arm):
             return None
         wd.mkdir(parents=True, exist_ok=True)
         cmd = [sys.executable, "-m", "antslab.cli", "run",
                "--contract", contract, "--workdir", str(wd), "--arm", arm, "--seed", str(seed)]
         if a.max_evals is not None:
             cmd += ["--max-evals", str(a.max_evals)]
-        if a.max_cpu_s is not None:
-            cmd += ["--max-cpu-s", str(a.max_cpu_s)]
+        if cpu_budget(arm) is not None:
+            cmd += ["--max-cpu-s", str(cpu_budget(arm))]
         if a.llm_env:
             cmd += ["--llm-env", a.llm_env]
         log = open(wd / "run.log", "a")
@@ -302,7 +310,7 @@ def run_seeds(a) -> int:
             while pending and len(active) < workers and not stop:
                 arm, seed = pending[0]
                 wd = base / _workdir_name(arm, seed)
-                if _budget_reached(wd / "ledger.sqlite", a.max_evals, a.max_cpu_s, arm):
+                if _budget_reached(wd / "ledger.sqlite", a.max_evals, cpu_budget(arm), arm):
                     pending.pop(0)
                     results[(arm, seed)] = "done (budget reached before start)"
                     continue

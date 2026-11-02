@@ -311,6 +311,16 @@ def make_proposer(arm: str, c: Contract, seed: int, client=None, memory_fn=None,
     if arm == "qd":
         from .portfolio import QDProposer
         return QDProposer(c, rng)
+    if arm == "tpe_reference":
+        from .optuna_reference import OptunaReference
+        return OptunaReference(c, seed, objective_stage=c.stages[min(1,len(c.stages)-1)])
+    if arm == "portfolio_optuna":
+        from .portfolio import build_portfolio
+        from .optuna_reference import OptunaReference
+        p = build_portfolio(c, seed, None, None, agent=False, **LEGACY_PORTFOLIO)
+        p.ops["tpe"] = OptunaReference(c, seed, objective_stage=c.stages[min(1,len(c.stages)-1)])
+        p.adapter_definition = p.ops["tpe"].adapter_definition
+        return p
     if arm == "tpe":
         return TPEProposer(c, rng, seed)
     if arm == "portfolio_lean":                         # the later portfolio design: noisy operators dropped, a reserved evo+qd pair, a discounted bandit

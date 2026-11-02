@@ -27,3 +27,5 @@ TinyTS: closed-form-trainable ultra-light forecasters across the whole training 
 - Augmentation noise is replayed from the saved RNG state instead of being materialised; scoring is streamed; pre-training priors are fitted once per (spec, horizon) and thinned at window construction.
 - `est_mem_mb` is an additive model fitted to fresh-process peaks (plain about 365 MB, worst about 610 MB, cap 750). `rel_mse` moved by at most 6e-7 against the old code on the case table. **Not measured on Linux:** re-run `tests/test_tinyts.py -k "estimate or resident"` on the server before trusting the cap.
 - The catalog path's floor is `data.sample_windows` (an int64 index matrix); a gather-by-channel version is described in the performance report and not merged.
+
+The separate [evidence profile](gyms-tinyts-evidence.md) adds strict fold-prefix normalization and original checkpoints without editing this historical evaluator. Results belong to its independent epoch.

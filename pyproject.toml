@@ -1,6 +1,6 @@
 [project]
 name = "ants-lab"
-version = "0.6.5"
+version = "0.6.6"
 description = "ants: Autonomous Navigation of Tiny-model Space. A small autonomous research loop: it starts on one cheap machine and scales with the compute you give it."
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -9,7 +9,7 @@ dependencies = []
 
 [project.optional-dependencies]
 gyms = ["numpy>=1.26", "scipy>=1.11"]          # forecasting gyms, circle-packing calibration gym
-search = ["optuna>=3.6"]                        # TPE operator / baseline arm
+search = ["optuna==5.0.0"]                        # TPE operator / baseline arm
 s3 = ["boto3>=1.34"]                            # Tencent COS (S3-compatible) archive backend
 artifact = ["onnx>=1.16", "onnxruntime>=1.18"]  # E3 artifact checks (export parity, latency); promotion time only
 nn = ["torch>=2.3"]                             # nonlinear levers (dev machine / bigger workers; NOT needed on the 2 GB control tower)

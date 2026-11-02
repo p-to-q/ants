@@ -1,6 +1,6 @@
 # E44a engineering acceptance — November 3, 2026
 
-Execution is complete; artifact acceptance is **partial / needs review**, not a scientific efficacy result. Server readback at 00:21–00:29 Asia/Shanghai: all six runs reached 3,600 charged CPU-seconds, service inactive with PID 0 and NRestarts 0. All six epoch/definition/chain checks passed. The original registered epoch remains `5da6eeee6527`.
+Execution and review are **closed with disclosed historical artifact limitations**, not a scientific efficacy result. Server readback at 00:21–00:29 Asia/Shanghai: all six runs reached 3,600 charged CPU-seconds, service inactive with PID 0 and NRestarts 0. All six epoch/definition/chain checks passed. The original registered epoch remains `5da6eeee6527`.
 
 The complete six-ledger bundle was sealed on the server, downloaded and independently verified on the owner's Mac. SHA-256: `b323eb6d2d0f3967048804b4f754757328203f4a0c7c50a8c20085b35c0361ea`. A separate full-workdir archive was also downloaded; all **1,028 registered metric/log files** matched their ledger SHA-256 values with no missing files or mismatches. Raw ledgers and weights are private; this document is not a public rerun package.
 
@@ -35,3 +35,9 @@ The source ledger metrics do not include complete per-dataset/horizon/fold recei
 ## Decision
 
 Close execution; preserve all evidence and do not append seeds. Do not adopt a search operator from these diagnostics. Proceed with offline Optuna-reference engineering and the isolated neural-training prototype. Before another model-producing rollout, implement evaluation-time checkpoint receipts and complete physical-cap/coverage acceptance. [Next work and E44b gates](../research/e44-next-work.md). E44b is not registered or started by this report.
+
+## November 3 closure supplement
+
+The aggregate coverage audit found 257 completed S2 trials, all reporting 48 tasks and zero skipped tasks. The old files do not provide per-fold losses or original fitted weights; those historical limitations remain. Explicitly exported new refits are loadable and traceable. E44a is closed with these qualifications, not retroactively upgraded to a checkpoint-producing benchmark.
+
+Prospective instrumentation also exposed a legacy limitation: early rolling folds normalize with the original dataset training segment, which can extend beyond an early fold's fitting boundary. Preserve the historical objective and its development-only status. The new E44b contract fixes preprocessing to the fold training prefix for every arm and receives a separate epoch. Capture-only golden replay retained exact old scores; strict-profile results must not be compared as if they used the old objective.
