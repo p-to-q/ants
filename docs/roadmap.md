@@ -1,3 +1,20 @@
+# Current execution plan — November 3, 2026
+
+The dated history below remains evidence of earlier decisions. Use this table for current work; older “planned” UI descriptions are superseded.
+
+| Work | Current state | Next acceptance gate |
+|---|---|---|
+| E43a/b | complete; no screening adoption on the registered primary endpoint | preserve evidence; no E43c |
+| 0.6.5 terminal UI / Saved / map | published and deployed; map is a bounded historical cache | current unified study catalog and broader history controls remain separate work |
+| E44a | all six budgets complete; local sealed ledger bundle verified; artifact acceptance partial | [acceptance report](experiments/E44a-acceptance-20261103.md): raw artifacts, checkpoints and full coverage |
+| Shared audited Optuna reference | implementation contract fixed; not yet integrated | conditional mapping, scoped evidence, durable ask/tell, restart tests and measured overhead |
+| Tiny neural training | isolated synthetic NumPy prototype and export checks | separate time-series gym and same-cap closed-form comparison; no runtime adoption |
+| E44b | proposed, not registered or started | freeze factor, reference, cap, budget, seeds, endpoint and analysis before execution |
+
+[Concrete development order and research gates](research/e44-next-work.md). Development proceeds independently of frozen historical experiments. No new UI release or installed evaluator change is required for these offline steps.
+
+---
+
 > November 2 E43 final look: all 32 runs complete and locally verified. Primary p=0.5771, paired median 0: screening stays optional. [Acceptance and next gates](experiments/E43-final-20261102.md). Prior dated plans below remain historical; E43b is no longer awaiting completion. Candidate export is undergoing acceptance, with physical-storage cap failures reported separately from nominal evaluator counts.
 
 # Roadmap
