@@ -30,6 +30,9 @@ def mood(i: dict) -> Mood:
         return Mood("Needs a look", "bad", "the hash chain is broken: open Health", "")
     if (i.get("free_gb") or 99) < 5:
         return Mood("Running low on space", "bad", f"{i['free_gb']:.1f} GB free", "running")
+    if i.get("budget_reached"):
+        budget = i["budget_reached"]
+        return Mood("Budget reached", "dim", f"{budget['used']:.0f} / {budget['limit']:.0f} CPU-s; no further work expected", "")
     if not i.get("evals"):
         return Mood("Warming up", "dim", "no evaluation has finished yet", "loading")
     if (i.get("backup_age_h") or 0) > 48:

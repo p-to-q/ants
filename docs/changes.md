@@ -2,6 +2,14 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## 0.6.5 — completed-budget status rendering
+
+Changed: pass registered budget completion through the existing mood input schema and render it in the shared status classifier. Integrity and low-disk warnings retain priority.
+
+Why: the final target-server check found that a preformatted status was being fed back into a classifier expecting measured inputs, so completed work could be called warming up.
+
+Forecloses: replacing measured status inputs with display output, dropping safety warnings or reporting completed registered runs as warming up.
+
 ## 0.6.4 — readable dashboards and guarded deployment
 
 Changed: continuous density wireframe, collision-safe lowercase markers, sampled ancestry, visible camera/colour controls and useful initial selection; one-screen map/model layout; default Health/Data/System dashboards and scoped date/hour activity heatmap; restored original activity-specific animations with hex frames only in All searches footer; correct series backup/service paths and actual backup time axes; stable deployment gate, lock and readiness checks.
