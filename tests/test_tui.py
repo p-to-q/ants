@@ -587,3 +587,14 @@ def test_data_overview_survives_a_path_it_may_not_stat(monkeypatch):
     monkeypatch.setattr(Path, "exists", flaky)
     o = model.data_overview()
     assert o["processed"] == 0 and o["roles"]
+
+
+def test_registered_budget_status_survives_view_classifier():
+    from antslab.tui import views
+    inputs = {"evals": 12, "chain_ok": True, "free_gb": 20, "last_age_s": 999999,
+              "budget_reached": {"used": 3601, "limit": 3600}}
+    mood = views.mood_of(inputs)
+    assert mood["phrase"] == "Budget reached" and mood["glyph"] == ""
+    assert "3601 / 3600 CPU-s" in mood["reason"]
+    assert views.mood_of({**inputs, "chain_ok": False})["phrase"] == "Needs a look"
+    assert views.mood_of({**inputs, "free_gb": 2})["phrase"] == "Running low on space"

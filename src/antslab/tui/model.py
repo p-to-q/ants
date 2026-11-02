@@ -314,8 +314,7 @@ def fleet(sources: list["Source"]) -> list[dict]:
         n_deep = snap["stages"].get(deepest, {}).get("done", 0)
         budget=registered_budget(s)
         if budget:
-            snap['mood']={'phrase':'Budget reached','style':'dim','glyph':'',
-                          'reason':f"{budget['used']:.0f} / {budget['limit']:.0f} CPU-s; no further work expected"}
+            snap['mood']={**snap['mood'],'budget_reached':budget}
         out.append({"workdir": str(s.workdir), "arm_name": s.arm, "arm": s.arm if s.workdir.name == s.arm else f"{s.workdir.name}/{s.arm}", "epoch": snap["epoch"], "evals": done, "deep": n_deep, "h1": snap["finished_1h"],
                     "last_age": snap["last_finish_age_s"], "paused": snap["paused"], "chain": snap["chain_tail_ok"], "mood": snap["mood"], "rate_6h": snap["rate_6h"], "ops": snap["operators"],
                     "best": {k: v[0] for k, v in snap["best_by_cap"].items() if v}, "free_gb": snap["free_gb"], "curve": snap["curve"]})
