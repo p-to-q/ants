@@ -68,3 +68,9 @@ November 2 acceptance: candidate versions publish atomically; refit targets are 
 
 | Combined operational dashboards and series discovery | experimental | `tests/test_terminal_charts.py`, `test_system.py` | shared registered-budget completion status (integrity warnings keep priority); summaries plus default plots, scoped date/hour evaluation CPU or completion heatmap, series-owned backup/service mapping and explicit missing/unreadable metadata; cached receipts do not establish live archive integrity |
 | Guarded Ubuntu deployment | experimental | `tests/test_deploy_gate.py` | stable launcher/status, exclusive installer lock, systemd active-run refusal and explicit readiness; direct managed binary bypasses launcher, no automatic atomic venv rollback |
+
+### Offline neural prototype
+
+| surface | status | evidence | limits |
+|---|---|---|---|
+| Isolated tiny-neural training prototype | experimental | `tests/test_tiny_mlp_prototype.py` | synthetic-only bounded training and exact export/reload; no registered gym or search efficacy claim ([module](modules/tiny-mlp-prototype.md)) |

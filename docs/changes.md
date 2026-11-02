@@ -2,6 +2,14 @@
 
 Append-only, newest first, only durable changes. Three lines each. `Forecloses:` names the door the change shuts.
 
+## Unreleased — E44a acceptance and isolated neural prototype
+
+Changed: dated E44a engineering acceptance, current roadmap execution table and Optuna-reference admission contract; synthetic 145-parameter NumPy MLP with physical-counted exports and reload/gradient checks.
+
+Why: finished searches need usable model evidence and defensible references before more controller complexity; real neural training can be prototyped without changing historical evaluators.
+
+Forecloses: treating engineering completion as efficacy, calling refits historical checkpoints, marking an unaudited Optuna adapter as shipped, or advertising a synthetic training smoke as a time-series benchmark.
+
 ## 0.6.5 — completed-budget status rendering
 
 Changed: pass registered budget completion through the existing mood input schema and render it in the shared status classifier. Integrity and low-disk warnings retain priority.
