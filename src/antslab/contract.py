@@ -484,6 +484,15 @@ def load_contract(path) -> Contract:
     quantile = _num(c, "promote_quantile", 0.5, 0.0, 1.0, "cascade")
     if quantile <= 0:
         _fail("cascade.promote_quantile", "must be in (0, 1]")
+    sealed = raw.get("sealed")
+    if sealed is not None:
+        if not isinstance(sealed, dict):
+            _fail("sealed", "must be a table")
+        ds = sealed.get("datasets")
+        if ds is None:
+            _fail("sealed.datasets", "is required when [sealed] is present")
+        if ds != "catalog:sealed" and not (isinstance(ds, list) and ds and all(isinstance(x, str) and x for x in ds)):
+            _fail("sealed.datasets", "must be 'catalog:sealed' or a non-empty list of strings")
     return Contract(
         name=name, gym=gym, python=_text(t.get("python", "python3"), "task.python", 200, False),
         trial_timeout_s=_num(b, "trial_timeout_s", 120, 1, 7 * 86400, "budget", True),
