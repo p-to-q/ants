@@ -28,15 +28,23 @@ jobs:
           [ "$tag" = "$npm_v" ] && [ "$tag" = "$py_v" ]
       - name: install the Python package from the release tree
         run: python -m pip install --no-deps .
+      - name: install the version comparison helper
+        run: python -m pip install packaging
       - name: verify Python package metadata and CLI
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
         run: |
-          python - <<'PY'
+          expected_version=$(python - <<'PY'
           import os
           from importlib.metadata import version
+          from packaging.version import Version
           import antslab
-          assert version("ants-lab") == os.environ["RELEASE_VERSION"].removeprefix("v")
+          installed = Version(version("ants-lab"))
+          tagged = Version(os.environ["RELEASE_VERSION"].removeprefix("v"))
+          assert installed == tagged, f"installed {installed} does not match tag {tagged}"
+          print(installed)
           PY
-          python -m antslab.cli --version
+          )
+          cli_version=$(python -m antslab.cli --version)
+          [ "$cli_version" = "ants $expected_version" ]
       - run: npm pack --dry-run
