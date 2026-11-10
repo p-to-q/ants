@@ -14,6 +14,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
       - name: tag matches the versions in the repository
         run: |
           tag="${GITHUB_REF_NAME#v}"
@@ -24,4 +26,17 @@ jobs:
           )
           echo "tag=$tag package.json=$npm_v pyproject=$py_v"
           [ "$tag" = "$npm_v" ] && [ "$tag" = "$py_v" ]
+      - name: install the Python package from the release tree
+        run: python -m pip install --no-deps .
+      - name: verify Python package metadata and CLI
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          from importlib.metadata import version
+          import antslab
+          assert version("ants-lab") == os.environ["RELEASE_VERSION"].removeprefix("v")
+          PY
+          python -m antslab.cli --version
       - run: npm pack --dry-run
