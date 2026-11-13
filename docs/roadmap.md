@@ -1,3 +1,9 @@
+# November 14 acceptance and next queue
+
+E44b completed all budgets and fails portfolio adoption. Its original Optuna reference has shifted RNG streams across adjacent seeds; nominal reference p-values are retained but independent-replication claims are withheld. E44c repairs only that adapter RNG under a new arm and fresh seeds 301–308, preserving the evaluator and old source. Launch requires verified final off-host artifacts and target admission. [Protocol](experiments/E44c-separated-stream-reference.md). Neural gym remains an independent engineering track; no confirm/sealed access is authorized by these studies.
+
+---
+
 # Current queue preparation — November 3, 2026
 
 0.6.6 development adds a shared conditional Optuna reference, crash-recoverable proposal journals, original evaluation checkpoints, per-task evidence and a chronological synthetic neural gym. E44a is closed with disclosed historical limitations. E44b is the next registered deployment target: portfolio / Optuna-S1 / random, seeds 201–208, B=7,200 evaluation CPU-s and random=2B, two workers. Launch only after target-host and package acceptance. [Frozen protocol](experiments/E44b-reference-comparison.md). The new evidence contract fixes fold normalization; its scores are not pooled with E43/E44a.

@@ -239,3 +239,7 @@ Forecloses: citing private notes as justification inside public docs.
 Changed: parameter caps gate candidates instead of entering the objective; stages S1/S2 use expanding-window folds across several families.
 Why: a single fixed validation segment reversed model rankings on ETTh1; a penalty term lets over-cap models lead.
 Forecloses: a scalar "accuracy minus lambda × size" headline.
+
+## November 14: separated Optuna reference streams
+
+Changed: new `tpe_reference_v2` arm and E44c protocol/registration/analysis; old adapter retained. Why: adjacent E44b master seeds reused shifted proposal RNG streams. Forecloses: independent-replication claims from the E44b reference contrast or pooling it into the repaired study. Historical nominal statistics remain recorded.

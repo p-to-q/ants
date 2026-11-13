@@ -1,0 +1,12 @@
+name = "e44c"
+question = "Does unchanged portfolio beat an Optuna-S1 reference with separated random streams and random at 2B?"
+protocol = "docs/experiments/E44c-separated-stream-reference.md"
+contract = "contracts/tinyts_evidence.toml"
+arms = ["portfolio", "tpe_reference_v2", "random"]
+seeds = "301-308"
+max_cpu_s = 7200
+arm_cpu_s = {random = 14400}
+workers = 2
+epoch = "d0e8164662d7"
+base = "/var/lib/ants/series/e44c"
+status = "planned"

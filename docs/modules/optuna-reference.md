@@ -7,3 +7,7 @@
 A journal entry is committed before each accepted/rejected draw. Sampling restarts from a seed derived from that durable ordinal. Accepted entries not yet enqueued are reissued; already enqueued keys are never resubmitted. Ask/tell state is rebuilt from the authoritative ledger, with pending proposals penalized by constant liar. Tests cover crash-after-journal-before-enqueue and exact batch recovery at a fixed observation boundary. Different asynchronous completion orders can change later proposals; this is not a claim of order-independent distributed determinism.
 
 Per-call events report wall/controller CPU, pending/history sizes and peak RSS with explicit native units. Parent-process usage is recorded separately by checkpoint-enabled campaigns on graceful exit. Do not add adapter CPU to parent CPU again. An ungraceful kill can leave end-to-end usage incomplete, which must be reported. Version/API drift fails explicitly rather than falling back to another sampler. Official [ask/tell documentation](https://optuna.readthedocs.io/en/stable/tutorial/20_recipes/009_ask_and_tell.html).
+
+## November 14 stream repair
+
+E44b used seed + ordinal, which reused initial proposal RNGs across adjacent master seeds. Its reference replicates are dependent. `OptunaReferenceV2` in a separate module uses a domain-separated SHA-256 derivation, retains pinned sampler settings and inherited durable recovery, and has a distinct scope and arm hash. Old adapter bytes stay unchanged. [E44c protocol](../experiments/E44c-separated-stream-reference.md).
