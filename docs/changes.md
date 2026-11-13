@@ -239,3 +239,11 @@ Forecloses: citing private notes as justification inside public docs.
 Changed: parameter caps gate candidates instead of entering the objective; stages S1/S2 use expanding-window folds across several families.
 Why: a single fixed validation segment reversed model rankings on ETTh1; a penalty term lets over-cap models lead.
 Forecloses: a scalar "accuracy minus lambda × size" headline.
+
+## November 14: separated Optuna reference streams
+
+Changed: new `tpe_reference_v2` arm and E44c protocol/registration/analysis; old adapter retained. Why: adjacent E44b master seeds reused shifted proposal RNG streams. Forecloses: independent-replication claims from the E44b reference contrast or pooling it into the repaired study. Historical nominal statistics remain recorded.
+
+## November 14: E44b evidence closure and E44c runtime
+
+Changed: archived and independently verified every registered E44b artifact, retained 17 distinct original finalists, disclosed the shifted Optuna RNG defect and started the separately registered E44c runtime. Why: valid byte retention does not establish independent sampler replicates. Forecloses: calling the old reference significance independent, relabelling refits as original checkpoints, or treating a development score as a published model. Runtime source stays frozen at 5ad51c0; this documentation update does not modify it.

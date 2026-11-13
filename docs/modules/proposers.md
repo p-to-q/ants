@@ -22,3 +22,5 @@ Baseline arms and the LLM proposer: random, evo (tournament + credit-weighted mu
 **Operator allocation log.** Each allocation of the portfolio's bandit writes an `operator_alloc` event: the probability each operator had, the number drawn, the burst, and a tag for the version of the rule. It does not change what is proposed (the proposal sequence is identical to the unlogged one).
 
 `tpe_reference` uses the shared [Optuna reference](optuna-reference.md); `portfolio_optuna` replaces only its optional TPE generator with that same adapter. Existing `tpe` and `portfolio` retain their definitions. New adapter settings and source hash are recorded in new-arm identities.
+
+`tpe_reference_v2` preserves the old adapter and sampler settings, but derives each per-proposal RNG seed from a domain-separated hash of master seed and ordinal. It fixes the shifted startup streams found at E44b acceptance. New source/stream policy is included in adapter identity. Regression: adjacent-seed stream overlap and durable intent recovery in `test_optuna_streams.py`.

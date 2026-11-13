@@ -311,6 +311,9 @@ def make_proposer(arm: str, c: Contract, seed: int, client=None, memory_fn=None,
     if arm == "qd":
         from .portfolio import QDProposer
         return QDProposer(c, rng)
+    if arm == "tpe_reference_v2":
+        from .optuna_reference_v2 import OptunaReferenceV2
+        return OptunaReferenceV2(c, seed, objective_stage=c.stages[min(1,len(c.stages)-1)])
     if arm == "tpe_reference":
         from .optuna_reference import OptunaReference
         return OptunaReference(c, seed, objective_stage=c.stages[min(1,len(c.stages)-1)])
