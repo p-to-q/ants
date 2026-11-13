@@ -1,6 +1,6 @@
 # November 14 acceptance and next queue
 
-E44b completed all budgets and fails portfolio adoption. Its original Optuna reference has shifted RNG streams across adjacent seeds; nominal reference p-values are retained but independent-replication claims are withheld. E44c repairs only that adapter RNG under a new arm and fresh seeds 301–308, preserving the evaluator and old source. Launch requires verified final off-host artifacts and target admission. [Protocol](experiments/E44c-separated-stream-reference.md). Neural gym remains an independent engineering track; no confirm/sealed access is authorized by these studies.
+E44b completed all budgets and fails portfolio adoption. Its original Optuna reference has shifted RNG streams across adjacent seeds; nominal reference p-values are retained but independent-replication claims are withheld. E44c repairs only that adapter RNG under a new arm and fresh seeds 301–308, preserving the evaluator and old source. Final off-host artifacts and target admission passed; E44c started November 14 at 04:12 Asia/Shanghai. Frozen runtime source remains 5ad51c0. [Protocol](experiments/E44c-separated-stream-reference.md), [qualified E44b acceptance](experiments/E44b-acceptance-20261114.md). Neural gym remains an independent engineering track; no confirm/sealed access is authorized by these studies.
 
 ---
 

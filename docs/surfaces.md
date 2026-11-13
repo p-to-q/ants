@@ -13,7 +13,7 @@ conversion is not implemented by this change.
 
 | Surface | Status | Evidence | Notes |
 |---|---|---|---|
-| Optuna separated-stream reference | experimental | `test_optuna_streams.py`, `test_e44c_analysis.py` | New arm identity; fixes shifted adjacent-master streams; scientific benefit unmeasured until E44c acceptance |
+| Optuna separated-stream reference | experimental | `test_optuna_streams.py`, `test_e44c_analysis.py` | New arm identity; fixes shifted adjacent-master streams; scientific benefit unmeasured until E44c acceptance; runtime began Nov14 after [qualified E44b closure](experiments/E44b-acceptance-20261114.md) |
 | Series status and resource plan | experimental | `tests/test_series.py`, `test_series_plan.py` | read-only status omits score reads unless `--values`; planning states estimates and does not detect service CPU quota ([module](modules/series.md)) |
 | Standard metric displays and Tier A validation report | experimental | `test_metrics_display.py`, `test_tiera.py` | dev validation refitting only; per-dataset/horizon errors do not yet implement the full paper-comparable benchmark ([module](modules/tiera.md)) |
 | Agent v2 read-only tools | experimental | `tests/test_agent_v2.py`, `test_agent.py` | new arms, separate tool-generation identity; client/seed/preflight wiring verified with mock/empty endpoints; empirical benefit and live model availability unmeasured ([module](modules/agent.md)) |
